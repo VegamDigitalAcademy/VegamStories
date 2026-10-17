@@ -1,0 +1,81 @@
+package com.vegam.myapplication.data.repository
+
+import com.vegam.myapplication.data.image.ImagePrefetcher
+import com.vegam.myapplication.data.local.dao.LibraryDao
+import com.vegam.myapplication.data.local.dao.StoryDao
+import com.vegam.myapplication.data.local.entity.DownloadEntity
+import com.vegam.myapplication.data.local.entity.FavoriteEntity
+import com.vegam.myapplication.data.local.entity.ReadingProgressEntity
+import com.vegam.myapplication.data.mapper.toDomain
+import com.vegam.myapplication.domain.model.Story
+import com.vegam.myapplication.domain.repository.LibraryRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class LibraryRepositoryImpl @Inject constructor(
+    private val libraryDao: LibraryDao,
+    private val storyDao: StoryDao,
+    private val imagePrefetcher: ImagePrefetcher,
+) : LibraryRepository {
+
+    override fun observeFavorites(): Flow<List<Story>> =
+        libraryDao.observeFavorites().map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeDownloads(): Flow<List<Story>> =
+        libraryDao.observeDownloads().map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeReadingHistory(): Flow<List<Story>> =
+        libraryDao.observeHistory().map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeContinueReading(categoryId: String?): Flow<Story?> =
+        libraryDao.observeContinueReading(categoryId).map { it?.toDomain() }
+
+    override suspend fun toggleFavorite(storyId: String): Boolean {
+        return if (libraryDao.isFavorite(storyId)) {
+            libraryDao.deleteFavorite(storyId)
+            false
+        } else {
+            libraryDao.upsertFavorite(FavoriteEntity(storyId, now()))
+            true
+        }
+    }
+
+    override suspend fun toggleDownload(storyId: String): Boolean {
+        if (libraryDao.isDownloaded(storyId)) {
+            libraryDao.deleteDownload(storyId)
+            return false
+        }
+        // Story text is already in Room; cache every image so it reads offline.
+        val story = storyDao.getStory(storyId)
+        val pages = storyDao.getPages(storyId)
+        val urls = mutableListOf<String>()
+        story?.coverImageUrl?.let { urls.add(it) }
+        story?.videoThumbnailUrl?.let { urls.add(it) }
+        pages.forEach { page -> page.panels.forEach { urls.add(it.imageUrl) } }
+        imagePrefetcher.prefetch(urls)
+        libraryDao.upsertDownload(DownloadEntity(storyId, now()))
+        return true
+    }
+
+    override suspend fun saveProgress(storyId: String, pageIndex: Int, totalPages: Int) {
+        val existing = libraryDao.getProgress(storyId)
+        val reachedEnd = pageIndex >= totalPages - 1
+        libraryDao.upsertProgress(
+            ReadingProgressEntity(
+                storyId = storyId,
+                lastPageIndex = pageIndex,
+                totalPages = totalPages,
+                // Once finished, a story stays "read" even if re-opened from page 1.
+                isCompleted = reachedEnd || existing?.isCompleted == true,
+                updatedAt = now(),
+            ),
+        )
+    }
+
+    override suspend fun clearReadingHistory() = libraryDao.clearProgress()
+
+    private fun now() = System.currentTimeMillis()
+}
