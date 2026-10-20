@@ -30,7 +30,7 @@ object PreviewData {
         title = "నిజాయితీ బహుమతి: యానిమేషన్ వీడియో",
         description = "ఈ కథను యానిమేషన్ వీడియోగా చూడండి. మరిన్ని కథల కోసం మా YouTube ఛానెల్‌ని సబ్‌స్క్రైబ్ చేయండి.",
         thumbnailUrl = "https://picsum.photos/seed/preview-video/960/540",
-        videoUrl = "https://www.youtube.com",
+        videoUrl = "https://www.youtube.com/watch?v=M7lc1UVf-VE",
     )
 
     fun story(

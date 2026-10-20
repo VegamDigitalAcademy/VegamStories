@@ -23,7 +23,7 @@ import com.vegam.myapplication.presentation.navigation.InfoPage
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
 
-/** Profile, Settings, About, Privacy and Terms — placeholder text until real content exists. */
+/** Profile, About, Privacy and Terms — placeholder text until real content exists. */
 @Composable
 fun InfoScreen(page: InfoPage, onBack: () -> Unit) {
     Scaffold(
@@ -51,7 +51,7 @@ fun InfoScreen(page: InfoPage, onBack: () -> Unit) {
 
 // ---------------- Previews ----------------
 
-/** Renders one preview per menu page (Profile, Settings, About, Privacy, Terms). */
+/** Renders one preview per menu page (Profile, About, Privacy, Terms). */
 private class InfoPageProvider : PreviewParameterProvider<InfoPage> {
     override val values = InfoPage.entries.asSequence()
 }

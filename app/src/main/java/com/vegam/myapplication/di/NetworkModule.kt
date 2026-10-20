@@ -36,6 +36,20 @@ object NetworkModule {
     fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        // Supabase needs the project key on every request. This client is only used by
+        // Retrofit (Supabase); Coil has its own client, so the key never goes to R2.
+        .addInterceptor { chain ->
+            val key = BuildConfig.SUPABASE_ANON_KEY
+            val request = chain.request().newBuilder()
+                .header("apikey", key)
+                .apply {
+                    // Legacy anon keys are JWTs ("eyJ…") and go in Authorization too.
+                    // New publishable keys ("sb_publishable_…") must NOT be sent there.
+                    if (key.startsWith("eyJ")) header("Authorization", "Bearer $key")
+                }
+                .build()
+            chain.proceed(request)
+        }
         .apply {
             if (BuildConfig.DEBUG) {
                 addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })

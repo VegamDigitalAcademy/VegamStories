@@ -76,13 +76,25 @@ interface StoryDao {
     @Query("DELETE FROM story_pages WHERE storyId IN (:storyIds)")
     suspend fun deletePagesFor(storyIds: List<String>)
 
-    /** Replaces cached content atomically so the UI never sees a half-written catalogue. */
+    /** Pages go too (ON DELETE CASCADE). Favorites/progress rows stay but are never shown. */
+    @Query("DELETE FROM stories WHERE id NOT IN (:keepIds)")
+    suspend fun deleteStoriesExcept(keepIds: List<String>)
+
+    @Query("DELETE FROM categories WHERE id NOT IN (:keepIds)")
+    suspend fun deleteCategoriesExcept(keepIds: List<String>)
+
+    /**
+     * Makes the local cache match the server, atomically so the UI never sees a half-written
+     * catalogue. Stories unpublished or deleted on the server (and the old dummy data) are removed.
+     */
     @Transaction
     suspend fun replaceContent(
         categories: List<CategoryEntity>,
         stories: List<StoryEntity>,
         pages: List<StoryPageEntity>,
     ) {
+        deleteStoriesExcept(stories.map { it.id })
+        deleteCategoriesExcept(categories.map { it.id })
         upsertCategories(categories)
         upsertStories(stories)
         deletePagesFor(stories.map { it.id })

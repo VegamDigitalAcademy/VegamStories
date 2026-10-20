@@ -39,14 +39,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.vegam.myapplication.R
 import com.vegam.myapplication.domain.model.Category
 import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.presentation.components.EmptyState
-import com.vegam.myapplication.presentation.components.LoadingBox
 import com.vegam.myapplication.presentation.components.SectionHeader
 import com.vegam.myapplication.presentation.components.StoryGrid
+import com.vegam.myapplication.presentation.components.StoryGridSkeleton
+import com.vegam.myapplication.presentation.components.StoryImage
 import com.vegam.myapplication.presentation.components.VegamLogoMark
 import com.vegam.myapplication.presentation.components.fullWidthItem
 import com.vegam.myapplication.presentation.preview.PreviewData
@@ -116,7 +116,7 @@ fun HomeContent(
             modifier = Modifier.fillMaxSize(),
         ) {
             when {
-                state.stories.isEmpty() && (state.isLoading || state.isRefreshing) -> LoadingBox()
+                state.stories.isEmpty() && (state.isLoading || state.isRefreshing) -> StoryGridSkeleton()
                 state.stories.isEmpty() -> EmptyState(
                     icon = R.drawable.ic_home,
                     title = stringResource(R.string.no_stories_title),
@@ -234,7 +234,7 @@ private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
-            AsyncImage(
+            StoryImage(
                 model = story.coverImageUrl,
                 contentDescription = story.title,
                 contentScale = ContentScale.Crop,

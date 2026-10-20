@@ -72,7 +72,8 @@ class FakeStoryRemoteDataSource @Inject constructor(
         title = "$title: యానిమేషన్ వీడియో",
         description = "ఈ కథను యానిమేషన్ వీడియోగా చూడండి. మరిన్ని కథల కోసం మా YouTube ఛానెల్‌ని సబ్‌స్క్రైబ్ చేయండి.",
         thumbnailUrl = image("$storyId-video", 960, 540),
-        url = "https://www.youtube.com/results?search_query=telugu+moral+stories",
+        // YouTube's own IFrame-API demo video: stable and embeddable, for testing the in-app player.
+        url = "https://www.youtube.com/watch?v=M7lc1UVf-VE",
     )
 
     /** Placeholder image service; seeded so each story always gets the same pictures. */

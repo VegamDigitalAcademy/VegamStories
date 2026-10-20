@@ -32,9 +32,19 @@
     <string name="page_of">%1$d / %2$d</string>
     <string name="video_label">VIDEO</string>
     <string name="watch_on_youtube">Watch on YouTube</string>
+    <string name="open_in_youtube">Open in YouTube app</string>
     <string name="story_not_found">Story not found</string>
     <string name="download_started">Saved for offline reading</string>
     <string name="download_removed">Removed from downloads</string>
+
+    <!-- Read aloud -->
+    <string name="cd_read_aloud">Read aloud</string>
+    <string name="cd_stop_reading">Stop reading</string>
+    <string name="tts_voice_missing_title">Telugu voice not installed</string>
+    <string name="tts_voice_missing_message">To read stories aloud, download the Telugu voice for your phone\'s text-to-speech engine. It\'s free and only needed once.</string>
+    <string name="tts_download_voice">Download voice</string>
+    <string name="tts_unavailable">Read aloud isn\'t available on this phone</string>
+    <string name="cancel">Cancel</string>
 
     <!-- Library screens -->
     <string name="favorites_empty_title">No favorites yet</string>
@@ -68,10 +78,23 @@
 
     <!-- Info pages (dummy text until the server provides it) -->
     <string name="info_profile_body">Sign-in and profiles are coming soon. Your favorites, downloads and reading progress are saved on this device.</string>
-    <string name="info_settings_body">Settings such as language, text size and notifications will appear here.</string>
     <string name="info_about_body">Vegam Stories brings short Telugu comic stories for children and families: moral stories, Tenali Ramakrishna, Panchatantra and folk tales. New episodes are added regularly, and many stories also have an animated video on YouTube.</string>
     <string name="info_privacy_body">This is placeholder privacy policy text. Replace it with the policy from the server or your website before publishing the app.</string>
     <string name="info_terms_body">This is placeholder terms and conditions text. Replace it with the terms from the server or your website before publishing the app.</string>
+
+    <!-- App-icon shortcuts (long-press) -->
+    <string name="shortcut_search_short">Search</string>
+    <string name="shortcut_search_long">Search stories</string>
+
+    <!-- Settings -->
+    <string name="settings_appearance">APPEARANCE</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_system_desc">Follows your phone\'s light or dark setting</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_light_desc">Always use the light theme</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_dark_desc">Always use the dark theme</string>
 
     <!-- Accessibility -->
     <string name="cd_back">Back</string>

@@ -44,13 +44,20 @@ com.vegam.myapplication
 3. `RefreshContentUseCase` asks `StoryRemoteDataSource` for the feed and writes it into Room. Every open screen then updates automatically.
 4. User state (favorites, downloads, reading progress) is kept in **separate tables**, so a server refresh never overwrites it.
 
-## Moving from dummy data to the real server
+## Backend: Supabase + Cloudflare R2
 
-1. In `app/build.gradle.kts`, set `BASE_URL` to your API and `USE_FAKE_BACKEND` to `false`.
-2. Edit the `@SerialName`s in `data/remote/dto/FeedDto.kt` to match your JSON, and the endpoint in `StoryApi.kt`.
-3. Nothing in `domain/` or `presentation/` needs to change.
-
-If the server sends each comic page as one finished image (instead of separate panels), add `imageUrl` to `PageDto`/`StoryPage` and make `ComicPage` show that single image.
+- **Supabase** (`categories`, `stories`, `story_pages` tables) holds all text and the image URLs.
+  The app reads it through the REST API (`data/remote/api/StoryApi.kt`). Row Level Security allows
+  read-only access to published stories.
+- **Cloudflare R2** holds the images, served from `https://media.vegamstories.com/<story-id>/...`.
+- Keys go in `local.properties` (not committed):
+  ```
+  SUPABASE_URL=https://xxxx.supabase.co
+  SUPABASE_ANON_KEY=eyJ...   (or sb_publishable_...)
+  ```
+  Without them, `USE_FAKE_BACKEND` turns on automatically and the app shows dummy data.
+- Every refresh makes the local Room cache match Supabase: stories that are unpublished or
+  deleted on the server disappear from the app too.
 
 ## Screens (taken from the reference video)
 
@@ -62,3 +69,4 @@ If the server sends each comic page as one finished image (instead of separate p
 | Menu | Profile, Favorites, Downloads, Read stories, Settings, About, Privacy, Terms |
 | Read stories | History with a progress bar for each story; can be cleared |
 | Search | Live search over title, summary and category |
+| Settings | Theme: System default (first launch, follows the phone), Light or Dark. Saved with DataStore and applied app-wide by `MainActivity` |

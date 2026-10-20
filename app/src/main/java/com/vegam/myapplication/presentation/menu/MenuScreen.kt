@@ -38,6 +38,7 @@ fun MenuScreen(
     onFavorites: () -> Unit,
     onDownloads: () -> Unit,
     onHistory: () -> Unit,
+    onSettings: () -> Unit,
     onInfoPage: (InfoPage) -> Unit,
 ) {
     Scaffold(
@@ -57,9 +58,7 @@ fun MenuScreen(
             MenuItem(R.drawable.ic_favorite_border, stringResource(R.string.menu_favorites), showChevron = true, onClick = onFavorites)
             MenuItem(R.drawable.ic_download, stringResource(R.string.menu_downloads), showChevron = true, onClick = onDownloads)
             MenuItem(R.drawable.ic_history, stringResource(R.string.menu_history), showChevron = true, onClick = onHistory)
-            MenuItem(R.drawable.ic_settings, stringResource(R.string.menu_settings), showChevron = true) {
-                onInfoPage(InfoPage.SETTINGS)
-            }
+            MenuItem(R.drawable.ic_settings, stringResource(R.string.menu_settings), showChevron = true, onClick = onSettings)
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
             MenuItem(R.drawable.ic_info, stringResource(R.string.menu_about), small = true) { onInfoPage(InfoPage.ABOUT) }
             MenuItem(R.drawable.ic_lock, stringResource(R.string.menu_privacy), small = true) { onInfoPage(InfoPage.PRIVACY) }
@@ -118,5 +117,5 @@ private fun MenuItem(
 @ScreenPreviews
 @Composable
 private fun MenuPreview() = PreviewTheme {
-    MenuScreen(onBack = {}, onFavorites = {}, onDownloads = {}, onHistory = {}, onInfoPage = {})
+    MenuScreen(onBack = {}, onFavorites = {}, onDownloads = {}, onHistory = {}, onSettings = {}, onInfoPage = {})
 }

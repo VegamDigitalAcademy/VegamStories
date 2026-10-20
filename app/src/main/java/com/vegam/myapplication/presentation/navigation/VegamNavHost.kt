@@ -1,6 +1,7 @@
 package com.vegam.myapplication.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -15,10 +16,14 @@ import com.vegam.myapplication.presentation.info.InfoScreen
 import com.vegam.myapplication.presentation.menu.MenuScreen
 import com.vegam.myapplication.presentation.reader.ReaderScreen
 import com.vegam.myapplication.presentation.search.SearchScreen
+import com.vegam.myapplication.presentation.settings.SettingsScreen
+import com.vegam.myapplication.presentation.shortcuts.ShortcutTarget
 
 @Composable
 fun VegamNavHost(
     navController: NavHostController,
+    shortcutTarget: ShortcutTarget?,
+    onShortcutHandled: () -> Unit,
     onShowMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -26,7 +31,7 @@ fun VegamNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = HomeRoute,
+        startDestination = HomeRoute(),
         modifier = modifier,
     ) {
         composable<HomeRoute> {
@@ -49,6 +54,7 @@ fun VegamNavHost(
                 onFavorites = { navController.navigateToTopLevel(TopLevelDestination.FAVORITES) },
                 onDownloads = { navController.navigateToTopLevel(TopLevelDestination.DOWNLOADS) },
                 onHistory = { navController.navigate(HistoryRoute) },
+                onSettings = { navController.navigate(SettingsRoute) },
                 onInfoPage = { page -> navController.navigate(InfoRoute(page.name)) },
             )
         }
@@ -57,6 +63,9 @@ fun VegamNavHost(
         }
         composable<SearchRoute> {
             SearchScreen(onBack = navController::popBackStack, onStoryClick = openStory, onShowMessage = onShowMessage)
+        }
+        composable<SettingsRoute> {
+            SettingsScreen(onBack = navController::popBackStack)
         }
         composable<InfoRoute> { entry ->
             val page = InfoPage.valueOf(entry.toRoute<InfoRoute>().page)
@@ -73,6 +82,19 @@ fun VegamNavHost(
                 onShowMessage = onShowMessage,
             )
         }
+    }
+
+    // App opened from an app-icon shortcut. Runs after NavHost has set the graph.
+    LaunchedEffect(shortcutTarget) {
+        when (shortcutTarget) {
+            is ShortcutTarget.Category -> navController.navigate(HomeRoute(shortcutTarget.categoryId)) {
+                // Fresh Home showing that category, nothing behind it.
+                popUpTo(navController.graph.id) { inclusive = true }
+            }
+            ShortcutTarget.Search -> navController.navigate(SearchRoute) { launchSingleTop = true }
+            null -> return@LaunchedEffect
+        }
+        onShortcutHandled()
     }
 }
 

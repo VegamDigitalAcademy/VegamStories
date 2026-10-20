@@ -16,8 +16,8 @@ import com.vegam.myapplication.R
 import com.vegam.myapplication.presentation.common.StoryListUiState
 import com.vegam.myapplication.presentation.components.BackTopBar
 import com.vegam.myapplication.presentation.components.EmptyState
-import com.vegam.myapplication.presentation.components.LoadingBox
 import com.vegam.myapplication.presentation.components.StoryGrid
+import com.vegam.myapplication.presentation.components.StoryGridSkeleton
 import com.vegam.myapplication.presentation.preview.PreviewData
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
@@ -58,7 +58,7 @@ fun FavoritesContent(
                 .fillMaxSize(),
         ) {
             when {
-                state.isLoading -> LoadingBox()
+                state.isLoading -> StoryGridSkeleton()
                 state.stories.isEmpty() -> EmptyState(
                     icon = R.drawable.ic_favorite_border,
                     title = stringResource(R.string.favorites_empty_title),

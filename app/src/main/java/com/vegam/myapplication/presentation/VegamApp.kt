@@ -29,12 +29,20 @@ import com.vegam.myapplication.presentation.navigation.SearchRoute
 import com.vegam.myapplication.presentation.navigation.TopLevelDestination
 import com.vegam.myapplication.presentation.navigation.VegamNavHost
 import com.vegam.myapplication.presentation.navigation.navigateToTopLevel
+import com.vegam.myapplication.presentation.shortcuts.ShortcutTarget
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import kotlinx.coroutines.launch
 
+/**
+ * @param shortcutTarget set when the app was opened from an app-icon shortcut.
+ * @param onShortcutHandled called once we've navigated, so it isn't handled twice.
+ */
 @Composable
-fun VegamApp() {
+fun VegamApp(
+    shortcutTarget: ShortcutTarget? = null,
+    onShortcutHandled: () -> Unit = {},
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -62,6 +70,8 @@ fun VegamApp() {
     ) { innerPadding ->
         VegamNavHost(
             navController = navController,
+            shortcutTarget = shortcutTarget,
+            onShortcutHandled = onShortcutHandled,
             onShowMessage = { message ->
                 scope.launch {
                     snackbarHostState.currentSnackbarData?.dismiss()

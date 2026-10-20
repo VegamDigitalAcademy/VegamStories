@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,6 +7,18 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// Supabase keys are read from local.properties (never committed to git):
+//   SUPABASE_URL=https://xxxx.supabase.co
+//   SUPABASE_ANON_KEY=eyJ...   (or sb_publishable_...)
+// Without them the app runs on dummy data, so a fresh checkout still builds and runs.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL").orEmpty().trim().removeSuffix("/")
+val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY").orEmpty().trim()
+val hasSupabase = supabaseUrl.isNotEmpty() && supabaseAnonKey.isNotEmpty()
 
 android {
     namespace = "com.vegam.myapplication"
@@ -19,10 +33,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Swap this for the real server once the API is live.
-        buildConfigField("String", "BASE_URL", "\"https://api.vegamstories.com/\"")
-        // true = dummy images/text from FakeStoryRemoteDataSource; false = real server via Retrofit.
-        buildConfigField("boolean", "USE_FAKE_BACKEND", "true")
+        // Supabase REST API (PostgREST). The anon/publishable key is meant to ship in apps;
+        // Row Level Security in Supabase is what keeps the data read-only.
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField(
+            "String",
+            "BASE_URL",
+            "\"${if (hasSupabase) "$supabaseUrl/rest/v1/" else "https://localhost/"}\"",
+        )
+        // Real Supabase data when the keys are present, dummy data otherwise.
+        buildConfigField("boolean", "USE_FAKE_BACKEND", (!hasSupabase).toString())
     }
 
     buildTypes {
@@ -67,6 +87,12 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    // Video: YouTube player inside the reader
+    implementation(libs.youtube.player.core)
+
+    // Settings (theme choice)
+    implementation(libs.androidx.datastore.preferences)
 
     // Kotlin
     implementation(libs.kotlinx.serialization.json)

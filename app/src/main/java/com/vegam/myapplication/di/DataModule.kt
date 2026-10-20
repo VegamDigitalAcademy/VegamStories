@@ -6,8 +6,12 @@ import com.vegam.myapplication.data.remote.datasource.NetworkStoryRemoteDataSour
 import com.vegam.myapplication.data.remote.datasource.StoryRemoteDataSource
 import com.vegam.myapplication.data.repository.LibraryRepositoryImpl
 import com.vegam.myapplication.data.repository.StoryRepositoryImpl
+import com.vegam.myapplication.data.settings.SettingsRepositoryImpl
+import com.vegam.myapplication.data.tts.AndroidStoryNarrator
 import com.vegam.myapplication.domain.repository.LibraryRepository
+import com.vegam.myapplication.domain.repository.SettingsRepository
 import com.vegam.myapplication.domain.repository.StoryRepository
+import com.vegam.myapplication.domain.service.StoryNarrator
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -27,6 +31,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLibraryRepository(impl: LibraryRepositoryImpl): LibraryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStoryNarrator(impl: AndroidStoryNarrator): StoryNarrator
 }
 
 @Module
@@ -34,7 +46,8 @@ abstract class RepositoryModule {
 object DataModule {
 
     /**
-     * Dummy data today, real server tomorrow: flip USE_FAKE_BACKEND in app/build.gradle.kts.
+     * Supabase when SUPABASE_URL / SUPABASE_ANON_KEY are in local.properties, dummy data otherwise
+     * (USE_FAKE_BACKEND is set automatically in app/build.gradle.kts).
      * Provider<> means the unused implementation is never even created.
      */
     @Provides

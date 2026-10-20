@@ -29,7 +29,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.vegam.myapplication.R
 import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
@@ -53,7 +52,7 @@ fun StoryCard(
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            AsyncImage(
+            StoryImage(
                 model = story.coverImageUrl,
                 contentDescription = story.title,
                 contentScale = ContentScale.Crop,
@@ -156,7 +155,7 @@ fun StoryListRow(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
+        StoryImage(
             model = story.coverImageUrl,
             contentDescription = story.title,
             contentScale = ContentScale.Crop,

@@ -8,10 +8,20 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
+import com.vegam.myapplication.presentation.shortcuts.AppShortcutsManager
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
 class VegamStoriesApp : Application(), SingletonImageLoader.Factory {
+
+    @Inject lateinit var appShortcutsManager: AppShortcutsManager
+
+    override fun onCreate() {
+        super.onCreate()
+        // Long-press-on-icon menu: keeps category shortcuts in sync with the database.
+        appShortcutsManager.start()
+    }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)

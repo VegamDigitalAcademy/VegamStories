@@ -1,12 +1,15 @@
 package com.vegam.myapplication.presentation.home
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import com.vegam.myapplication.domain.usecase.GetCategoriesUseCase
 import com.vegam.myapplication.domain.usecase.GetContinueReadingUseCase
 import com.vegam.myapplication.domain.usecase.GetStoriesUseCase
 import com.vegam.myapplication.domain.usecase.RefreshContentUseCase
 import com.vegam.myapplication.domain.usecase.ToggleFavoriteUseCase
+import com.vegam.myapplication.presentation.navigation.HomeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -23,6 +26,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     getCategories: GetCategoriesUseCase,
     private val getStories: GetStoriesUseCase,
     private val getContinueReading: GetContinueReadingUseCase,
@@ -30,7 +34,8 @@ class HomeViewModel @Inject constructor(
     private val toggleFavorite: ToggleFavoriteUseCase,
 ) : ViewModel() {
 
-    private val selectedCategoryId = MutableStateFlow<String?>(null)
+    // Opened from an app-icon shortcut → start on that category's tab.
+    private val selectedCategoryId = MutableStateFlow(savedStateHandle.toRoute<HomeRoute>().categoryId)
     private val isRefreshing = MutableStateFlow(false)
 
     private val events = Channel<HomeEvent>(Channel.BUFFERED)

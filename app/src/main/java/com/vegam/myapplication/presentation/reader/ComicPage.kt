@@ -1,5 +1,6 @@
 package com.vegam.myapplication.presentation.reader
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -11,8 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,9 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.vegam.myapplication.domain.model.Panel
 import com.vegam.myapplication.domain.model.StoryPage
+import com.vegam.myapplication.presentation.components.StoryImage
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewData
 import com.vegam.myapplication.presentation.preview.PreviewTheme
@@ -31,14 +34,20 @@ import com.vegam.myapplication.ui.theme.ComicCaption
 
 private val PanelBorder = 2.5.dp
 private val Gutter = 6.dp
+private val ActivePanelBorder = 4.dp
 
 /**
  * Lays a page's panels out like a comic strip: rows of 1 or 2 panels.
  * When the server sends ready-made page images instead, this can become a single image.
  */
 @Composable
-fun ComicPage(page: StoryPage, modifier: Modifier = Modifier) {
-    val rows = rowsFor(page.panels)
+fun ComicPage(
+    page: StoryPage,
+    modifier: Modifier = Modifier,
+    /** Panel being read aloud right now; it gets a red outline. */
+    activePanelIndex: Int? = null,
+) {
+    val rows = rowsFor(page.panels.size)
     Column(
         modifier = modifier
             .background(Color.White)
@@ -53,10 +62,11 @@ fun ComicPage(page: StoryPage, modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.spacedBy(Gutter),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                row.forEachIndexed { i, panel ->
+                row.forEachIndexed { i, panelIndex ->
                     ComicPanel(
-                        panel = panel,
+                        panel = page.panels[panelIndex],
                         bubbleOnRight = (rowIndex + i) % 2 == 0,
+                        isActive = panelIndex == activePanelIndex,
                         modifier = Modifier
                             .weight(1f)
                             .height(height),
@@ -68,15 +78,22 @@ fun ComicPage(page: StoryPage, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ComicPanel(panel: Panel, bubbleOnRight: Boolean, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.border(PanelBorder, Color.Black)) {
-        AsyncImage(
+private fun ComicPanel(
+    panel: Panel,
+    bubbleOnRight: Boolean,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val borderColor by animateColorAsState(
+        targetValue = if (isActive) MaterialTheme.colorScheme.primary else Color.Black,
+        label = "panelBorder",
+    )
+    Box(modifier = modifier.border(if (isActive) ActivePanelBorder else PanelBorder, borderColor)) {
+        StoryImage(
             model = panel.imageUrl,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .matchParentSize()
-                .background(Color(0xFFDDEFE3)),
+            modifier = Modifier.matchParentSize(),
         )
         panel.caption?.let { caption ->
             Text(
@@ -121,23 +138,23 @@ private fun SpeechBubble(text: String) {
     )
 }
 
-/** 1 → [1]; 2 → [1,1]; 3 → [1,2]; 4 → [1,2,1]; 5 → [2,1,2]; more → pairs. */
-private fun rowsFor(panels: List<Panel>): List<List<Panel>> {
-    val pattern = when (panels.size) {
+/** Panel indices grouped into rows. 1 → [1]; 2 → [1,1]; 3 → [1,2]; 4 → [1,2,1]; 5 → [2,1,2]; more → pairs. */
+private fun rowsFor(count: Int): List<List<Int>> {
+    val pattern = when (count) {
         0 -> emptyList()
         1 -> listOf(1)
         2 -> listOf(1, 1)
         3 -> listOf(1, 2)
         4 -> listOf(1, 2, 1)
         5 -> listOf(2, 1, 2)
-        else -> List((panels.size + 1) / 2) { 2 }
+        else -> List((count + 1) / 2) { 2 }
     }
-    val rows = mutableListOf<List<Panel>>()
+    val rows = mutableListOf<List<Int>>()
     var start = 0
     for (size in pattern) {
-        if (start >= panels.size) break
-        val end = (start + size).coerceAtMost(panels.size)
-        rows += panels.subList(start, end)
+        if (start >= count) break
+        val end = (start + size).coerceAtMost(count)
+        rows += (start until end).toList()
         start = end
     }
     return rows
@@ -155,4 +172,10 @@ private fun ComicPagePreview() = PreviewTheme {
 @Composable
 private fun ComicPageThreePanelsPreview() = PreviewTheme {
     ComicPage(page = PreviewData.pages[1], modifier = Modifier.padding(16.dp))
+}
+
+@ComponentPreviews
+@Composable
+private fun ComicPageReadingAloudPreview() = PreviewTheme {
+    ComicPage(page = PreviewData.pages[0], activePanelIndex = 1, modifier = Modifier.padding(16.dp))
 }
