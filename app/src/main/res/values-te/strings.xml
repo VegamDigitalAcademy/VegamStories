@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Telugu (తెలుగు) translations. Keep the same names as values/strings.xml. -->
+<resources>
+    <string name="app_name">వేగం కథలు</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">హోమ్</string>
+    <string name="nav_favorites">ఇష్టమైనవి</string>
+    <string name="nav_downloads">డౌన్‌లోడ్‌లు</string>
+    <string name="nav_menu">మెనూ</string>
+
+    <!-- Home -->
+    <string name="tab_all">అన్నీ</string>
+    <string name="latest_stories">తాజా కథలు</string>
+    <string name="continue_reading">చదువుతున్న కథ</string>
+    <string name="continue_action">కొనసాగించు →</string>
+    <string name="stories_count">%1$d కథలు</string>
+    <string name="episode_short">భాగం %1$d</string>
+    <string name="episode_category">భాగం %1$d · %2$s</string>
+    <string name="read_badge">చదివారు</string>
+    <string name="added_to_favorites">ఇష్టమైనవాటికి జోడించబడింది</string>
+    <string name="removed_from_favorites">ఇష్టమైనవాటి నుండి తీసివేయబడింది</string>
+    <string name="refresh_failed">కథలను రిఫ్రెష్ చేయలేకపోయాం. సేవ్ చేసిన కథలను చూపిస్తున్నాం.</string>
+    <string name="retry">మళ్ళీ ప్రయత్నించు</string>
+    <string name="no_stories_title">ఇంకా కథలు లేవు</string>
+    <string name="no_stories_message">రిఫ్రెష్ చేయడానికి కిందికి లాగండి, లేదా మీ ఇంటర్నెట్ కనెక్షన్‌ను తనిఖీ చేయండి.</string>
+
+    <!-- Reader -->
+    <string name="the_end">ముగింపు</string>
+    <string name="next_story">తదుపరి కథ →</string>
+    <string name="back_to_stories">కథలకు తిరిగి వెళ్ళు</string>
+    <string name="video_label">వీడియో</string>
+    <string name="watch_on_youtube">YouTubeలో చూడండి</string>
+    <string name="open_in_youtube">YouTube యాప్‌లో తెరవండి</string>
+    <string name="story_not_found">కథ కనుగొనబడలేదు</string>
+    <string name="download_started">ఆఫ్‌లైన్‌లో చదవడానికి సేవ్ చేయబడింది</string>
+    <string name="download_removed">డౌన్‌లోడ్‌ల నుండి తీసివేయబడింది</string>
+
+    <!-- Read aloud -->
+    <string name="cd_read_aloud">చదివి వినిపించు</string>
+    <string name="cd_stop_reading">చదవడం ఆపు</string>
+    <string name="tts_voice_missing_title">తెలుగు వాయిస్ ఇన్‌స్టాల్ కాలేదు</string>
+    <string name="tts_voice_missing_message">కథలను చదివి వినిపించడానికి, మీ ఫోన్ టెక్స్ట్-టు-స్పీచ్ కోసం తెలుగు వాయిస్‌ను డౌన్‌లోడ్ చేయండి. ఇది ఉచితం, ఒక్కసారి చేస్తే చాలు.</string>
+    <string name="tts_download_voice">వాయిస్ డౌన్‌లోడ్ చేయండి</string>
+    <string name="tts_unavailable">ఈ ఫోన్‌లో చదివి వినిపించడం అందుబాటులో లేదు</string>
+    <string name="cancel">రద్దు చేయి</string>
+
+    <!-- Library screens -->
+    <string name="favorites_empty_title">ఇంకా ఇష్టమైనవి లేవు</string>
+    <string name="favorites_empty_message">ఏ కథపైనైనా హార్ట్‌ను నొక్కితే అది ఇక్కడ ఉంటుంది.</string>
+    <string name="downloads_empty_title">డౌన్‌లోడ్‌లు లేవు</string>
+    <string name="downloads_empty_message">ఆఫ్‌లైన్‌లో చదవడానికి కథను తెరిచి డౌన్‌లోడ్ చేయండి.</string>
+    <string name="history_title">చదివిన కథలు</string>
+    <string name="history_empty_title">ఇంకా ఏమీ చదవలేదు</string>
+    <string name="history_empty_message">మీరు తెరిచిన కథలు మీ పురోగతితో పాటు ఇక్కడ కనిపిస్తాయి.</string>
+    <string name="clear_history">చరిత్రను తొలగించు</string>
+    <string name="completed">పూర్తయింది</string>
+    <string name="pages_progress">%2$d పేజీలలో %1$d</string>
+    <string name="remove_download">డౌన్‌లోడ్ తీసివేయి</string>
+
+    <!-- Search -->
+    <string name="search_hint">కథలను వెతకండి</string>
+    <string name="search_no_results">\"%1$s\"కు సరిపోయే కథలు లేవు</string>
+    <string name="search_prompt">కథ పేరు లేదా విభాగంతో వెతకండి</string>
+
+    <!-- Menu -->
+    <string name="menu_title">మెనూ</string>
+    <string name="menu_profile">ప్రొఫైల్</string>
+    <string name="menu_favorites">ఇష్టమైనవి</string>
+    <string name="menu_downloads">డౌన్‌లోడ్‌లు</string>
+    <string name="menu_history">చదివిన కథలు</string>
+    <string name="menu_settings">సెట్టింగ్‌లు</string>
+    <string name="menu_about">Vegam Stories గురించి</string>
+    <string name="menu_privacy">గోప్యతా విధానం</string>
+    <string name="menu_terms">నిబంధనలు &amp; షరతులు</string>
+    <string name="app_version">వెర్షన్ %1$s</string>
+
+    <!-- Info pages -->
+    <string name="info_profile_body">సైన్-ఇన్, ప్రొఫైల్‌లు త్వరలో రాబోతున్నాయి. మీ ఇష్టమైనవి, డౌన్‌లోడ్‌లు మరియు చదివిన పురోగతి ఈ ఫోన్‌లోనే సేవ్ అవుతాయి.</string>
+    <string name="info_about_body">Vegam Stories పిల్లలు మరియు కుటుంబాల కోసం చిన్న తెలుగు బొమ్మల కథలను అందిస్తుంది: నీతి కథలు, తెనాలి రామకృష్ణ, పంచతంత్ర మరియు జానపద కథలు. కొత్త భాగాలు క్రమం తప్పకుండా జోడించబడతాయి, చాలా కథలకు YouTubeలో యానిమేషన్ వీడియో కూడా ఉంది.</string>
+    <string name="info_privacy_body">ఇది తాత్కాలిక గోప్యతా విధానం. యాప్‌ను ప్రచురించే ముందు దీనిని అసలు విధానంతో మార్చండి.</string>
+    <string name="info_terms_body">ఇవి తాత్కాలిక నిబంధనలు మరియు షరతులు. యాప్‌ను ప్రచురించే ముందు వీటిని అసలు నిబంధనలతో మార్చండి.</string>
+
+    <!-- App-icon shortcuts (long-press) -->
+    <string name="shortcut_search_short">వెతకండి</string>
+    <string name="shortcut_search_long">కథలను వెతకండి</string>
+
+    <!-- Settings -->
+    <string name="settings_appearance">రూపం</string>
+    <string name="settings_theme">థీమ్</string>
+    <string name="theme_system">సిస్టమ్ డిఫాల్ట్</string>
+    <string name="theme_system_desc">మీ ఫోన్ లైట్ లేదా డార్క్ సెట్టింగ్‌ను అనుసరిస్తుంది</string>
+    <string name="theme_light">లైట్</string>
+    <string name="theme_light_desc">ఎల్లప్పుడూ లైట్ థీమ్ ఉపయోగించు</string>
+    <string name="theme_dark">డార్క్</string>
+    <string name="theme_dark_desc">ఎల్లప్పుడూ డార్క్ థీమ్ ఉపయోగించు</string>
+    <string name="settings_language_section">భాష</string>
+    <string name="settings_language">యాప్ భాష</string>
+    <string name="language_system">సిస్టమ్ డిఫాల్ట్</string>
+    <string name="language_system_desc">మీ ఫోన్ భాషను అనుసరిస్తుంది</string>
+    <string name="language_english_desc">ఆంగ్లం</string>
+    <string name="language_telugu_desc">తెలుగు</string>
+
+    <!-- Accessibility -->
+    <string name="cd_back">వెనుకకు</string>
+    <string name="cd_search">వెతకండి</string>
+    <string name="cd_menu">మెనూ</string>
+    <string name="cd_favorite">ఇష్టమైనది</string>
+    <string name="cd_download">డౌన్‌లోడ్</string>
+    <string name="cd_clear">తొలగించు</string>
+    <string name="cd_play_video">వీడియో ప్లే చేయి</string>
+</resources>

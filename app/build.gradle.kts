@@ -91,6 +91,9 @@ dependencies {
     // Video: YouTube player inside the reader
     implementation(libs.youtube.player.core)
 
+    // In-app language switch (English / Telugu)
+    implementation(libs.androidx.appcompat)
+
     // Settings (theme choice)
     implementation(libs.androidx.datastore.preferences)
 

@@ -52,6 +52,7 @@ import com.vegam.myapplication.presentation.components.fullWidthItem
 import com.vegam.myapplication.presentation.preview.PreviewData
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
+import com.vegam.myapplication.presentation.preview.TeluguPreview
 
 /** Stateful entry point: wires the ViewModel to the stateless [HomeContent]. */
 @Composable
@@ -284,6 +285,7 @@ private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
 // ---------------- Previews ----------------
 
 @ScreenPreviews
+@TeluguPreview
 @Composable
 private fun HomeAllPreview() = PreviewTheme {
     HomeContent(

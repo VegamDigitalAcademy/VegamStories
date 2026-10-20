@@ -6,8 +6,10 @@ import com.vegam.myapplication.data.remote.datasource.NetworkStoryRemoteDataSour
 import com.vegam.myapplication.data.remote.datasource.StoryRemoteDataSource
 import com.vegam.myapplication.data.repository.LibraryRepositoryImpl
 import com.vegam.myapplication.data.repository.StoryRepositoryImpl
+import com.vegam.myapplication.data.settings.AppCompatLanguageRepository
 import com.vegam.myapplication.data.settings.SettingsRepositoryImpl
 import com.vegam.myapplication.data.tts.AndroidStoryNarrator
+import com.vegam.myapplication.domain.repository.LanguageRepository
 import com.vegam.myapplication.domain.repository.LibraryRepository
 import com.vegam.myapplication.domain.repository.SettingsRepository
 import com.vegam.myapplication.domain.repository.StoryRepository
@@ -39,6 +41,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindStoryNarrator(impl: AndroidStoryNarrator): StoryNarrator
+
+    @Binds
+    @Singleton
+    abstract fun bindLanguageRepository(impl: AppCompatLanguageRepository): LanguageRepository
 }
 
 @Module

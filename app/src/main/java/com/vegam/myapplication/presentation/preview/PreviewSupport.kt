@@ -17,6 +17,10 @@ import com.vegam.myapplication.ui.theme.MyApplicationTheme
 )
 annotation class ScreenPreviews
 
+/** Phone-sized screen in Telugu (light). Add next to @ScreenPreviews to check translations. */
+@Preview(name = "Telugu", showBackground = true, device = "spec:width=411dp,height=891dp", locale = "te")
+annotation class TeluguPreview
+
 /** Content-sized, light + dark. Use on component previews. */
 @Preview(name = "Light", showBackground = true)
 @Preview(

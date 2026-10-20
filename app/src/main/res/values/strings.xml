@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Vegam Stories</string>
-    <string name="brand_title">VEGAM STORIES</string>
-    <string name="brand_short">VEGAM</string>
+    <string name="brand_title" translatable="false">VEGAM STORIES</string>
+    <string name="brand_short" translatable="false">VEGAM</string>
 
     <!-- Bottom navigation -->
     <string name="nav_home">Home</string>
@@ -29,7 +29,7 @@
     <string name="the_end">THE END</string>
     <string name="next_story">Next story →</string>
     <string name="back_to_stories">Back to stories</string>
-    <string name="page_of">%1$d / %2$d</string>
+    <string name="page_of" translatable="false">%1$d / %2$d</string>
     <string name="video_label">VIDEO</string>
     <string name="watch_on_youtube">Watch on YouTube</string>
     <string name="open_in_youtube">Open in YouTube app</string>
@@ -95,6 +95,15 @@
     <string name="theme_light_desc">Always use the light theme</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_dark_desc">Always use the dark theme</string>
+    <string name="settings_language_section">LANGUAGE</string>
+    <string name="settings_language">App language</string>
+    <string name="language_system">System default</string>
+    <string name="language_system_desc">Follows your phone\'s language</string>
+    <!-- Language names are always shown in their own script, so they aren't translated. -->
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_telugu" translatable="false">తెలుగు</string>
+    <string name="language_english_desc">English</string>
+    <string name="language_telugu_desc">Telugu</string>
 
     <!-- Accessibility -->
     <string name="cd_back">Back</string>

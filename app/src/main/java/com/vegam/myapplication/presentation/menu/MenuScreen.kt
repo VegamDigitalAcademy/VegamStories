@@ -30,6 +30,7 @@ import com.vegam.myapplication.presentation.components.BackTopBar
 import com.vegam.myapplication.presentation.navigation.InfoPage
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
+import com.vegam.myapplication.presentation.preview.TeluguPreview
 
 /** Static menu: no ViewModel needed, it only routes to other screens. */
 @Composable
@@ -115,6 +116,7 @@ private fun MenuItem(
 // ---------------- Previews ----------------
 
 @ScreenPreviews
+@TeluguPreview
 @Composable
 private fun MenuPreview() = PreviewTheme {
     MenuScreen(onBack = {}, onFavorites = {}, onDownloads = {}, onHistory = {}, onSettings = {}, onInfoPage = {})
