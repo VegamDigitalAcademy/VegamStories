@@ -21,6 +21,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -189,6 +191,29 @@ fun ImageBadge(
     }
 }
 
+/**
+ * Material switch whose "off" state stays visible. The stock one draws the off thumb and border
+ * in `outline`, which this theme keeps faint for dividers, on a track of nearly the same colour,
+ * so an off switch looked like an empty grey pill.
+ */
+@Composable
+fun VegamSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        colors = SwitchDefaults.colors(
+            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    )
+}
+
 // ---------------- Previews ----------------
 
 @ComponentPreviews
@@ -215,5 +240,14 @@ private fun BadgesAndHeaderPreview() = PreviewTheme {
             ImageBadge(text = stringResource(R.string.read_badge), icon = R.drawable.ic_check_circle)
         }
         SectionHeader(title = stringResource(R.string.latest_stories), trailing = "32 stories")
+    }
+}
+
+@ComponentPreviews
+@Composable
+private fun VegamSwitchPreview() = PreviewTheme {
+    Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        VegamSwitch(checked = false, onCheckedChange = {})
+        VegamSwitch(checked = true, onCheckedChange = {})
     }
 }

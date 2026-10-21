@@ -28,7 +28,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -50,6 +49,7 @@ import com.vegam.myapplication.R
 import com.vegam.myapplication.domain.model.PageBackground
 import com.vegam.myapplication.domain.model.ReaderScrollMode
 import com.vegam.myapplication.domain.model.ReaderSettings
+import com.vegam.myapplication.presentation.components.VegamSwitch
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.ui.theme.DarkColorScheme
@@ -208,7 +208,7 @@ private fun ReaderOptionsContent(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Switch(checked = settings.keepScreenOn, onCheckedChange = null)
+            VegamSwitch(checked = settings.keepScreenOn, onCheckedChange = null)
         }
     }
 }

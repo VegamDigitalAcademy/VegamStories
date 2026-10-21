@@ -31,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,6 +56,7 @@ import com.vegam.myapplication.R
 import com.vegam.myapplication.domain.model.AppLanguage
 import com.vegam.myapplication.domain.model.ThemeMode
 import com.vegam.myapplication.presentation.components.BackTopBar
+import com.vegam.myapplication.presentation.components.VegamSwitch
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
 import com.vegam.myapplication.presentation.preview.TeluguPreview
@@ -288,7 +288,7 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheck
             )
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = null)
+        VegamSwitch(checked = checked, onCheckedChange = null)
     }
 }
 
