@@ -106,6 +106,9 @@ dependencies {
 
     // Images
     implementation(libs.coil.compose)
+
+    // Home screen widget (continue reading / today's new story)
+    implementation(libs.glance.appwidget)
     implementation(libs.coil.network.okhttp)
 
     // Network

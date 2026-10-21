@@ -4,19 +4,30 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.vegam.myapplication.domain.model.PageBackground
+import com.vegam.myapplication.domain.model.ReaderScrollMode
+import com.vegam.myapplication.domain.model.ReaderSettings
+import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.domain.model.StoryDetail
 import com.vegam.myapplication.domain.usecase.GetNextStoryUseCase
+import com.vegam.myapplication.domain.usecase.GetReaderSettingsUseCase
 import com.vegam.myapplication.domain.usecase.GetStoryDetailUseCase
 import com.vegam.myapplication.domain.usecase.SaveReadingProgressUseCase
 import com.vegam.myapplication.domain.usecase.ToggleDownloadUseCase
 import com.vegam.myapplication.domain.usecase.ToggleFavoriteUseCase
+import com.vegam.myapplication.domain.usecase.UpdateReaderSettingsUseCase
 import com.vegam.myapplication.presentation.navigation.ReaderRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -25,9 +36,12 @@ import javax.inject.Inject
 data class ReaderUiState(
     val isLoading: Boolean = true,
     val detail: StoryDetail? = null,
-    val nextStoryId: String? = null,
+    /** Next episode in the same category, offered at the end; null on the last episode. */
+    val nextStory: Story? = null,
     /** Page to open on: where the reader left off, unless the story was finished. */
     val initialPage: Int = 0,
+    /** Scroll mode, keep-screen-on and page background; loaded before the reader first shows. */
+    val settings: ReaderSettings = ReaderSettings(),
 ) {
     val hasVideo: Boolean get() = detail?.story?.video != null
     /** The "Did you like this story?" page, right after the last comic page. */
@@ -41,11 +55,14 @@ sealed interface ReaderEvent {
     data class DownloadChanged(val isDownloaded: Boolean) : ReaderEvent
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     getStoryDetail: GetStoryDetailUseCase,
-    private val getNextStory: GetNextStoryUseCase,
+    getNextStory: GetNextStoryUseCase,
+    getReaderSettings: GetReaderSettingsUseCase,
+    private val updateReaderSettings: UpdateReaderSettingsUseCase,
     private val saveReadingProgress: SaveReadingProgressUseCase,
     private val toggleFavorite: ToggleFavoriteUseCase,
     private val toggleDownload: ToggleDownloadUseCase,
@@ -53,7 +70,9 @@ class ReaderViewModel @Inject constructor(
 
     private val storyId: String = savedStateHandle.toRoute<ReaderRoute>().storyId
 
-    private val nextStoryId = MutableStateFlow<String?>(null)
+    /** Live, so its cover/title/like count stay current while the reader is open. */
+    private val nextStory: Flow<Story?> = flow { emit(getNextStory(storyId)) }
+        .flatMapLatest { id -> if (id == null) flowOf(null) else getStoryDetail(id).map { it?.story } }
 
     /** Captured from the first emission only, so saving progress doesn't move the pager. */
     private var initialPage: Int? = null
@@ -63,8 +82,9 @@ class ReaderViewModel @Inject constructor(
 
     val uiState: StateFlow<ReaderUiState> = combine(
         getStoryDetail(storyId),
-        nextStoryId,
-    ) { detail, next ->
+        nextStory,
+        getReaderSettings(),
+    ) { detail, next, settings ->
         if (detail != null && initialPage == null) {
             val progress = detail.story.progress
             initialPage = if (progress == null || progress.isCompleted) 0 else progress.lastPageIndex
@@ -72,14 +92,11 @@ class ReaderViewModel @Inject constructor(
         ReaderUiState(
             isLoading = false,
             detail = detail,
-            nextStoryId = next,
+            nextStory = next,
             initialPage = initialPage ?: 0,
+            settings = settings,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReaderUiState())
-
-    init {
-        viewModelScope.launch { nextStoryId.value = getNextStory(storyId) }
-    }
 
     fun onPageChanged(pagerIndex: Int) {
         val pageCount = uiState.value.detail?.pages?.size ?: return
@@ -92,5 +109,17 @@ class ReaderViewModel @Inject constructor(
 
     fun onToggleDownload() {
         viewModelScope.launch { events.send(ReaderEvent.DownloadChanged(toggleDownload(storyId))) }
+    }
+
+    fun onScrollModeChange(mode: ReaderScrollMode) {
+        viewModelScope.launch { updateReaderSettings { it.copy(scrollMode = mode) } }
+    }
+
+    fun onKeepScreenOnChange(keepScreenOn: Boolean) {
+        viewModelScope.launch { updateReaderSettings { it.copy(keepScreenOn = keepScreenOn) } }
+    }
+
+    fun onPageBackgroundChange(background: PageBackground) {
+        viewModelScope.launch { updateReaderSettings { it.copy(pageBackground = background) } }
     }
 }

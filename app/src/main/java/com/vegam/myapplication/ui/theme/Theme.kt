@@ -7,7 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val LightColorScheme = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     primary = VegamRed,
     onPrimary = Color.White,
     primaryContainer = VegamRedLight,
@@ -25,7 +25,7 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = Outline,
 )
 
-private val DarkColorScheme = darkColorScheme(
+internal val DarkColorScheme = darkColorScheme(
     primary = VegamRed,
     onPrimary = Color.White,
     primaryContainer = VegamRedDark,
@@ -41,6 +41,21 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainer = NightSurface,
     outline = NightOutline,
     outlineVariant = NightOutline,
+)
+
+/** Light scheme on warm paper, for the reader's sepia page background. */
+internal val SepiaColorScheme = LightColorScheme.copy(
+    background = SepiaPaper,
+    onBackground = SepiaInk,
+    surface = SepiaPaper,
+    onSurface = SepiaInk,
+    surfaceVariant = SepiaSurface,
+    onSurfaceVariant = SepiaInkMuted,
+    surfaceContainer = SepiaSurface,
+    surfaceContainerLow = SepiaSurface,
+    surfaceContainerHigh = SepiaSurface,
+    outline = SepiaOutline,
+    outlineVariant = SepiaOutline,
 )
 
 /** Brand theme: fixed Vegam red instead of wallpaper-based dynamic colour. */

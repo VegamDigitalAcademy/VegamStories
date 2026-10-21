@@ -33,9 +33,11 @@ import com.vegam.myapplication.presentation.preview.PreviewTheme
  * One finished comic page. The image already contains the panels, captions and speech bubbles,
  * so the app shows it as-is: full width, at its own height (nothing is cropped).
  * While it loads, a portrait-shaped shimmer keeps the space.
+ * [framed] draws the black comic border; the paged reader turns it off so the image can use
+ * every pixel of the screen width.
  */
 @Composable
-fun ComicPage(page: StoryPage, modifier: Modifier = Modifier) {
+fun ComicPage(page: StoryPage, modifier: Modifier = Modifier, framed: Boolean = true) {
     var state by remember(page.imageUrl) {
         mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)
     }
@@ -44,7 +46,7 @@ fun ComicPage(page: StoryPage, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .border(2.dp, Color.Black)
+            .then(if (framed) Modifier.border(2.dp, Color.Black) else Modifier)
             .background(Color.White),
     ) {
         AsyncImage(

@@ -10,6 +10,7 @@ import coil3.memory.MemoryCache
 import coil3.request.crossfade
 import com.vegam.myapplication.core.logging.LineNumberDebugTree
 import com.vegam.myapplication.presentation.shortcuts.AppShortcutsManager
+import com.vegam.myapplication.presentation.widget.StoryWidgetUpdater
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -18,6 +19,7 @@ import javax.inject.Inject
 class VegamStoriesApp : Application(), SingletonImageLoader.Factory {
 
     @Inject lateinit var appShortcutsManager: AppShortcutsManager
+    @Inject lateinit var storyWidgetUpdater: StoryWidgetUpdater
 
     override fun onCreate() {
         super.onCreate()
@@ -25,6 +27,8 @@ class VegamStoriesApp : Application(), SingletonImageLoader.Factory {
         if (BuildConfig.DEBUG) Timber.plant(LineNumberDebugTree())
         // Long-press-on-icon menu: keeps category shortcuts in sync with the database.
         appShortcutsManager.start()
+        // Home screen widget: redraws when continue-reading or the newest story changes.
+        storyWidgetUpdater.start()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

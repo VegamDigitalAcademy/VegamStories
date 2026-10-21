@@ -112,6 +112,30 @@
         <item quantity="one">%s లైక్</item>
         <item quantity="other">%s లైక్‌లు</item>
     </plurals>
+    <string name="next_episode_label">తదుపరి ఎపిసోడ్</string>
+    <string name="read_action">చదవండి</string>
+    <string name="skip_to_next_story">తదుపరి కథకు వెళ్ళండి</string>
+    <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
     <string name="cd_like">లైక్</string>
+
+    <!-- హోమ్ స్క్రీన్ విడ్జెట్ -->
+    <string name="widget_name">చదవడం కొనసాగించండి</string>
+    <string name="widget_description">ఆపిన చోటు నుండి చదవండి, లేదా ఈ రోజు కొత్త కథ చదవండి.</string>
+    <string name="widget_new_today">ఈ రోజు కొత్త కథ</string>
+    <string name="widget_latest">తాజా కథ</string>
+    <string name="widget_empty">కథలు లోడ్ చేయడానికి యాప్‌ను తెరవండి</string>
     <string name="cd_unlike">లైక్ తీసివేయి</string>
+
+    <!-- Reader options -->
+    <string name="reader_options_title">చదివే ఎంపికలు</string>
+    <string name="cd_reader_options">చదివే ఎంపికలు</string>
+    <string name="reader_scroll">స్క్రోలింగ్</string>
+    <string name="reader_scroll_paged">పేజీ వారీగా</string>
+    <string name="reader_scroll_vertical">నిరంతరంగా</string>
+    <string name="reader_background">పేజీ నేపథ్యం</string>
+    <string name="reader_background_default">డిఫాల్ట్</string>
+    <string name="reader_background_sepia">సెపియా</string>
+    <string name="reader_background_dark">డార్క్</string>
+    <string name="reader_keep_screen_on">స్క్రీన్ ఆన్‌లో ఉంచు</string>
+    <string name="reader_keep_screen_on_desc">మీరు చదువుతున్నప్పుడు స్క్రీన్ మసకబారదు, లాక్ అవ్వదు</string>
 </resources>

@@ -25,3 +25,10 @@ val NightOutline = Color(0xFF34343A)
 val ComicCaption = Color(0xFFFFE066)
 val ReadGreen = Color(0xFF2E7D32)
 val YouTubeRed = Color(0xFFFF0000)
+
+// Sepia reading background (reader only): warm paper, brown ink.
+val SepiaPaper = Color(0xFFF4ECD8)
+val SepiaSurface = Color(0xFFEADFC6)
+val SepiaInk = Color(0xFF3B2F22)
+val SepiaInkMuted = Color(0xFF6E5D48)
+val SepiaOutline = Color(0xFFCFC0A0)

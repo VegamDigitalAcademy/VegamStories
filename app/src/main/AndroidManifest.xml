@@ -39,6 +39,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Home screen widget: continue reading / today's new story. -->
+        <receiver
+            android:name=".presentation.widget.StoryWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/story_widget_info" />
+        </receiver>
+
         <!-- Remembers the in-app language on Android 7-12 (Android 13+ stores it in the system). -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

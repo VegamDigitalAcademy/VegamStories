@@ -3,19 +3,24 @@ package com.vegam.myapplication.presentation.reader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +36,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +57,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegam.myapplication.R
+import com.vegam.myapplication.domain.model.PageBackground
+import com.vegam.myapplication.domain.model.ReaderScrollMode
+import com.vegam.myapplication.domain.model.ReaderSettings
 import com.vegam.myapplication.domain.model.StoryDetail
 import com.vegam.myapplication.presentation.components.EmptyState
 import com.vegam.myapplication.presentation.components.LikeButton
@@ -53,6 +67,8 @@ import com.vegam.myapplication.presentation.components.LoadingBox
 import com.vegam.myapplication.presentation.preview.PreviewData
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @Composable
 fun ReaderScreen(
@@ -83,10 +99,13 @@ fun ReaderScreen(
         onToggleFavorite = viewModel::onToggleFavorite,
         onToggleDownload = viewModel::onToggleDownload,
         onOpenNextStory = onOpenNextStory,
+        onScrollModeChange = viewModel::onScrollModeChange,
+        onKeepScreenOnChange = viewModel::onKeepScreenOnChange,
+        onPageBackgroundChange = viewModel::onPageBackgroundChange,
     )
 }
 
-/** Stateless reader: loading, not-found, or the pager. Used by the screen and by previews. */
+/** Stateless reader: loading, not-found, or the pages. Used by the screen and by previews. */
 @Composable
 fun ReaderScreenContent(
     state: ReaderUiState,
@@ -95,32 +114,40 @@ fun ReaderScreenContent(
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenNextStory: (String) -> Unit,
+    onScrollModeChange: (ReaderScrollMode) -> Unit = {},
+    onKeepScreenOnChange: (Boolean) -> Unit = {},
+    onPageBackgroundChange: (PageBackground) -> Unit = {},
 ) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-    ) {
-        val detail = state.detail
-        when {
-            state.isLoading -> LoadingBox()
-            detail == null -> EmptyState(
-                icon = R.drawable.ic_info,
-                title = stringResource(R.string.story_not_found),
-                message = "",
-                action = { OutlinedButton(onClick = onBack) { Text(stringResource(R.string.back_to_stories)) } },
-            )
-            else -> ReaderContent(
-                state = state,
-                detail = detail,
-                onBack = onBack,
-                onPageChanged = onPageChanged,
-                onToggleFavorite = onToggleFavorite,
-                onToggleDownload = onToggleDownload,
-                onOpenNextStory = onOpenNextStory,
-            )
+    ReaderPageTheme(background = state.settings.pageBackground) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
+            val detail = state.detail
+            when {
+                state.isLoading -> LoadingBox()
+                detail == null -> EmptyState(
+                    icon = R.drawable.ic_info,
+                    title = stringResource(R.string.story_not_found),
+                    message = "",
+                    action = { OutlinedButton(onClick = onBack) { Text(stringResource(R.string.back_to_stories)) } },
+                )
+                else -> ReaderContent(
+                    state = state,
+                    detail = detail,
+                    onBack = onBack,
+                    onPageChanged = onPageChanged,
+                    onToggleFavorite = onToggleFavorite,
+                    onToggleDownload = onToggleDownload,
+                    onOpenNextStory = onOpenNextStory,
+                    onScrollModeChange = onScrollModeChange,
+                    onKeepScreenOnChange = onKeepScreenOnChange,
+                    onPageBackgroundChange = onPageBackgroundChange,
+                )
+            }
         }
     }
 }
@@ -134,15 +161,20 @@ private fun ReaderContent(
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenNextStory: (String) -> Unit,
+    onScrollModeChange: (ReaderScrollMode) -> Unit,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onPageBackgroundChange: (PageBackground) -> Unit,
 ) {
     val story = detail.story
-    val pagerState = rememberPagerState(initialPage = state.initialPage) { state.totalPagerPages }
-    val uriHandler = LocalUriHandler.current
-
-    // Persist progress whenever the visible page settles.
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { onPageChanged(it) }
+    // Lives above both readers, so switching paged ↔ vertical stays on the same page.
+    var currentPage by rememberSaveable { mutableIntStateOf(state.initialPage) }
+    var showOptions by rememberSaveable { mutableStateOf(false) }
+    val onPageSettled: (Int) -> Unit = { page ->
+        currentPage = page
+        onPageChanged(page) // Persist progress whenever the visible page settles.
     }
+
+    KeepScreenOn(enabled = state.settings.keepScreenOn)
 
     Column(Modifier.fillMaxSize()) {
         ReaderTopBar(
@@ -153,40 +185,186 @@ private fun ReaderContent(
             onBack = onBack,
             onToggleFavorite = onToggleFavorite,
             onToggleDownload = onToggleDownload,
+            onOpenOptions = { showOptions = true },
         )
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            beyondViewportPageCount = 1,
-        ) { index ->
+        val readerModifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+        val page: @Composable (index: Int, onContinue: () -> Unit) -> Unit = { index, onContinue ->
+            ReaderPage(
+                index = index,
+                state = state,
+                detail = detail,
+                // Paged mode shows comic pages edge to edge (see PagedReader); the strip keeps its frame.
+                edgeToEdge = state.settings.scrollMode == ReaderScrollMode.PAGED,
+                onContinue = onContinue,
+                onToggleFavorite = onToggleFavorite,
+                onOpenNextStory = onOpenNextStory,
+                onBack = onBack,
+            )
+        }
+        when (state.settings.scrollMode) {
+            ReaderScrollMode.PAGED -> PagedReader(
+                startPage = currentPage,
+                pageCount = state.totalPagerPages,
+                comicPageCount = detail.pages.size,
+                likePageIndex = state.likePageIndex,
+                onPageSettled = onPageSettled,
+                page = page,
+                modifier = readerModifier,
+            )
+            ReaderScrollMode.VERTICAL -> VerticalReader(
+                startPage = currentPage,
+                pageCount = state.totalPagerPages,
+                likePageIndex = state.likePageIndex,
+                onPageSettled = onPageSettled,
+                page = page,
+                modifier = readerModifier,
+            )
+        }
+        PageIndicator(currentPage = currentPage, pageCount = state.totalPagerPages)
+    }
+
+    if (showOptions) {
+        ReaderOptionsSheet(
+            settings = state.settings,
+            onScrollModeChange = onScrollModeChange,
+            onKeepScreenOnChange = onKeepScreenOnChange,
+            onPageBackgroundChange = onPageBackgroundChange,
+            onDismiss = { showOptions = false },
+        )
+    }
+}
+
+/**
+ * One page at a time, flipped sideways. Comic pages run edge to edge (no side padding) and sit
+ * in the middle of the screen when they are shorter than it, as on a tall phone; taller pages
+ * scroll vertically within their page. The like and video pages keep their normal padding.
+ */
+@Composable
+private fun PagedReader(
+    startPage: Int,
+    pageCount: Int,
+    comicPageCount: Int,
+    likePageIndex: Int,
+    onPageSettled: (Int) -> Unit,
+    page: @Composable (index: Int, onContinue: () -> Unit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagerState = rememberPagerState(initialPage = startPage) { pageCount }
+    val scope = rememberCoroutineScope()
+    val currentOnPageSettled by rememberUpdatedState(onPageSettled)
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { currentOnPageSettled(it) }
+    }
+
+    HorizontalPager(
+        state = pagerState,
+        modifier = modifier,
+        beyondViewportPageCount = 1,
+    ) { index ->
+        val isComic = index < comicPageCount
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val viewportHeight = maxHeight
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    // At least one screen tall, so a shorter page can be centred in it.
+                    .heightIn(min = viewportHeight)
+                    .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = 8.dp),
+                verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
             ) {
-                when {
-                    index < detail.pages.size -> {
-                        ComicPage(page = detail.pages[index], modifier = Modifier.fillMaxWidth())
-                        if (index == detail.pages.lastIndex) {
-                            EndOfStory(
-                                nextStoryId = state.nextStoryId,
-                                onOpenNextStory = onOpenNextStory,
-                                onBack = onBack,
-                            )
-                        }
-                    }
-                    index == state.likePageIndex -> LikeStoryPage(story = story, onToggleLike = onToggleFavorite)
-                    else -> story.video?.let { video ->
-                        // runCatching: no browser/YouTube app installed must not crash the reader.
-                        VideoPage(video = video, onWatch = { runCatching { uriHandler.openUri(video.videoUrl) } })
-                    }
-                }
+                page(index) { scope.launch { pagerState.animateScrollToPage(likePageIndex) } }
             }
         }
-        PageIndicator(pagerState = pagerState)
+    }
+}
+
+/** Every page in one continuous strip (webtoon style), followed by the like and video pages. */
+@Composable
+private fun VerticalReader(
+    startPage: Int,
+    pageCount: Int,
+    likePageIndex: Int,
+    onPageSettled: (Int) -> Unit,
+    page: @Composable (index: Int, onContinue: () -> Unit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = startPage)
+    val scope = rememberCoroutineScope()
+    val currentOnPageSettled by rememberUpdatedState(onPageSettled)
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.pageAtCenter() }
+            .distinctUntilChanged()
+            .collect { currentOnPageSettled(it) }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(count = pageCount) { index ->
+            Column(Modifier.fillMaxWidth()) {
+                page(index) { scope.launch { listState.animateScrollToItem(likePageIndex) } }
+            }
+        }
+    }
+}
+
+/**
+ * The page the reader is looking at: the one under the middle of the screen, or the last
+ * one once the strip can't scroll any further (a short final page never reaches the middle).
+ */
+private fun LazyListState.pageAtCenter(): Int {
+    val info = layoutInfo
+    val visible = info.visibleItemsInfo
+    if (visible.isEmpty()) return firstVisibleItemIndex
+    if (!canScrollForward) return visible.last().index
+    val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
+    return visible.firstOrNull { it.offset <= center && it.offset + it.size > center }?.index
+        ?: firstVisibleItemIndex
+}
+
+/** What goes on page [index]: a comic page, the like page, or the video page. */
+@Composable
+private fun ReaderPage(
+    index: Int,
+    state: ReaderUiState,
+    detail: StoryDetail,
+    edgeToEdge: Boolean,
+    onContinue: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onOpenNextStory: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val uriHandler = LocalUriHandler.current
+    when {
+        index < detail.pages.size -> {
+            ComicPage(page = detail.pages[index], modifier = Modifier.fillMaxWidth(), framed = !edgeToEdge)
+            if (index == detail.pages.lastIndex) {
+                // The like page comes next; it also offers the next episode.
+                EndOfStory(
+                    onContinue = onContinue,
+                    modifier = Modifier.padding(horizontal = if (edgeToEdge) 16.dp else 0.dp),
+                )
+            }
+        }
+        index == state.likePageIndex -> LikeStoryPage(
+            story = detail.story,
+            nextStory = state.nextStory,
+            onToggleLike = onToggleFavorite,
+            onOpenNextStory = onOpenNextStory,
+            onBack = onBack,
+        )
+        else -> detail.story.video?.let { video ->
+            // runCatching: no browser/YouTube app installed must not crash the reader.
+            VideoPage(video = video, onWatch = { runCatching { uriHandler.openUri(video.videoUrl) } })
+        }
     }
 }
 
@@ -199,6 +377,7 @@ private fun ReaderTopBar(
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
+    onOpenOptions: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -228,6 +407,14 @@ private fun ReaderTopBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        IconButton(onClick = onOpenOptions) {
+            Icon(
+                painter = painterResource(R.drawable.ic_tune),
+                contentDescription = stringResource(R.string.cd_reader_options),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp),
+            )
+        }
         IconButton(onClick = onToggleDownload) {
             Icon(
                 painter = painterResource(if (isDownloaded) R.drawable.ic_download_done else R.drawable.ic_download),
@@ -241,13 +428,9 @@ private fun ReaderTopBar(
 }
 
 @Composable
-private fun EndOfStory(
-    nextStoryId: String?,
-    onOpenNextStory: (String) -> Unit,
-    onBack: () -> Unit,
-) {
+private fun EndOfStory(onContinue: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -263,19 +446,15 @@ private fun EndOfStory(
                 .background(Color.Black)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
         )
-        if (nextStoryId != null) {
-            Button(
-                onClick = { onOpenNextStory(nextStoryId) },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            ) { Text(stringResource(R.string.next_story)) }
-        } else {
-            OutlinedButton(onClick = onBack) { Text(stringResource(R.string.back_to_stories)) }
-        }
+        Button(
+            onClick = onContinue,
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        ) { Text(stringResource(R.string.continue_action)) }
     }
 }
 
 @Composable
-private fun PageIndicator(pagerState: PagerState) {
+private fun PageIndicator(currentPage: Int, pageCount: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -283,8 +462,8 @@ private fun PageIndicator(pagerState: PagerState) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(pagerState.pageCount) { i ->
-                val selected = i == pagerState.currentPage
+            repeat(pageCount) { i ->
+                val selected = i == currentPage
                 Box(
                     Modifier
                         .size(width = if (selected) 18.dp else 6.dp, height = 6.dp)
@@ -297,7 +476,7 @@ private fun PageIndicator(pagerState: PagerState) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = stringResource(R.string.page_of, pagerState.currentPage + 1, pagerState.pageCount),
+            text = stringResource(R.string.page_of, currentPage + 1, pageCount),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -312,7 +491,7 @@ private val previewDetail = PreviewData.storyDetail
 @Composable
 private fun ReaderFirstPagePreview() = PreviewTheme {
     ReaderScreenContent(
-        state = ReaderUiState(isLoading = false, detail = previewDetail, nextStoryId = "moral-2"),
+        state = ReaderUiState(isLoading = false, detail = previewDetail, nextStory = PreviewData.story(index = 1)),
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
     )
 }
@@ -324,7 +503,7 @@ private fun ReaderLastPagePreview() = PreviewTheme {
         state = ReaderUiState(
             isLoading = false,
             detail = previewDetail,
-            nextStoryId = "moral-2",
+            nextStory = PreviewData.story(index = 1),
             initialPage = previewDetail.pages.lastIndex,
         ),
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
@@ -338,6 +517,7 @@ private fun ReaderLikePagePreview() = PreviewTheme {
         state = ReaderUiState(
             isLoading = false,
             detail = previewDetail,
+            nextStory = PreviewData.story(index = 1),
             initialPage = previewDetail.pages.size, // the page after the comic = "Did you like it?"
         ),
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
@@ -374,3 +554,32 @@ private fun ReaderNotFoundPreview() = PreviewTheme {
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
     )
 }
+
+@ScreenPreviews
+@Composable
+private fun ReaderVerticalSepiaPreview() = PreviewTheme {
+    ReaderScreenContent(
+        state = ReaderUiState(
+            isLoading = false,
+            detail = previewDetail,
+            settings = ReaderSettings(scrollMode = ReaderScrollMode.VERTICAL, pageBackground = PageBackground.SEPIA),
+        ),
+        onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
+    )
+}
+
+@ScreenPreviews
+@Composable
+private fun ReaderDarkPagePreview() = PreviewTheme {
+    ReaderScreenContent(
+        state = ReaderUiState(
+            isLoading = false,
+            detail = previewDetail,
+            nextStory = PreviewData.story(index = 1),
+            initialPage = previewDetail.pages.size,
+            settings = ReaderSettings(pageBackground = PageBackground.DARK),
+        ),
+        onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
+    )
+}
+

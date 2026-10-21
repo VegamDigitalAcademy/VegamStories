@@ -84,7 +84,7 @@ fun VegamNavHost(
         }
     }
 
-    // App opened from an app-icon shortcut. Runs after NavHost has set the graph.
+    // App opened from an app-icon shortcut or the widget. Runs after NavHost has set the graph.
     LaunchedEffect(shortcutTarget) {
         when (shortcutTarget) {
             is ShortcutTarget.Category -> navController.navigate(HomeRoute(shortcutTarget.categoryId)) {
@@ -92,6 +92,10 @@ fun VegamNavHost(
                 popUpTo(navController.graph.id) { inclusive = true }
             }
             ShortcutTarget.Search -> navController.navigate(SearchRoute) { launchSingleTop = true }
+            // From the widget: the story over Home, so Back lands on Home.
+            is ShortcutTarget.Story -> navController.navigate(ReaderRoute(shortcutTarget.storyId)) {
+                popUpTo(navController.graph.findStartDestination().id)
+            }
             null -> return@LaunchedEffect
         }
         onShortcutHandled()

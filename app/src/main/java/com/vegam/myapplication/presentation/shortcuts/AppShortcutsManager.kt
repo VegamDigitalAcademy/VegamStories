@@ -39,7 +39,8 @@ class AppShortcutsManager @Inject constructor(
 
     /** Call when the user opens a shortcut; launchers use this to rank shortcuts. */
     fun reportUsed(target: ShortcutTarget) {
-        ShortcutManagerCompat.reportShortcutUsed(context, target.shortcutId())
+        val id = target.shortcutIdOrNull() ?: return
+        ShortcutManagerCompat.reportShortcutUsed(context, id)
     }
 
     private fun publish(categories: List<Category>) {
@@ -74,7 +75,13 @@ class AppShortcutsManager @Inject constructor(
     }
 }
 
-private fun ShortcutTarget.shortcutId(): String = when (this) {
-    is ShortcutTarget.Category -> "category_$categoryId"
-    ShortcutTarget.Search -> "search"
+private fun ShortcutTarget.Category.shortcutId(): String = "category_$categoryId"
+
+private fun ShortcutTarget.Search.shortcutId(): String = "search"
+
+/** null for widget taps, which aren't launcher shortcuts. */
+private fun ShortcutTarget.shortcutIdOrNull(): String? = when (this) {
+    is ShortcutTarget.Category -> shortcutId()
+    ShortcutTarget.Search -> ShortcutTarget.Search.shortcutId()
+    is ShortcutTarget.Story -> null
 }

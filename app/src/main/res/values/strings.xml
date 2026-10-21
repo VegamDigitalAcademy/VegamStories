@@ -116,6 +116,30 @@
         <item quantity="one">%s like</item>
         <item quantity="other">%s likes</item>
     </plurals>
+    <string name="next_episode_label">NEXT EPISODE</string>
+    <string name="read_action">Read</string>
+    <string name="skip_to_next_story">Skip to the next story</string>
+    <string name="all_episodes_read">You\'ve reached the latest episode in this series.</string>
     <string name="cd_like">Like</string>
+
+    <!-- Home screen widget -->
+    <string name="widget_name">Continue reading</string>
+    <string name="widget_description">Pick up where you left off, or read today\'s new story.</string>
+    <string name="widget_new_today">TODAY\'S NEW STORY</string>
+    <string name="widget_latest">LATEST STORY</string>
+    <string name="widget_empty">Open the app to load stories</string>
     <string name="cd_unlike">Unlike</string>
+
+    <!-- Reader options -->
+    <string name="reader_options_title">Reading options</string>
+    <string name="cd_reader_options">Reading options</string>
+    <string name="reader_scroll">Scrolling</string>
+    <string name="reader_scroll_paged">Page by page</string>
+    <string name="reader_scroll_vertical">Continuous</string>
+    <string name="reader_background">Page background</string>
+    <string name="reader_background_default">Default</string>
+    <string name="reader_background_sepia">Sepia</string>
+    <string name="reader_background_dark">Dark</string>
+    <string name="reader_keep_screen_on">Keep screen on</string>
+    <string name="reader_keep_screen_on_desc">The screen won\'t dim or lock while you read</string>
 </resources>
