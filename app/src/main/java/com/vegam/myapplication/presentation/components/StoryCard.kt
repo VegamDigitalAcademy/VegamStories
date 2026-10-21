@@ -14,10 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,10 +26,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vegam.myapplication.R
+import com.vegam.myapplication.core.util.toCompactCount
 import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewData
@@ -122,20 +124,38 @@ fun StoryCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            FavoriteButton(isFavorite = story.isFavorite, onClick = onToggleFavorite)
+            FavoriteButton(isFavorite = story.isFavorite, likeCount = story.likeCount, onClick = onToggleFavorite)
         }
     }
 }
 
+/** The heart (this device's like) with everyone's like count next to it, e.g. ♥ 1.2K. */
 @Composable
-fun FavoriteButton(isFavorite: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    IconButton(onClick = onClick, modifier = modifier) {
+fun FavoriteButton(isFavorite: Boolean, likeCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .clip(RoundedCornerShape(50))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Icon(
             painter = painterResource(if (isFavorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
             contentDescription = stringResource(R.string.cd_favorite),
-            tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = tint,
             modifier = Modifier.size(20.dp),
         )
+        if (likeCount > 0) {
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = likeCount.toCompactCount(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = tint,
+            )
+        }
     }
 }
 

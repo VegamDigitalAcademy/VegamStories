@@ -8,8 +8,10 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
+import com.vegam.myapplication.core.logging.LineNumberDebugTree
 import com.vegam.myapplication.presentation.shortcuts.AppShortcutsManager
 import dagger.hilt.android.HiltAndroidApp
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -19,6 +21,8 @@ class VegamStoriesApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // Logs only in debug builds; release builds plant nothing, so Timber calls are free no-ops.
+        if (BuildConfig.DEBUG) Timber.plant(LineNumberDebugTree())
         // Long-press-on-icon menu: keeps category shortcuts in sync with the database.
         appShortcutsManager.start()
     }

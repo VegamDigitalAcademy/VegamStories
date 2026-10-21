@@ -1,0 +1,30 @@
+{
+  // Cloudflare Worker for the Vegam Stories admin site.
+  // Deploy: npx wrangler deploy        (see README.md for the one-time setup)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vegam-admin",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+
+  // The admin page (HTML/CSS/JS). Requests that aren't files (e.g. /api/...) go to the Worker.
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+
+  // Your existing image bucket. The Worker writes to it directly, no R2 keys needed.
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "vegam-stories" }],
+
+  // Only reachable on your own domain (protected by Cloudflare Access), never on *.workers.dev.
+  "routes": [{ "pattern": "admin.vegamstories.com", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+
+  "vars": {
+    "SUPABASE_URL": "https://bvqsocnowuguvzlwwopn.supabase.co",
+    "MEDIA_BASE_URL": "https://media.vegamstories.com",
+    // Comma-separated list of people allowed to edit stories.
+    "ADMIN_EMAILS": "admin@vegamstories.com",
+    // Filled in during setup (README step 4): your Zero Trust team domain and the Access app's AUD tag.
+    "ACCESS_TEAM_DOMAIN": "https://damp-pond-6ecd.cloudflareaccess.com",
+    "ACCESS_AUD": "53d55abcb6e1790c227ba97bde8b8104ccd054cf0c3eb32bf44849c4dc45abfe"
+  }
+  // Secret (not in this file): SUPABASE_SERVICE_ROLE_KEY → npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+}

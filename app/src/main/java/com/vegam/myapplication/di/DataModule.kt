@@ -1,19 +1,20 @@
 package com.vegam.myapplication.di
 
 import com.vegam.myapplication.BuildConfig
+import com.vegam.myapplication.data.remote.datasource.FakeLikeRemoteDataSource
 import com.vegam.myapplication.data.remote.datasource.FakeStoryRemoteDataSource
+import com.vegam.myapplication.data.remote.datasource.LikeRemoteDataSource
+import com.vegam.myapplication.data.remote.datasource.NetworkLikeRemoteDataSource
 import com.vegam.myapplication.data.remote.datasource.NetworkStoryRemoteDataSource
 import com.vegam.myapplication.data.remote.datasource.StoryRemoteDataSource
 import com.vegam.myapplication.data.repository.LibraryRepositoryImpl
 import com.vegam.myapplication.data.repository.StoryRepositoryImpl
 import com.vegam.myapplication.data.settings.AppCompatLanguageRepository
 import com.vegam.myapplication.data.settings.SettingsRepositoryImpl
-import com.vegam.myapplication.data.tts.AndroidStoryNarrator
 import com.vegam.myapplication.domain.repository.LanguageRepository
 import com.vegam.myapplication.domain.repository.LibraryRepository
 import com.vegam.myapplication.domain.repository.SettingsRepository
 import com.vegam.myapplication.domain.repository.StoryRepository
-import com.vegam.myapplication.domain.service.StoryNarrator
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -40,10 +41,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindStoryNarrator(impl: AndroidStoryNarrator): StoryNarrator
-
-    @Binds
-    @Singleton
     abstract fun bindLanguageRepository(impl: AppCompatLanguageRepository): LanguageRepository
 }
 
@@ -62,4 +59,11 @@ object DataModule {
         fake: Provider<FakeStoryRemoteDataSource>,
         network: Provider<NetworkStoryRemoteDataSource>,
     ): StoryRemoteDataSource = if (BuildConfig.USE_FAKE_BACKEND) fake.get() else network.get()
+
+    @Provides
+    @Singleton
+    fun provideLikeRemoteDataSource(
+        fake: Provider<FakeLikeRemoteDataSource>,
+        network: Provider<NetworkLikeRemoteDataSource>,
+    ): LikeRemoteDataSource = if (BuildConfig.USE_FAKE_BACKEND) fake.get() else network.get()
 }

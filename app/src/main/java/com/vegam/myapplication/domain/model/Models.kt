@@ -22,7 +22,9 @@ data class Story(
     val pageCount: Int,
     val publishedAt: Long,
     val video: StoryVideo?,
+    /** The heart: [isFavorite] is this device's like, [likeCount] is everyone's. */
     val isFavorite: Boolean,
+    val likeCount: Int,
     val isDownloaded: Boolean,
     val progress: ReadingProgress?,
 ) {
@@ -35,16 +37,10 @@ data class StoryDetail(
     val pages: List<StoryPage>,
 )
 
+/** One finished comic page: a single image that already contains the panels, captions and speech bubbles. */
 data class StoryPage(
     val index: Int,
-    val panels: List<Panel>,
-)
-
-/** One comic frame: an illustration plus optional narration caption and speech bubbles. */
-data class Panel(
     val imageUrl: String,
-    val caption: String?,
-    val dialogues: List<String>,
 )
 
 data class StoryVideo(

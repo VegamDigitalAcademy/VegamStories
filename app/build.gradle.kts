@@ -94,6 +94,9 @@ dependencies {
     // In-app language switch (English / Telugu)
     implementation(libs.androidx.appcompat)
 
+    // Logging
+    implementation(libs.timber)
+
     // Settings (theme choice)
     implementation(libs.androidx.datastore.preferences)
 

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vegam Stories Admin</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">వ</span>
+        <span class="brand-name">Vegam Stories <span class="muted">Admin</span></span>
+      </div>
+      <div class="topbar-right">
+        <span id="whoami" class="muted small"></span>
+        <button id="newStoryBtn" class="btn primary">+ New story</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- Story list -->
+      <aside class="sidebar">
+        <input id="searchInput" class="input" type="search" placeholder="Search stories…" />
+        <div id="storyList" class="story-list"><p class="muted small pad">Loading…</p></div>
+      </aside>
+
+      <!-- Editor -->
+      <main class="editor" id="editor">
+        <div class="empty-state" id="emptyState">
+          <span class="logo big">వ</span>
+          <h2>Pick a story on the left, or create a new one</h2>
+          <p class="muted">Images are resized and converted to WebP automatically, then uploaded to R2. The text
+            goes to Supabase. Nothing reaches the app until you switch on <b>Published</b>.</p>
+        </div>
+
+        <form id="storyForm" class="hidden" autocomplete="off">
+          <div class="editor-head">
+            <h1 id="editorTitle">New story</h1>
+            <label class="switch">
+              <input type="checkbox" id="publishedInput" />
+              <span class="slider"></span>
+              <span id="publishedLabel">Draft</span>
+            </label>
+          </div>
+
+          <!-- 1. Details -->
+          <section class="card">
+            <h3>Story details</h3>
+            <div class="grid">
+              <label class="field">
+                <span>Category</span>
+                <div class="row">
+                  <select id="categoryInput" class="input" required></select>
+                  <button type="button" id="addCategoryBtn" class="btn ghost small-btn" title="Add category">+</button>
+                </div>
+              </label>
+              <label class="field">
+                <span>Episode</span>
+                <input id="episodeInput" class="input" type="number" min="1" step="1" required />
+              </label>
+              <label class="field">
+                <span>Story id <em class="muted">(used in image links, can't change after saving)</em></span>
+                <input id="idInput" class="input mono" pattern="[a-z0-9]+(-[a-z0-9]+)*" required />
+              </label>
+              <label class="field">
+                <span>Publish date</span>
+                <input id="publishedAtInput" class="input" type="datetime-local" />
+              </label>
+              <label class="field wide">
+                <span>Title</span>
+                <input id="titleInput" class="input te" required placeholder="నిజాయితీ బహుమతి" />
+              </label>
+              <label class="field wide">
+                <span>Summary</span>
+                <textarea id="summaryInput" class="input te" rows="2" placeholder="పిల్లల కోసం చక్కని నీతి కథ."></textarea>
+              </label>
+            </div>
+          </section>
+
+          <!-- 2. Cover & video -->
+          <section class="card">
+            <h3>Cover &amp; video</h3>
+            <div class="media-row">
+              <div>
+                <div class="label">Cover <span class="muted">(480×640)</span></div>
+                <div id="coverDrop" class="drop portrait"></div>
+              </div>
+              <div class="grow">
+                <div class="grid">
+                  <label class="field wide">
+                    <span>YouTube link <em class="muted">(optional, plays inside the app)</em></span>
+                    <input id="videoUrlInput" class="input" placeholder="https://youtu.be/…" />
+                  </label>
+                  <label class="field wide">
+                    <span>Video title</span>
+                    <input id="videoTitleInput" class="input te" />
+                  </label>
+                  <label class="field wide">
+                    <span>Video description</span>
+                    <textarea id="videoDescInput" class="input te" rows="2"></textarea>
+                  </label>
+                </div>
+                <div class="label">Video thumbnail <span class="muted">(960×540, needed when there's a video)</span></div>
+                <div id="thumbDrop" class="drop wide-drop"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 3. Pages -->
+          <section class="card">
+            <div class="card-head">
+              <h3>Pages</h3>
+              <span class="muted small">One finished image per page (panels and speech bubbles already in the picture).
+                Drop several on “+ Add pages” — they're ordered by file name. Click an image to replace it.</span>
+            </div>
+            <div id="pagesContainer" class="pages-grid"></div>
+          </section>
+
+          <div class="spacer"></div>
+        </form>
+      </main>
+
+      <!-- Preview -->
+      <aside class="preview hidden" id="previewPane">
+        <div class="preview-head">
+          <span class="label">App preview</span>
+          <div class="row">
+            <button type="button" class="btn ghost small-btn" id="prevPageBtn">‹</button>
+            <span id="previewPageLabel" class="small"></span>
+            <button type="button" class="btn ghost small-btn" id="nextPageBtn">›</button>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-bar"><span class="pill">VEGAM</span><span id="previewTitle" class="te ellipsis"></span></div>
+          <div id="previewPage" class="comic"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom action bar -->
+    <footer class="actions hidden" id="actionBar">
+      <span id="statusText" class="muted small"></span>
+      <div class="row">
+        <button type="button" id="deleteBtn" class="btn danger-ghost">Delete story</button>
+        <button type="button" id="saveBtn" class="btn primary">Save</button>
+      </div>
+    </footer>
+
+    <!-- New category dialog -->
+    <dialog id="categoryDialog" class="dialog">
+      <form method="dialog" id="categoryForm">
+        <h3>New category</h3>
+        <label class="field"><span>Id</span><input id="newCatId" class="input mono" placeholder="folk" required /></label>
+        <label class="field"><span>Name</span><input id="newCatName" class="input te" placeholder="జానపద కథలు" required /></label>
+        <label class="field"><span>Order</span><input id="newCatOrder" class="input" type="number" value="0" /></label>
+        <div class="row end">
+          <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
+          <button value="ok" class="btn primary">Add</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

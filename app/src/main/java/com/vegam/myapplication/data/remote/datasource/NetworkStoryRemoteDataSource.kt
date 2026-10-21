@@ -35,7 +35,7 @@ class NetworkStoryRemoteDataSource @Inject constructor(
         summary = summary,
         coverUrl = coverUrl,
         publishedAt = parseSupabaseTimestamp(publishedAt),
-        pages = pages.sortedBy { it.pageIndex }.map { PageDto(panels = it.panels) },
+        pages = pages.sortedBy { it.pageIndex }.map { PageDto(imageUrl = it.imageUrl) },
         video = if (videoUrl != null && videoThumbnailUrl != null) {
             VideoDto(
                 title = videoTitle.orEmpty(),
@@ -46,6 +46,7 @@ class NetworkStoryRemoteDataSource @Inject constructor(
         } else {
             null
         },
+        likeCount = likeCount,
     )
 }
 

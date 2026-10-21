@@ -3,7 +3,6 @@ package com.vegam.myapplication.data.remote.datasource
 import com.vegam.myapplication.data.remote.dto.CategoryDto
 import com.vegam.myapplication.data.remote.dto.FeedResponseDto
 import com.vegam.myapplication.data.remote.dto.PageDto
-import com.vegam.myapplication.data.remote.dto.PanelDto
 import com.vegam.myapplication.data.remote.dto.StoryDto
 import com.vegam.myapplication.data.remote.dto.VideoDto
 import com.vegam.myapplication.di.IoDispatcher
@@ -18,6 +17,7 @@ import javax.inject.Inject
  */
 class FakeStoryRemoteDataSource @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val likes: FakeLikeRemoteDataSource,
 ) : StoryRemoteDataSource {
 
     override suspend fun fetchFeed(): FeedResponseDto = withContext(ioDispatcher) {
@@ -25,7 +25,7 @@ class FakeStoryRemoteDataSource @Inject constructor(
         FeedResponseDto(categories = categories, stories = buildStories())
     }
 
-    private fun buildStories(): List<StoryDto> {
+    private suspend fun buildStories(): List<StoryDto> {
         val stories = mutableListOf<StoryDto>()
         var globalIndex = 0
         categories.forEach { category ->
@@ -44,6 +44,7 @@ class FakeStoryRemoteDataSource @Inject constructor(
                     publishedAt = BASE_TIME - (episode * categories.size + category.sortOrder) * HOUR_MS * 6,
                     pages = buildPages(id, seed = globalIndex),
                     video = if (episode % 2 == 1) buildVideo(id, title) else null,
+                    likeCount = likes.countFor(id),
                 )
                 globalIndex++
             }
@@ -51,21 +52,10 @@ class FakeStoryRemoteDataSource @Inject constructor(
         return stories
     }
 
+    /** 3–4 finished page images per story (portrait, like a real comic page). */
     private fun buildPages(storyId: String, seed: Int): List<PageDto> {
-        val pageCount = 3 + seed % 2 // 3 or 4 pages
-        return List(pageCount) { pageIndex ->
-            val panelCount = panelPattern[(seed + pageIndex) % panelPattern.size]
-            PageDto(
-                panels = List(panelCount) { panelIndex ->
-                    val n = seed * 7 + pageIndex * 3 + panelIndex
-                    PanelDto(
-                        imageUrl = image("$storyId-p$pageIndex-$panelIndex", 800, 600),
-                        caption = if (panelIndex == 0) captions[(pageIndex).coerceAtMost(captions.lastIndex)] else null,
-                        dialogues = if (n % 3 == 2) emptyList() else listOf(dialogues[n % dialogues.size]),
-                    )
-                },
-            )
-        }
+        val pageCount = 3 + seed % 2
+        return List(pageCount) { pageIndex -> PageDto(imageUrl = image("$storyId-page$pageIndex", 900, 1200)) }
     }
 
     private fun buildVideo(storyId: String, title: String) = VideoDto(
@@ -83,8 +73,6 @@ class FakeStoryRemoteDataSource @Inject constructor(
         const val NETWORK_DELAY_MS = 800L
         const val HOUR_MS = 60L * 60L * 1000L
         const val BASE_TIME = 1_760_000_000_000L
-
-        val panelPattern = listOf(4, 3, 5, 4)
 
         val categories = listOf(
             CategoryDto(id = "moral", name = "నీతి కథలు", sortOrder = 0),
@@ -110,21 +98,6 @@ class FakeStoryRemoteDataSource @Inject constructor(
                 "అద్భుత దీపం", "మాయా చెట్టు", "చందమామ కథ", "రాకుమారి సాహసం",
                 "మాట్లాడే చిలుక", "బంగారు చేప", "ఏడు సముద్రాలు", "దేవలోక యాత్ర",
             ),
-        )
-
-        val captions = listOf("ఒక ఊరిలో...", "కొంత సేపటి తర్వాత...", "మరుసటి రోజు...", "చివరికి...")
-
-        val dialogues = listOf(
-            "నమస్తే మిత్రమా!",
-            "ఈ రోజు ఎంత అందంగా ఉంది!",
-            "నాకు ఒక సహాయం కావాలి.",
-            "తప్పకుండా చేస్తాను.",
-            "నిజం ఎప్పుడూ గెలుస్తుంది.",
-            "కష్టపడితే ఫలితం దక్కుతుంది.",
-            "ఏమైంది? ఎందుకు బాధగా ఉన్నావు?",
-            "నాతో రా, చూపిస్తాను.",
-            "చాలా ధన్యవాదాలు!",
-            "జాగ్రత్తగా ఆలోచించాలి.",
         )
     }
 }

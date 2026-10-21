@@ -31,18 +31,13 @@ data class StoryDto(
     @SerialName("published_at") val publishedAt: Long,
     @SerialName("pages") val pages: List<PageDto> = emptyList(),
     @SerialName("video") val video: VideoDto? = null,
+    @SerialName("like_count") val likeCount: Int = 0,
 )
 
+/** One finished comic page image. */
 @Serializable
 data class PageDto(
-    @SerialName("panels") val panels: List<PanelDto>,
-)
-
-@Serializable
-data class PanelDto(
     @SerialName("image_url") val imageUrl: String,
-    @SerialName("caption") val caption: String? = null,
-    @SerialName("dialogues") val dialogues: List<String> = emptyList(),
 )
 
 @Serializable

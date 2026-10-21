@@ -1,7 +1,5 @@
 package com.vegam.myapplication.presentation.reader
 
-import android.content.Intent
-import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -31,19 +28,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -52,11 +44,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegam.myapplication.R
-import com.vegam.myapplication.domain.model.NarrationError
 import com.vegam.myapplication.domain.model.StoryDetail
 import com.vegam.myapplication.presentation.components.EmptyState
 import com.vegam.myapplication.presentation.components.FavoriteButton
@@ -78,26 +67,13 @@ fun ReaderScreen(
     val favRemoved = stringResource(R.string.removed_from_favorites)
     val dlAdded = stringResource(R.string.download_started)
     val dlRemoved = stringResource(R.string.download_removed)
-    val ttsUnavailable = stringResource(R.string.tts_unavailable)
-    var showVoiceMissingDialog by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel) {
         viewModel.eventFlow.collect { event ->
             when (event) {
                 is ReaderEvent.FavoriteChanged -> onShowMessage(if (event.isFavorite) favAdded else favRemoved)
                 is ReaderEvent.DownloadChanged -> onShowMessage(if (event.isDownloaded) dlAdded else dlRemoved)
-                is ReaderEvent.NarrationFailed -> when (event.reason) {
-                    NarrationError.LANGUAGE_NOT_INSTALLED -> showVoiceMissingDialog = true
-                    NarrationError.ENGINE_UNAVAILABLE -> onShowMessage(ttsUnavailable)
-                }
             }
         }
-    }
-
-    // Stop talking when the app goes to the background or the screen turns off.
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.stopNarration() }
-
-    if (showVoiceMissingDialog) {
-        VoiceMissingDialog(onDismiss = { showVoiceMissingDialog = false })
     }
 
     ReaderScreenContent(
@@ -107,7 +83,6 @@ fun ReaderScreen(
         onToggleFavorite = viewModel::onToggleFavorite,
         onToggleDownload = viewModel::onToggleDownload,
         onOpenNextStory = onOpenNextStory,
-        onToggleNarration = viewModel::onToggleNarration,
     )
 }
 
@@ -120,8 +95,6 @@ fun ReaderScreenContent(
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenNextStory: (String) -> Unit,
-    /** Speaker button; receives the page currently on screen. */
-    onToggleNarration: (Int) -> Unit = {},
 ) {
     Box(
         Modifier
@@ -147,7 +120,6 @@ fun ReaderScreenContent(
                 onToggleFavorite = onToggleFavorite,
                 onToggleDownload = onToggleDownload,
                 onOpenNextStory = onOpenNextStory,
-                onToggleNarration = onToggleNarration,
             )
         }
     }
@@ -162,7 +134,6 @@ private fun ReaderContent(
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenNextStory: (String) -> Unit,
-    onToggleNarration: (Int) -> Unit,
 ) {
     val story = detail.story
     val pagerState = rememberPagerState(initialPage = state.initialPage) { state.totalPagerPages }
@@ -173,24 +144,15 @@ private fun ReaderContent(
         snapshotFlow { pagerState.currentPage }.collect { onPageChanged(it) }
     }
 
-    // Read-aloud moved to the next page → turn the page for the child.
-    val narratedPage = state.narration.page
-    LaunchedEffect(narratedPage) {
-        if (narratedPage != null && narratedPage != pagerState.currentPage) {
-            pagerState.animateScrollToPage(narratedPage)
-        }
-    }
-
     Column(Modifier.fillMaxSize()) {
         ReaderTopBar(
             title = story.title,
             isFavorite = story.isFavorite,
+            likeCount = story.likeCount,
             isDownloaded = story.isDownloaded,
-            isNarrating = state.narration.isActive,
             onBack = onBack,
             onToggleFavorite = onToggleFavorite,
             onToggleDownload = onToggleDownload,
-            onToggleNarration = { onToggleNarration(pagerState.currentPage) },
         )
         HorizontalPager(
             state = pagerState,
@@ -206,11 +168,7 @@ private fun ReaderContent(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 if (index < detail.pages.size) {
-                    ComicPage(
-                        page = detail.pages[index],
-                        activePanelIndex = state.narration.panelIndex.takeIf { state.narration.page == index },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    ComicPage(page = detail.pages[index], modifier = Modifier.fillMaxWidth())
                     if (index == detail.pages.lastIndex) {
                         EndOfStory(
                             nextStoryId = state.nextStoryId,
@@ -234,12 +192,11 @@ private fun ReaderContent(
 private fun ReaderTopBar(
     title: String,
     isFavorite: Boolean,
+    likeCount: Int,
     isDownloaded: Boolean,
-    isNarrating: Boolean,
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
-    onToggleNarration: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -269,14 +226,6 @@ private fun ReaderTopBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = onToggleNarration) {
-            Icon(
-                painter = painterResource(if (isNarrating) R.drawable.ic_stop else R.drawable.ic_volume_up),
-                contentDescription = stringResource(if (isNarrating) R.string.cd_stop_reading else R.string.cd_read_aloud),
-                tint = if (isNarrating) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp),
-            )
-        }
         IconButton(onClick = onToggleDownload) {
             Icon(
                 painter = painterResource(if (isDownloaded) R.drawable.ic_download_done else R.drawable.ic_download),
@@ -285,7 +234,7 @@ private fun ReaderTopBar(
                 modifier = Modifier.size(22.dp),
             )
         }
-        FavoriteButton(isFavorite = isFavorite, onClick = onToggleFavorite)
+        FavoriteButton(isFavorite = isFavorite, likeCount = likeCount, onClick = onToggleFavorite)
     }
 }
 
@@ -353,34 +302,6 @@ private fun PageIndicator(pagerState: PagerState) {
     }
 }
 
-/** Shown when the phone's voice engine has no Telugu voice yet. */
-@Composable
-private fun VoiceMissingDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tts_voice_missing_title)) },
-        text = { Text(stringResource(R.string.tts_voice_missing_message)) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onDismiss()
-                    // Opens the engine's "install voice data" screen; falls back to TTS settings.
-                    val install = Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    val settings = Intent("com.android.settings.TTS_SETTINGS")
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    runCatching { context.startActivity(install) }
-                        .onFailure { runCatching { context.startActivity(settings) } }
-                },
-            ) { Text(stringResource(R.string.tts_download_voice)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        },
-    )
-}
-
 // ---------------- Previews ----------------
 
 private val previewDetail = PreviewData.storyDetail
@@ -435,19 +356,6 @@ private fun ReaderLoadingPreview() = PreviewTheme {
 private fun ReaderNotFoundPreview() = PreviewTheme {
     ReaderScreenContent(
         state = ReaderUiState(isLoading = false, detail = null),
-        onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
-    )
-}
-
-@ScreenPreviews
-@Composable
-private fun ReaderReadingAloudPreview() = PreviewTheme {
-    ReaderScreenContent(
-        state = ReaderUiState(
-            isLoading = false,
-            detail = previewDetail,
-            narration = NarrationUiState(isActive = true, page = 0, panelIndex = 1),
-        ),
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
     )
 }

@@ -36,14 +36,6 @@
     <string name="download_started">ఆఫ్‌లైన్‌లో చదవడానికి సేవ్ చేయబడింది</string>
     <string name="download_removed">డౌన్‌లోడ్‌ల నుండి తీసివేయబడింది</string>
 
-    <!-- Read aloud -->
-    <string name="cd_read_aloud">చదివి వినిపించు</string>
-    <string name="cd_stop_reading">చదవడం ఆపు</string>
-    <string name="tts_voice_missing_title">తెలుగు వాయిస్ ఇన్‌స్టాల్ కాలేదు</string>
-    <string name="tts_voice_missing_message">కథలను చదివి వినిపించడానికి, మీ ఫోన్ టెక్స్ట్-టు-స్పీచ్ కోసం తెలుగు వాయిస్‌ను డౌన్‌లోడ్ చేయండి. ఇది ఉచితం, ఒక్కసారి చేస్తే చాలు.</string>
-    <string name="tts_download_voice">వాయిస్ డౌన్‌లోడ్ చేయండి</string>
-    <string name="tts_unavailable">ఈ ఫోన్‌లో చదివి వినిపించడం అందుబాటులో లేదు</string>
-    <string name="cancel">రద్దు చేయి</string>
 
     <!-- Library screens -->
     <string name="favorites_empty_title">ఇంకా ఇష్టమైనవి లేవు</string>

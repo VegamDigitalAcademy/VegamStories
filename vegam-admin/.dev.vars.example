@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local testing with `npx wrangler dev` (never commit .dev.vars).
+SUPABASE_SERVICE_ROLE_KEY=eyJ...your-service-role-key...
+# Skips the Cloudflare Access check, but ONLY on localhost. Has no effect on the real domain.
+DEV_BYPASS_EMAIL=admin@vegamstories.com

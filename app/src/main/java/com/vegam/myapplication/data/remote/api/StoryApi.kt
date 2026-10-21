@@ -1,8 +1,11 @@
 package com.vegam.myapplication.data.remote.api
 
 import com.vegam.myapplication.data.remote.dto.CategoryDto
+import com.vegam.myapplication.data.remote.dto.SetStoryLikeRequest
 import com.vegam.myapplication.data.remote.dto.SupabaseStoryRow
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 /**
@@ -22,9 +25,13 @@ interface StoryApi {
     /** Published stories with their pages embedded, newest first. */
     @GET("stories")
     suspend fun getStories(
-        @Query("select") select: String = "*,story_pages(page_index,panels)",
+        @Query("select") select: String = "*,story_pages(page_index,image_url)",
         @Query("is_published") isPublished: String = "eq.true",
         @Query("order") order: String = "published_at.desc",
         @Query("story_pages.order") pagesOrder: String = "page_index.asc",
     ): List<SupabaseStoryRow>
+
+    /** Likes or unlikes a story for this device. Returns the story's new like count, e.g. `42`. */
+    @POST("rpc/set_story_like")
+    suspend fun setStoryLike(@Body body: SetStoryLikeRequest): Int
 }

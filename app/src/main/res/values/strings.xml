@@ -37,14 +37,6 @@
     <string name="download_started">Saved for offline reading</string>
     <string name="download_removed">Removed from downloads</string>
 
-    <!-- Read aloud -->
-    <string name="cd_read_aloud">Read aloud</string>
-    <string name="cd_stop_reading">Stop reading</string>
-    <string name="tts_voice_missing_title">Telugu voice not installed</string>
-    <string name="tts_voice_missing_message">To read stories aloud, download the Telugu voice for your phone\'s text-to-speech engine. It\'s free and only needed once.</string>
-    <string name="tts_download_voice">Download voice</string>
-    <string name="tts_unavailable">Read aloud isn\'t available on this phone</string>
-    <string name="cancel">Cancel</string>
 
     <!-- Library screens -->
     <string name="favorites_empty_title">No favorites yet</string>

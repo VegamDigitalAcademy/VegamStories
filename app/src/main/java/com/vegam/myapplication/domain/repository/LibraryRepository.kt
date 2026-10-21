@@ -3,7 +3,7 @@ package com.vegam.myapplication.domain.repository
 import com.vegam.myapplication.domain.model.Story
 import kotlinx.coroutines.flow.Flow
 
-/** The user's own state: favorites, downloads and reading history. Lives only on the device. */
+/** The user's own state: favorites (likes, also counted on the server), downloads and reading history. */
 interface LibraryRepository {
     fun observeFavorites(): Flow<List<Story>>
 

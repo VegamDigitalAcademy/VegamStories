@@ -5,6 +5,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.vegam.myapplication.BuildConfig
 import com.vegam.myapplication.data.remote.api.StoryApi
+import com.vegam.myapplication.data.remote.logging.PrettyApiLogger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -51,8 +52,16 @@ object NetworkModule {
             chain.proceed(request)
         }
         .apply {
+            // Debug builds only: every Supabase call in Logcat (tag "VegamApi") with pretty JSON.
+            // Added after the auth interceptor so it shows the real request; keys are masked.
             if (BuildConfig.DEBUG) {
-                addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+                addInterceptor(
+                    HttpLoggingInterceptor(PrettyApiLogger()).apply {
+                        level = HttpLoggingInterceptor.Level.BODY
+                        redactHeader("apikey")
+                        redactHeader("Authorization")
+                    },
+                )
             }
         }
         .build()

@@ -1,7 +1,6 @@
 package com.vegam.myapplication.presentation.preview
 
 import com.vegam.myapplication.domain.model.Category
-import com.vegam.myapplication.domain.model.Panel
 import com.vegam.myapplication.domain.model.ReadingProgress
 import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.domain.model.StoryDetail
@@ -53,6 +52,7 @@ object PreviewData {
             publishedAt = 0L,
             video = if (index % 2 == 0) video else null,
             isFavorite = isFavorite,
+            likeCount = listOf(0, 7, 128, 1_540)[index % 4],
             isDownloaded = isDownloaded,
             progress = progress,
         )
@@ -81,21 +81,9 @@ object PreviewData {
 
     val historyStories: List<Story> = stories.filter { it.progress != null }
 
+    /** Finished page images (panels and speech bubbles are part of each image). */
     val pages: List<StoryPage> = List(3) { pageIndex ->
-        StoryPage(
-            index = pageIndex,
-            panels = List(if (pageIndex == 1) 3 else 4) { panelIndex ->
-                Panel(
-                    imageUrl = "https://picsum.photos/seed/preview-p$pageIndex-$panelIndex/800/600",
-                    caption = if (panelIndex == 0) listOf("ఒక ఊరిలో...", "మరుసటి రోజు...", "చివరికి...")[pageIndex] else null,
-                    dialogues = when (panelIndex % 3) {
-                        0 -> listOf("నమస్తే మిత్రమా!")
-                        1 -> listOf("నిజం ఎప్పుడూ గెలుస్తుంది.")
-                        else -> emptyList()
-                    },
-                )
-            },
-        )
+        StoryPage(index = pageIndex, imageUrl = "https://picsum.photos/seed/preview-page$pageIndex/900/1200")
     }
 
     val storyDetail = StoryDetail(story = story(0, isFavorite = true), pages = pages)

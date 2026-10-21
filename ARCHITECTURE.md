@@ -16,7 +16,7 @@ com.vegam.myapplication
 ├── VegamStoriesApp.kt          @HiltAndroidApp + Coil image cache setup
 ├── MainActivity.kt             @AndroidEntryPoint, hosts VegamApp()
 ├── domain/                     Pure Kotlin. No Android/Room/Retrofit imports.
-│   ├── model/                  Story, StoryDetail, StoryPage, Panel, Category, ReadingProgress, StoryVideo
+│   ├── model/                  Story, StoryDetail, StoryPage (one image per page), Category, ReadingProgress, StoryVideo
 │   ├── repository/             StoryRepository, LibraryRepository (interfaces)
 │   └── usecase/                One class per action (GetStories, ToggleFavorite, SaveReadingProgress…)
 ├── data/
@@ -24,7 +24,7 @@ com.vegam.myapplication
 │   │   ├── dto/                JSON shape expected from the server (@Serializable)
 │   │   ├── api/StoryApi.kt     Retrofit interface: GET v1/feed
 │   │   └── datasource/         StoryRemoteDataSource + Fake (dummy data) + Network (Retrofit)
-│   ├── local/                  Room: VegamDatabase, DAOs, entities, JSON type converter
+│   ├── local/                  Room: VegamDatabase, DAOs, entities
 │   ├── mapper/                 DTO → Entity → Domain
 │   ├── image/                  ImagePrefetcher (caches images for offline "Downloads")
 │   └── repository/             Offline-first implementations
@@ -46,9 +46,15 @@ com.vegam.myapplication
 
 ## Backend: Supabase + Cloudflare R2
 
-- **Supabase** (`categories`, `stories`, `story_pages` tables) holds all text and the image URLs.
+- **Supabase** (`categories`, `stories`, `story_pages` tables) holds story text and image URLs.
+  `story_pages` has one row per page: `story_id`, `page_index`, `image_url`.
   The app reads it through the REST API (`data/remote/api/StoryApi.kt`). Row Level Security allows
   read-only access to published stories.
+- **Likes** (`supabase/migrations/003_story_likes.sql`): the heart is a like. `stories.like_count` is
+  the total; `story_likes` has one row per (story, device). The app has no login, so it sends a random
+  per-install id (`DeviceIdProvider`) to the `set_story_like()` function (`POST /rpc/set_story_like`),
+  which is the only way to write likes. The heart and count change locally at once; `LikeSyncer` sends
+  queued likes (`pending_likes` table) in the background and before every refresh.
 - **Cloudflare R2** holds the images, served from `https://media.vegamstories.com/<story-id>/...`.
 - Keys go in `local.properties` (not committed):
   ```
@@ -64,7 +70,7 @@ com.vegam.myapplication
 | Screen | What it does |
 |---|---|
 | Home | Logo, search and menu; category tabs (ALL + categories); Continue Reading card; 2-column grid with episode badge, "Read" badge, progress bar and heart; pull to refresh |
-| Reader | Swipe between comic pages; THE END + Next story; a YouTube video page at the end; heart and download in the top bar; reading progress saved on every page |
+| Reader | Swipe between comic pages (each page is one finished image with its panels and speech bubbles drawn in); THE END + Next story; the story's YouTube video plays in-app on the last page; heart and download in the top bar; reading progress saved on every page |
 | Favorites / Downloads | Bottom-nav tabs. Downloading caches all of a story's images so it can be read offline |
 | Menu | Profile, Favorites, Downloads, Read stories, Settings, About, Privacy, Terms |
 | Read stories | History with a progress bar for each story; can be cleared |

@@ -2,6 +2,7 @@ package com.vegam.myapplication.di
 
 import android.content.Context
 import androidx.room.Room
+import com.vegam.myapplication.data.local.MIGRATION_2_3
 import com.vegam.myapplication.data.local.VegamDatabase
 import com.vegam.myapplication.data.local.dao.LibraryDao
 import com.vegam.myapplication.data.local.dao.StoryDao
@@ -20,6 +21,8 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): VegamDatabase =
         Room.databaseBuilder(context, VegamDatabase::class.java, VegamDatabase.NAME)
+            // Keeps favorites/likes, downloads and progress when updating from version 2.
+            .addMigrations(MIGRATION_2_3)
             // Server content is only a cache, so during development a schema change can
             // simply rebuild the DB. Replace with real migrations before release.
             .fallbackToDestructiveMigration(dropAllTables = true)

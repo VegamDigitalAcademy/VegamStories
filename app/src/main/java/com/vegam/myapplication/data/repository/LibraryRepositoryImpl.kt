@@ -4,13 +4,15 @@ import com.vegam.myapplication.data.image.ImagePrefetcher
 import com.vegam.myapplication.data.local.dao.LibraryDao
 import com.vegam.myapplication.data.local.dao.StoryDao
 import com.vegam.myapplication.data.local.entity.DownloadEntity
-import com.vegam.myapplication.data.local.entity.FavoriteEntity
 import com.vegam.myapplication.data.local.entity.ReadingProgressEntity
 import com.vegam.myapplication.data.mapper.toDomain
 import com.vegam.myapplication.domain.model.Story
+import com.vegam.myapplication.di.ApplicationScope
 import com.vegam.myapplication.domain.repository.LibraryRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,6 +21,8 @@ class LibraryRepositoryImpl @Inject constructor(
     private val libraryDao: LibraryDao,
     private val storyDao: StoryDao,
     private val imagePrefetcher: ImagePrefetcher,
+    private val likeSyncer: LikeSyncer,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : LibraryRepository {
 
     override fun observeFavorites(): Flow<List<Story>> =
@@ -34,13 +38,11 @@ class LibraryRepositoryImpl @Inject constructor(
         libraryDao.observeContinueReading(categoryId).map { it?.toDomain() }
 
     override suspend fun toggleFavorite(storyId: String): Boolean {
-        return if (libraryDao.isFavorite(storyId)) {
-            libraryDao.deleteFavorite(storyId)
-            false
-        } else {
-            libraryDao.upsertFavorite(FavoriteEntity(storyId, now()))
-            true
-        }
+        val liked = libraryDao.toggleFavorite(storyId, now())
+        // The heart and count update at once; the server catches up in the background
+        // (and survives the screen closing).
+        appScope.launch { likeSyncer.syncPending() }
+        return liked
     }
 
     override suspend fun toggleDownload(storyId: String): Boolean {
@@ -54,7 +56,7 @@ class LibraryRepositoryImpl @Inject constructor(
         val urls = mutableListOf<String>()
         story?.coverImageUrl?.let { urls.add(it) }
         story?.videoThumbnailUrl?.let { urls.add(it) }
-        pages.forEach { page -> page.panels.forEach { urls.add(it.imageUrl) } }
+        pages.forEach { page -> urls.add(page.imageUrl) }
         imagePrefetcher.prefetch(urls)
         libraryDao.upsertDownload(DownloadEntity(storyId, now()))
         return true

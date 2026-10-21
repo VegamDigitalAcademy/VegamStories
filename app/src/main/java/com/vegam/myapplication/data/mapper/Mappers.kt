@@ -1,14 +1,12 @@
 package com.vegam.myapplication.data.mapper
 
 import com.vegam.myapplication.data.local.entity.CategoryEntity
-import com.vegam.myapplication.data.local.entity.PanelLocal
 import com.vegam.myapplication.data.local.entity.StoryEntity
 import com.vegam.myapplication.data.local.entity.StoryPageEntity
 import com.vegam.myapplication.data.local.entity.StoryWithStateRow
 import com.vegam.myapplication.data.remote.dto.CategoryDto
 import com.vegam.myapplication.data.remote.dto.StoryDto
 import com.vegam.myapplication.domain.model.Category
-import com.vegam.myapplication.domain.model.Panel
 import com.vegam.myapplication.domain.model.ReadingProgress
 import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.domain.model.StoryPage
@@ -31,13 +29,14 @@ fun StoryDto.toEntity() = StoryEntity(
     videoDescription = video?.description,
     videoThumbnailUrl = video?.thumbnailUrl,
     videoUrl = video?.url,
+    likeCount = likeCount,
 )
 
 fun StoryDto.toPageEntities(): List<StoryPageEntity> = pages.mapIndexed { index, page ->
     StoryPageEntity(
         storyId = id,
         pageIndex = index,
-        panels = page.panels.map { PanelLocal(it.imageUrl, it.caption, it.dialogues) },
+        imageUrl = page.imageUrl,
     )
 }
 
@@ -79,12 +78,10 @@ fun StoryWithStateRow.toDomain(): Story {
         publishedAt = story.publishedAt,
         video = video,
         isFavorite = isFavorite,
+        likeCount = story.likeCount,
         isDownloaded = isDownloaded,
         progress = progress,
     )
 }
 
-fun StoryPageEntity.toDomain() = StoryPage(
-    index = pageIndex,
-    panels = panels.map { Panel(imageUrl = it.imageUrl, caption = it.caption, dialogues = it.dialogues) },
-)
+fun StoryPageEntity.toDomain() = StoryPage(index = pageIndex, imageUrl = imageUrl)

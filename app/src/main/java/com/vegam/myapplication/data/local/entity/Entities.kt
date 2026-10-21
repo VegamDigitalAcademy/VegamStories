@@ -1,10 +1,10 @@
 package com.vegam.myapplication.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import kotlinx.serialization.Serializable
 
 // ---------- Server content (cache; replaced on every refresh) ----------
 
@@ -32,6 +32,8 @@ data class StoryEntity(
     val videoDescription: String?,
     val videoThumbnailUrl: String?,
     val videoUrl: String?,
+    /** Total likes from the server; bumped locally right away when this device likes/unlikes. */
+    @ColumnInfo(defaultValue = "0") val likeCount: Int,
 )
 
 @Entity(
@@ -49,15 +51,8 @@ data class StoryEntity(
 data class StoryPageEntity(
     val storyId: String,
     val pageIndex: Int,
-    /** Stored as JSON through [com.vegam.myapplication.data.local.Converters]. */
-    val panels: List<PanelLocal>,
-)
-
-@Serializable
-data class PanelLocal(
+    /** The whole page as one image (panels, captions and speech bubbles are drawn into it). */
     val imageUrl: String,
-    val caption: String? = null,
-    val dialogues: List<String> = emptyList(),
 )
 
 // ---------- User state (kept separate so a server refresh never wipes it) ----------
@@ -66,6 +61,16 @@ data class PanelLocal(
 data class FavoriteEntity(
     @PrimaryKey val storyId: String,
     val addedAt: Long,
+)
+
+/**
+ * A like/unlike the server hasn't confirmed yet (offline, or the request failed).
+ * Sent again by LikeSyncer on the next like or refresh; removed once the server accepts it.
+ */
+@Entity(tableName = "pending_likes")
+data class PendingLikeEntity(
+    @PrimaryKey val storyId: String,
+    val liked: Boolean,
 )
 
 @Entity(tableName = "downloads")

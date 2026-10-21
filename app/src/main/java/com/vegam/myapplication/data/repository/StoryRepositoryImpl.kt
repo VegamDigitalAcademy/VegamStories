@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +26,7 @@ import javax.inject.Singleton
 class StoryRepositoryImpl @Inject constructor(
     private val storyDao: StoryDao,
     private val remote: StoryRemoteDataSource,
+    private val likeSyncer: LikeSyncer,
 ) : StoryRepository {
 
     override fun observeCategories(): Flow<List<Category>> =
@@ -51,16 +53,20 @@ class StoryRepositoryImpl @Inject constructor(
         storyDao.searchStories(query).map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun refresh(): Result<Unit> = try {
+        // Send queued likes first, so the like counts in the feed already include them.
+        likeSyncer.syncPending()
         val feed = remote.fetchFeed()
         storyDao.replaceContent(
             categories = feed.categories.map { it.toEntity() },
             stories = feed.stories.map { it.toEntity() },
             pages = feed.stories.flatMap { it.toPageEntities() },
         )
+        Timber.i("Refreshed: %d categories, %d stories", feed.categories.size, feed.stories.size)
         Result.success(Unit)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        Timber.w(e, "Refresh failed, showing cached stories")
         Result.failure(e)
     }
 
