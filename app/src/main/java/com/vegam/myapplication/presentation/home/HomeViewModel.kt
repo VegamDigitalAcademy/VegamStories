@@ -8,7 +8,6 @@ import com.vegam.myapplication.domain.usecase.GetCategoriesUseCase
 import com.vegam.myapplication.domain.usecase.GetContinueReadingUseCase
 import com.vegam.myapplication.domain.usecase.GetStoriesUseCase
 import com.vegam.myapplication.domain.usecase.RefreshContentUseCase
-import com.vegam.myapplication.domain.usecase.ToggleFavoriteUseCase
 import com.vegam.myapplication.presentation.navigation.HomeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,7 +30,6 @@ class HomeViewModel @Inject constructor(
     private val getStories: GetStoriesUseCase,
     private val getContinueReading: GetContinueReadingUseCase,
     private val refreshContent: RefreshContentUseCase,
-    private val toggleFavorite: ToggleFavoriteUseCase,
 ) : ViewModel() {
 
     // Opened from an app-icon shortcut → start on that category's tab.
@@ -79,13 +77,6 @@ class HomeViewModel @Inject constructor(
             isRefreshing.value = true
             refreshContent().onFailure { events.send(HomeEvent.RefreshFailed) }
             isRefreshing.value = false
-        }
-    }
-
-    fun onToggleFavorite(storyId: String) {
-        viewModelScope.launch {
-            val nowFavorite = toggleFavorite(storyId)
-            events.send(HomeEvent.FavoriteChanged(nowFavorite))
         }
     }
 }

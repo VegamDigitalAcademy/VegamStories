@@ -25,27 +25,16 @@ import com.vegam.myapplication.presentation.preview.ScreenPreviews
 @Composable
 fun FavoritesScreen(
     onStoryClick: (String) -> Unit,
-    onShowMessage: (String) -> Unit,
     viewModel: FavoritesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val removedMsg = stringResource(R.string.removed_from_favorites)
-
-    FavoritesContent(
-        state = state,
-        onStoryClick = onStoryClick,
-        onToggleFavorite = { storyId ->
-            viewModel.onToggleFavorite(storyId)
-            onShowMessage(removedMsg)
-        },
-    )
+    FavoritesContent(state = state, onStoryClick = onStoryClick)
 }
 
 @Composable
 fun FavoritesContent(
     state: StoryListUiState,
     onStoryClick: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit,
 ) {
     Scaffold(
         topBar = { BackTopBar(title = stringResource(R.string.nav_favorites), onBack = null) },
@@ -67,7 +56,6 @@ fun FavoritesContent(
                 else -> StoryGrid(
                     stories = state.stories,
                     onStoryClick = { onStoryClick(it.id) },
-                    onToggleFavorite = { onToggleFavorite(it.id) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -83,12 +71,11 @@ private fun FavoritesPreview() = PreviewTheme {
     FavoritesContent(
         state = StoryListUiState(isLoading = false, stories = PreviewData.stories.filter { it.isFavorite }),
         onStoryClick = {},
-        onToggleFavorite = {},
     )
 }
 
 @ScreenPreviews
 @Composable
 private fun FavoritesEmptyPreview() = PreviewTheme {
-    FavoritesContent(state = StoryListUiState(isLoading = false), onStoryClick = {}, onToggleFavorite = {})
+    FavoritesContent(state = StoryListUiState(isLoading = false), onStoryClick = {})
 }

@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,24 +25,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vegam.myapplication.R
-import com.vegam.myapplication.core.util.toCompactCount
 import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewData
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.ui.theme.ReadGreen
 
-/** Grid card used on Home, Favorites and Search: cover, episode badge, title, category, heart. */
+/**
+ * Grid card used on Home, Favorites and Search: cover, episode badge, title, category, and the
+ * like count. The heart here only shows likes; liking happens in the reader.
+ */
 @Composable
 fun StoryCard(
     story: Story,
     onClick: () -> Unit,
-    onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.clickable(onClick = onClick)) {
@@ -124,36 +123,10 @@ fun StoryCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            FavoriteButton(isFavorite = story.isFavorite, likeCount = story.likeCount, onClick = onToggleFavorite)
-        }
-    }
-}
-
-/** The heart (this device's like) with everyone's like count next to it, e.g. ♥ 1.2K. */
-@Composable
-fun FavoriteButton(isFavorite: Boolean, likeCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier = modifier
-            .minimumInteractiveComponentSize()
-            .clip(RoundedCornerShape(50))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(if (isFavorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
-            contentDescription = stringResource(R.string.cd_favorite),
-            tint = tint,
-            modifier = Modifier.size(20.dp),
-        )
-        if (likeCount > 0) {
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = likeCount.toCompactCount(),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = tint,
+            LikeCount(
+                isLiked = story.isFavorite,
+                likeCount = story.likeCount,
+                modifier = Modifier.padding(start = 8.dp, top = 8.dp),
             )
         }
     }
@@ -236,10 +209,10 @@ fun StoryListRow(
 private fun StoryCardPreview() = PreviewTheme {
     Row(Modifier.padding(16.dp)) {
         // Read + favorite
-        StoryCard(PreviewData.stories[0], onClick = {}, onToggleFavorite = {}, modifier = Modifier.width(160.dp))
+        StoryCard(PreviewData.stories[0], onClick = {}, modifier = Modifier.width(160.dp))
         Spacer(Modifier.width(14.dp))
         // In progress
-        StoryCard(PreviewData.stories[1], onClick = {}, onToggleFavorite = {}, modifier = Modifier.width(160.dp))
+        StoryCard(PreviewData.stories[1], onClick = {}, modifier = Modifier.width(160.dp))
     }
 }
 

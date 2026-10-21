@@ -3,7 +3,6 @@ package com.vegam.myapplication.presentation.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vegam.myapplication.domain.usecase.SearchStoriesUseCase
-import com.vegam.myapplication.domain.usecase.ToggleFavoriteUseCase
 import com.vegam.myapplication.presentation.common.StoryListUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,14 +16,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val searchStories: SearchStoriesUseCase,
-    private val toggleFavorite: ToggleFavoriteUseCase,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -39,9 +36,5 @@ class SearchViewModel @Inject constructor(
 
     fun onQueryChange(value: String) {
         _query.value = value
-    }
-
-    fun onToggleFavorite(storyId: String) {
-        viewModelScope.launch { toggleFavorite(storyId) }
     }
 }

@@ -18,6 +18,5 @@ data class HomeUiState(
 
 /** One-off UI events (snackbars) that must not be replayed on rotation. */
 sealed interface HomeEvent {
-    data class FavoriteChanged(val isFavorite: Boolean) : HomeEvent
     data object RefreshFailed : HomeEvent
 }

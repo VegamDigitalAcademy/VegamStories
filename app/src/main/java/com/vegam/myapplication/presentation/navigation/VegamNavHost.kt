@@ -43,7 +43,7 @@ fun VegamNavHost(
             )
         }
         composable<FavoritesRoute> {
-            FavoritesScreen(onStoryClick = openStory, onShowMessage = onShowMessage)
+            FavoritesScreen(onStoryClick = openStory)
         }
         composable<DownloadsRoute> {
             DownloadsScreen(onStoryClick = openStory)
@@ -62,7 +62,7 @@ fun VegamNavHost(
             HistoryScreen(onBack = navController::popBackStack, onStoryClick = openStory)
         }
         composable<SearchRoute> {
-            SearchScreen(onBack = navController::popBackStack, onStoryClick = openStory, onShowMessage = onShowMessage)
+            SearchScreen(onBack = navController::popBackStack, onStoryClick = openStory)
         }
         composable<SettingsRoute> {
             SettingsScreen(onBack = navController::popBackStack)

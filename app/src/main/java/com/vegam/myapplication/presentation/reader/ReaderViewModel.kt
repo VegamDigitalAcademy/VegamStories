@@ -30,8 +30,10 @@ data class ReaderUiState(
     val initialPage: Int = 0,
 ) {
     val hasVideo: Boolean get() = detail?.story?.video != null
-    /** Comic pages + optional video page at the end. */
-    val totalPagerPages: Int get() = (detail?.pages?.size ?: 0) + if (hasVideo) 1 else 0
+    /** The "Did you like this story?" page, right after the last comic page. */
+    val likePageIndex: Int get() = detail?.pages?.size ?: 0
+    /** Comic pages + the like page + optional video page at the end. */
+    val totalPagerPages: Int get() = if (detail == null) 0 else likePageIndex + 1 + if (hasVideo) 1 else 0
 }
 
 sealed interface ReaderEvent {

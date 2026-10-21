@@ -17,7 +17,6 @@ import com.vegam.myapplication.domain.model.Story
 fun StoryGrid(
     stories: List<Story>,
     onStoryClick: (Story) -> Unit,
-    onToggleFavorite: (Story) -> Unit,
     modifier: Modifier = Modifier,
     header: LazyGridScope.() -> Unit = {},
 ) {
@@ -30,11 +29,7 @@ fun StoryGrid(
     ) {
         header()
         items(stories, key = { it.id }) { story ->
-            StoryCard(
-                story = story,
-                onClick = { onStoryClick(story) },
-                onToggleFavorite = { onToggleFavorite(story) },
-            )
+            StoryCard(story = story, onClick = { onStoryClick(story) })
         }
     }
 }

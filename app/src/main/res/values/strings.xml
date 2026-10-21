@@ -40,7 +40,7 @@
 
     <!-- Library screens -->
     <string name="favorites_empty_title">No favorites yet</string>
-    <string name="favorites_empty_message">Tap the heart on any story to keep it here.</string>
+    <string name="favorites_empty_message">Like a story while reading it to keep it here.</string>
     <string name="downloads_empty_title">No downloads</string>
     <string name="downloads_empty_message">Download a story from the reader to read it offline.</string>
     <string name="history_title">Read stories</string>
@@ -105,4 +105,17 @@
     <string name="cd_download">Download</string>
     <string name="cd_clear">Clear</string>
     <string name="cd_play_video">Play video</string>
+
+    <!-- Likes (the heart): card shows the count, the reader lets you like -->
+    <string name="like_prompt_title">Did you like this story?</string>
+    <string name="like_prompt_hint">Tap the heart to like it</string>
+    <string name="liked_title">You liked this story!</string>
+    <string name="liked_hint">Thanks! It\'s saved in your favorites.</string>
+    <string name="like_count_zero">Be the first to like it</string>
+    <plurals name="like_count">
+        <item quantity="one">%s like</item>
+        <item quantity="other">%s likes</item>
+    </plurals>
+    <string name="cd_like">Like</string>
+    <string name="cd_unlike">Unlike</string>
 </resources>

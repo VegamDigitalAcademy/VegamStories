@@ -48,7 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegam.myapplication.R
 import com.vegam.myapplication.domain.model.StoryDetail
 import com.vegam.myapplication.presentation.components.EmptyState
-import com.vegam.myapplication.presentation.components.FavoriteButton
+import com.vegam.myapplication.presentation.components.LikeButton
 import com.vegam.myapplication.presentation.components.LoadingBox
 import com.vegam.myapplication.presentation.preview.PreviewData
 import com.vegam.myapplication.presentation.preview.PreviewTheme
@@ -167,17 +167,19 @@ private fun ReaderContent(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                if (index < detail.pages.size) {
-                    ComicPage(page = detail.pages[index], modifier = Modifier.fillMaxWidth())
-                    if (index == detail.pages.lastIndex) {
-                        EndOfStory(
-                            nextStoryId = state.nextStoryId,
-                            onOpenNextStory = onOpenNextStory,
-                            onBack = onBack,
-                        )
+                when {
+                    index < detail.pages.size -> {
+                        ComicPage(page = detail.pages[index], modifier = Modifier.fillMaxWidth())
+                        if (index == detail.pages.lastIndex) {
+                            EndOfStory(
+                                nextStoryId = state.nextStoryId,
+                                onOpenNextStory = onOpenNextStory,
+                                onBack = onBack,
+                            )
+                        }
                     }
-                } else {
-                    story.video?.let { video ->
+                    index == state.likePageIndex -> LikeStoryPage(story = story, onToggleLike = onToggleFavorite)
+                    else -> story.video?.let { video ->
                         // runCatching: no browser/YouTube app installed must not crash the reader.
                         VideoPage(video = video, onWatch = { runCatching { uriHandler.openUri(video.videoUrl) } })
                     }
@@ -234,7 +236,7 @@ private fun ReaderTopBar(
                 modifier = Modifier.size(22.dp),
             )
         }
-        FavoriteButton(isFavorite = isFavorite, likeCount = likeCount, onClick = onToggleFavorite)
+        LikeButton(isLiked = isFavorite, likeCount = likeCount, onClick = onToggleFavorite)
     }
 }
 
@@ -331,12 +333,25 @@ private fun ReaderLastPagePreview() = PreviewTheme {
 
 @ScreenPreviews
 @Composable
+private fun ReaderLikePagePreview() = PreviewTheme {
+    ReaderScreenContent(
+        state = ReaderUiState(
+            isLoading = false,
+            detail = previewDetail,
+            initialPage = previewDetail.pages.size, // the page after the comic = "Did you like it?"
+        ),
+        onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
+    )
+}
+
+@ScreenPreviews
+@Composable
 private fun ReaderVideoPagePreview() = PreviewTheme {
     ReaderScreenContent(
         state = ReaderUiState(
             isLoading = false,
             detail = previewDetail,
-            initialPage = previewDetail.pages.size, // the page after the comic = video
+            initialPage = previewDetail.pages.size + 1, // after the like page = video
         ),
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
     )

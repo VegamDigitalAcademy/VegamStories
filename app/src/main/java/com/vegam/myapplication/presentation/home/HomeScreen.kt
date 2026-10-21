@@ -65,13 +65,10 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val addedMsg = stringResource(R.string.added_to_favorites)
-    val removedMsg = stringResource(R.string.removed_from_favorites)
     val refreshFailedMsg = stringResource(R.string.refresh_failed)
     LaunchedEffect(viewModel) {
         viewModel.eventFlow.collect { event ->
             when (event) {
-                is HomeEvent.FavoriteChanged -> onShowMessage(if (event.isFavorite) addedMsg else removedMsg)
                 HomeEvent.RefreshFailed -> onShowMessage(refreshFailedMsg)
             }
         }
@@ -82,7 +79,6 @@ fun HomeScreen(
         onCategorySelected = viewModel::onCategorySelected,
         onRefresh = viewModel::refresh,
         onStoryClick = onStoryClick,
-        onToggleFavorite = viewModel::onToggleFavorite,
         onSearchClick = onSearchClick,
         onMenuClick = onMenuClick,
     )
@@ -95,7 +91,6 @@ fun HomeContent(
     onCategorySelected: (String?) -> Unit,
     onRefresh: () -> Unit,
     onStoryClick: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit,
     onSearchClick: () -> Unit,
     onMenuClick: () -> Unit,
 ) {
@@ -127,7 +122,6 @@ fun HomeContent(
                 else -> StoryGrid(
                     stories = state.stories,
                     onStoryClick = { onStoryClick(it.id) },
-                    onToggleFavorite = { onToggleFavorite(it.id) },
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     state.continueReading?.let { story ->
@@ -295,7 +289,7 @@ private fun HomeAllPreview() = PreviewTheme {
             continueReading = PreviewData.continueReading,
             isLoading = false,
         ),
-        onCategorySelected = {}, onRefresh = {}, onStoryClick = {}, onToggleFavorite = {},
+        onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
         onSearchClick = {}, onMenuClick = {},
     )
 }
@@ -310,7 +304,7 @@ private fun HomeCategoryPreview() = PreviewTheme {
             stories = PreviewData.stories.take(4),
             isLoading = false,
         ),
-        onCategorySelected = {}, onRefresh = {}, onStoryClick = {}, onToggleFavorite = {},
+        onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
         onSearchClick = {}, onMenuClick = {},
     )
 }
@@ -320,7 +314,7 @@ private fun HomeCategoryPreview() = PreviewTheme {
 private fun HomeLoadingPreview() = PreviewTheme {
     HomeContent(
         state = HomeUiState(isLoading = true),
-        onCategorySelected = {}, onRefresh = {}, onStoryClick = {}, onToggleFavorite = {},
+        onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
         onSearchClick = {}, onMenuClick = {},
     )
 }
@@ -330,7 +324,7 @@ private fun HomeLoadingPreview() = PreviewTheme {
 private fun HomeEmptyPreview() = PreviewTheme {
     HomeContent(
         state = HomeUiState(categories = PreviewData.categories, isLoading = false),
-        onCategorySelected = {}, onRefresh = {}, onStoryClick = {}, onToggleFavorite = {},
+        onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
         onSearchClick = {}, onMenuClick = {},
     )
 }

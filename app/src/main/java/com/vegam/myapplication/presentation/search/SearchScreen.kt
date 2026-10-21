@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegam.myapplication.R
-import com.vegam.myapplication.domain.model.Story
 import com.vegam.myapplication.presentation.common.StoryListUiState
 import com.vegam.myapplication.presentation.components.EmptyState
 import com.vegam.myapplication.presentation.components.StoryGrid
@@ -45,7 +44,6 @@ import com.vegam.myapplication.presentation.preview.ScreenPreviews
 fun SearchScreen(
     onBack: () -> Unit,
     onStoryClick: (String) -> Unit,
-    onShowMessage: (String) -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -53,18 +51,12 @@ fun SearchScreen(
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    val removedMsg = stringResource(R.string.removed_from_favorites)
-    val addedMsg = stringResource(R.string.added_to_favorites)
     SearchContent(
         query = query,
         results = results,
         onQueryChange = viewModel::onQueryChange,
         onBack = onBack,
         onStoryClick = onStoryClick,
-        onToggleFavorite = { story ->
-            viewModel.onToggleFavorite(story.id)
-            onShowMessage(if (story.isFavorite) removedMsg else addedMsg)
-        },
         focusRequester = focusRequester,
     )
 }
@@ -76,7 +68,6 @@ fun SearchContent(
     onQueryChange: (String) -> Unit,
     onBack: () -> Unit,
     onStoryClick: (String) -> Unit,
-    onToggleFavorite: (Story) -> Unit,
     focusRequester: FocusRequester = remember { FocusRequester() },
 ) {
     Column(
@@ -135,7 +126,6 @@ fun SearchContent(
             else -> StoryGrid(
                 stories = results.stories,
                 onStoryClick = { onStoryClick(it.id) },
-                onToggleFavorite = onToggleFavorite,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -150,7 +140,7 @@ private fun SearchResultsPreview() = PreviewTheme {
     SearchContent(
         query = "కథ",
         results = StoryListUiState(isLoading = false, stories = PreviewData.stories.take(4)),
-        onQueryChange = {}, onBack = {}, onStoryClick = {}, onToggleFavorite = {},
+        onQueryChange = {}, onBack = {}, onStoryClick = {},
     )
 }
 
@@ -160,7 +150,7 @@ private fun SearchIdlePreview() = PreviewTheme {
     SearchContent(
         query = "",
         results = StoryListUiState(isLoading = false),
-        onQueryChange = {}, onBack = {}, onStoryClick = {}, onToggleFavorite = {},
+        onQueryChange = {}, onBack = {}, onStoryClick = {},
     )
 }
 
@@ -170,6 +160,6 @@ private fun SearchNoResultsPreview() = PreviewTheme {
     SearchContent(
         query = "dragon",
         results = StoryListUiState(isLoading = false),
-        onQueryChange = {}, onBack = {}, onStoryClick = {}, onToggleFavorite = {},
+        onQueryChange = {}, onBack = {}, onStoryClick = {},
     )
 }
