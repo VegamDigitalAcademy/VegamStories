@@ -102,11 +102,15 @@ fun VegamNavHost(
     }
 }
 
-/** Standard bottom-nav behaviour: single copy of each tab, state saved and restored. */
+/**
+ * Bottom-nav behaviour: one copy of each tab, with its state saved and restored (scroll
+ * position, selected category…). Except Menu: it's a hub, so tapping it always shows the Menu
+ * screen itself, never a page opened from it earlier (Settings, History, an info page).
+ */
 fun NavHostController.navigateToTopLevel(destination: TopLevelDestination) {
     navigate(destination.route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
-        restoreState = true
+        restoreState = destination != TopLevelDestination.MENU
     }
 }
