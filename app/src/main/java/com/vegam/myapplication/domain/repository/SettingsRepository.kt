@@ -1,6 +1,7 @@
 package com.vegam.myapplication.domain.repository
 
 import com.vegam.myapplication.domain.model.ReaderSettings
+import com.vegam.myapplication.domain.model.SeenStory
 import com.vegam.myapplication.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
@@ -16,4 +17,14 @@ interface SettingsRepository {
 
     /** Applies [transform] to the saved settings in one atomic edit. */
     suspend fun updateReaderSettings(transform: (ReaderSettings) -> ReaderSettings)
+
+    /** "New story alerts" switch in Settings. Off until the user turns it on. */
+    val newStoryAlertsEnabled: Flow<Boolean>
+
+    suspend fun setNewStoryAlertsEnabled(enabled: Boolean)
+
+    /** Bookkeeping for new-story alerts: the newest story already announced or seen; null before the first check. */
+    suspend fun getLastSeenStory(): SeenStory?
+
+    suspend fun setLastSeenStory(story: SeenStory)
 }

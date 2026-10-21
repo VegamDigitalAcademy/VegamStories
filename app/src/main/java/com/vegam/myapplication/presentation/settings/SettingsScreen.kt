@@ -1,35 +1,57 @@
 package com.vegam.myapplication.presentation.settings
 
+import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegam.myapplication.R
 import com.vegam.myapplication.domain.model.AppLanguage
@@ -38,6 +60,7 @@ import com.vegam.myapplication.presentation.components.BackTopBar
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.presentation.preview.ScreenPreviews
 import com.vegam.myapplication.presentation.preview.TeluguPreview
+import timber.log.Timber
 
 @Composable
 fun SettingsScreen(
@@ -46,21 +69,73 @@ fun SettingsScreen(
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val language by viewModel.language.collectAsStateWithLifecycle()
+    val newStoryAlerts by viewModel.newStoryAlerts.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Whether the system lets the app post notifications at all. Re-checked on every resume,
+    // since the user may have just changed it in the phone's settings.
+    var notificationsAllowed by remember { mutableStateOf(true) }
+    LifecycleResumeEffect(Unit) {
+        notificationsAllowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        onPauseOrDispose { }
+    }
+    var permissionDenied by rememberSaveable { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        notificationsAllowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        permissionDenied = !granted
+        if (granted) viewModel.onNewStoryAlertsChange(true)
+    }
+
     SettingsContent(
         themeMode = themeMode,
         language = language,
+        newStoryAlerts = newStoryAlerts,
+        notificationsBlocked = !notificationsAllowed && (newStoryAlerts || permissionDenied),
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onLanguageSelected = viewModel::onLanguageSelected,
+        onNewStoryAlertsChange = { enabled ->
+            val needsPermission = enabled &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            if (needsPermission) {
+                // Asked only now, when the user wants alerts; never on first launch.
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.onNewStoryAlertsChange(enabled)
+                if (!enabled) permissionDenied = false
+            }
+        },
+        onOpenNotificationSettings = { context.openAppNotificationSettings() },
         onBack = onBack,
     )
+}
+
+/** The app's notification page in the phone's settings (Android 8+), else its app-info page. */
+private fun Context.openAppNotificationSettings() {
+    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+    } else {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+    }
+    try {
+        startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Timber.w(e, "No settings screen for notifications")
+    }
 }
 
 @Composable
 fun SettingsContent(
     themeMode: ThemeMode,
     language: AppLanguage,
+    newStoryAlerts: Boolean,
+    /** Alerts are wanted but the phone blocks the app's notifications: show how to fix it. */
+    notificationsBlocked: Boolean,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onLanguageSelected: (AppLanguage) -> Unit,
+    onNewStoryAlertsChange: (Boolean) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -103,6 +178,30 @@ fun SettingsContent(
                     )
                 }
             }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+
+            // ---- Notifications ----
+            SectionLabel(stringResource(R.string.settings_notifications_section))
+            SwitchRow(
+                title = stringResource(R.string.settings_new_story_alerts),
+                subtitle = stringResource(R.string.settings_new_story_alerts_desc),
+                checked = newStoryAlerts,
+                onCheckedChange = onNewStoryAlertsChange,
+            )
+            if (notificationsBlocked) {
+                Text(
+                    text = stringResource(R.string.settings_notifications_blocked),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenNotificationSettings)
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -170,6 +269,29 @@ private fun RadioOptionRow(title: String, subtitle: String, selected: Boolean, o
     }
 }
 
+@Composable
+private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            // The whole row is one switch for TalkBack and touch.
+            .toggleable(value = checked, onValueChange = onCheckedChange, role = Role.Switch)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
 // ---------------- Previews ----------------
 
 @ScreenPreviews
@@ -179,8 +301,12 @@ private fun SettingsSystemPreview() = PreviewTheme {
     SettingsContent(
         themeMode = ThemeMode.SYSTEM,
         language = AppLanguage.SYSTEM,
+        newStoryAlerts = false,
+        notificationsBlocked = false,
         onThemeModeSelected = {},
         onLanguageSelected = {},
+        onNewStoryAlertsChange = {},
+        onOpenNotificationSettings = {},
         onBack = {},
     )
 }
@@ -191,8 +317,13 @@ private fun SettingsTeluguDarkPreview() = PreviewTheme {
     SettingsContent(
         themeMode = ThemeMode.DARK,
         language = AppLanguage.TELUGU,
+        // Alerts on, but notifications blocked in the phone's settings → the hint shows.
+        newStoryAlerts = true,
+        notificationsBlocked = true,
         onThemeModeSelected = {},
         onLanguageSelected = {},
+        onNewStoryAlertsChange = {},
+        onOpenNotificationSettings = {},
         onBack = {},
     )
 }

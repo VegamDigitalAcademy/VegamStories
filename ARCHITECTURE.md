@@ -43,6 +43,11 @@ com.vegam.myapplication
 2. The use case returns a `Flow` from the repository, and the repository reads it from **Room**.
 3. `RefreshContentUseCase` asks `StoryRemoteDataSource` for the feed and writes it into Room. Every open screen then updates automatically.
 4. User state (favorites, downloads, reading progress) is kept in **separate tables**, so a server refresh never overwrites it.
+5. **In the background** (`background/`): `StoryRefreshWorker` (WorkManager, every 6 h when online) runs the
+   same refresh, which also sends queued likes, redraws the home screen widget, then `CheckForNewStoryUseCase`
+   decides whether to post a "New story" notification (`NewStoryNotifier`; tapping it opens the reader).
+   Alerts are opt-in (Settings → New story alerts). The newest story already announced or seen is kept in
+   DataStore, so installing the app or opening Home never triggers an alert for an old story.
 
 ## Backend: Supabase + Cloudflare R2
 

@@ -6,15 +6,18 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.vegam.myapplication.domain.model.PageBackground
 import com.vegam.myapplication.domain.model.ReaderScrollMode
 import com.vegam.myapplication.domain.model.ReaderSettings
+import com.vegam.myapplication.domain.model.SeenStory
 import com.vegam.myapplication.domain.model.ThemeMode
 import com.vegam.myapplication.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 import javax.inject.Inject
@@ -48,6 +51,27 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override val newStoryAlertsEnabled: Flow<Boolean> = prefs
+        .map { it[NEW_STORY_ALERTS] ?: false }
+        .distinctUntilChanged()
+
+    override suspend fun setNewStoryAlertsEnabled(enabled: Boolean) {
+        dataStore.edit { it[NEW_STORY_ALERTS] = enabled }
+    }
+
+    override suspend fun getLastSeenStory(): SeenStory? {
+        val p = prefs.first()
+        val id = p[LAST_SEEN_STORY_ID] ?: return null
+        return SeenStory(id = id, publishedAt = p[LAST_SEEN_STORY_PUBLISHED_AT] ?: 0L)
+    }
+
+    override suspend fun setLastSeenStory(story: SeenStory) {
+        dataStore.edit {
+            it[LAST_SEEN_STORY_ID] = story.id
+            it[LAST_SEEN_STORY_PUBLISHED_AT] = story.publishedAt
+        }
+    }
+
     private fun Preferences.toReaderSettings(): ReaderSettings {
         val defaults = ReaderSettings()
         return ReaderSettings(
@@ -72,5 +96,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_SCROLL_MODE = stringPreferencesKey("reader_scroll_mode")
         val READER_KEEP_SCREEN_ON = booleanPreferencesKey("reader_keep_screen_on")
         val READER_PAGE_BACKGROUND = stringPreferencesKey("reader_page_background")
+        val NEW_STORY_ALERTS = booleanPreferencesKey("new_story_alerts")
+        val LAST_SEEN_STORY_ID = stringPreferencesKey("last_seen_story_id")
+        val LAST_SEEN_STORY_PUBLISHED_AT = longPreferencesKey("last_seen_story_published_at")
     }
 }

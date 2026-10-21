@@ -36,6 +36,22 @@ data class WidgetEntry(
  *     a different one.
  * The widget shows the first, or both when it's tall enough.
  */
+/**
+ * Which rows the widget shows, in order, and how each is labelled: continue-reading first, then
+ * the newest story if it's a different one ("Today's new story" if [isToday], else "Latest story").
+ * Kept free of Android calls so it can be unit-tested.
+ */
+internal fun widgetRows(
+    continueReading: Story?,
+    newest: Story?,
+    isToday: (publishedAt: Long) -> Boolean,
+): List<Pair<WidgetEntry.Kind, Story>> = buildList {
+    continueReading?.let { add(WidgetEntry.Kind.CONTINUE_READING to it) }
+    if (newest != null && newest.id != continueReading?.id) {
+        add((if (isToday(newest.publishedAt)) WidgetEntry.Kind.NEW_TODAY else WidgetEntry.Kind.LATEST) to newest)
+    }
+}
+
 @Singleton
 class StoryWidgetData @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -55,13 +71,8 @@ class StoryWidgetData @Inject constructor(
 
     suspend fun load(): List<WidgetEntry> {
         val (continueReading, newest) = observeStories().first()
-        return buildList {
-            continueReading?.let { add(WidgetEntry(WidgetEntry.Kind.CONTINUE_READING, it, loadCover(it))) }
-            if (newest != null && newest.id != continueReading?.id) {
-                val kind = if (DateUtils.isToday(newest.publishedAt)) WidgetEntry.Kind.NEW_TODAY else WidgetEntry.Kind.LATEST
-                add(WidgetEntry(kind, newest, loadCover(newest)))
-            }
-        }
+        return widgetRows(continueReading, newest, isToday = DateUtils::isToday)
+            .map { (kind, story) -> WidgetEntry(kind, story, loadCover(story)) }
     }
 
     private fun observeStories(): Flow<Pair<Story?, Story?>> = combine(

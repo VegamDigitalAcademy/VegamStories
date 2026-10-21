@@ -83,6 +83,11 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
 
+    // Background refresh + new-story notifications (WorkManager, workers injected by Hilt)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

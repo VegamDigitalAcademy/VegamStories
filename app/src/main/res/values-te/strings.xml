@@ -118,6 +118,15 @@
     <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
     <string name="cd_like">లైక్</string>
 
+    <!-- కొత్త కథల నోటిఫికేషన్లు -->
+    <string name="settings_notifications_section">నోటిఫికేషన్లు</string>
+    <string name="settings_new_story_alerts">కొత్త కథల అలర్ట్‌లు</string>
+    <string name="settings_new_story_alerts_desc">కొత్త కథ ప్రచురించినప్పుడు నోటిఫికేషన్ పొందండి</string>
+    <string name="settings_notifications_blocked">ఈ యాప్‌కు నోటిఫికేషన్లు ఆఫ్‌లో ఉన్నాయి. ఫోన్ సెట్టింగ్‌లలో అనుమతించడానికి నొక్కండి.</string>
+    <string name="notification_channel_new_stories">కొత్త కథలు</string>
+    <string name="notification_channel_new_stories_desc">కొత్త కథ ప్రచురించినప్పుడు వచ్చే నోటిఫికేషన్</string>
+    <string name="notification_new_story_title">కొత్త కథ</string>
+
     <!-- హోమ్ స్క్రీన్ విడ్జెట్ -->
     <string name="widget_name">చదవడం కొనసాగించండి</string>
     <string name="widget_description">ఆపిన చోటు నుండి చదవండి, లేదా ఈ రోజు కొత్త కథ చదవండి.</string>

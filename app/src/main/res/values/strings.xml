@@ -122,6 +122,15 @@
     <string name="all_episodes_read">You\'ve reached the latest episode in this series.</string>
     <string name="cd_like">Like</string>
 
+    <!-- New-story notifications -->
+    <string name="settings_notifications_section">NOTIFICATIONS</string>
+    <string name="settings_new_story_alerts">New story alerts</string>
+    <string name="settings_new_story_alerts_desc">Get a notification when a new story is published</string>
+    <string name="settings_notifications_blocked">Notifications are turned off for this app. Tap to allow them in your phone\'s settings.</string>
+    <string name="notification_channel_new_stories">New stories</string>
+    <string name="notification_channel_new_stories_desc">A notification when a new story is published</string>
+    <string name="notification_new_story_title">New story</string>
+
     <!-- Home screen widget -->
     <string name="widget_name">Continue reading</string>
     <string name="widget_description">Pick up where you left off, or read today\'s new story.</string>

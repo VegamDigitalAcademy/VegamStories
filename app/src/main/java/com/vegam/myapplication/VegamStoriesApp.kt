@@ -1,6 +1,8 @@
 package com.vegam.myapplication
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -8,6 +10,8 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
+import com.vegam.myapplication.background.NewStoryNotifier
+import com.vegam.myapplication.background.StoryRefreshScheduler
 import com.vegam.myapplication.core.logging.LineNumberDebugTree
 import com.vegam.myapplication.presentation.shortcuts.AppShortcutsManager
 import com.vegam.myapplication.presentation.widget.StoryWidgetUpdater
@@ -16,10 +20,16 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
-class VegamStoriesApp : Application(), SingletonImageLoader.Factory {
+class VegamStoriesApp : Application(), SingletonImageLoader.Factory, Configuration.Provider {
 
     @Inject lateinit var appShortcutsManager: AppShortcutsManager
     @Inject lateinit var storyWidgetUpdater: StoryWidgetUpdater
+    @Inject lateinit var storyRefreshScheduler: StoryRefreshScheduler
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    /** WorkManager starts on demand with Hilt's factory (default start-up is removed in the manifest). */
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
     override fun onCreate() {
         super.onCreate()
@@ -29,6 +39,9 @@ class VegamStoriesApp : Application(), SingletonImageLoader.Factory {
         appShortcutsManager.start()
         // Home screen widget: redraws when continue-reading or the newest story changes.
         storyWidgetUpdater.start()
+        // Background refresh every few hours: keeps the widget current and spots new stories.
+        storyRefreshScheduler.schedule()
+        NewStoryNotifier.createChannel(this)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.vegam.myapplication.domain.model.AppLanguage
 import com.vegam.myapplication.domain.model.ThemeMode
 import com.vegam.myapplication.domain.usecase.GetAppLanguageUseCase
+import com.vegam.myapplication.domain.usecase.GetNewStoryAlertsUseCase
+import com.vegam.myapplication.domain.usecase.SetNewStoryAlertsUseCase
 import com.vegam.myapplication.domain.usecase.SetAppLanguageUseCase
 import com.vegam.myapplication.domain.usecase.GetThemeModeUseCase
 import com.vegam.myapplication.domain.usecase.SetThemeModeUseCase
@@ -23,6 +25,8 @@ class SettingsViewModel @Inject constructor(
     private val setThemeMode: SetThemeModeUseCase,
     getAppLanguage: GetAppLanguageUseCase,
     private val setAppLanguage: SetAppLanguageUseCase,
+    getNewStoryAlerts: GetNewStoryAlertsUseCase,
+    private val setNewStoryAlerts: SetNewStoryAlertsUseCase,
 ) : ViewModel() {
 
     private val _language = MutableStateFlow(getAppLanguage())
@@ -40,5 +44,13 @@ class SettingsViewModel @Inject constructor(
 
     fun onThemeModeSelected(mode: ThemeMode) {
         viewModelScope.launch { setThemeMode(mode) }
+    }
+
+    val newStoryAlerts: StateFlow<Boolean> = getNewStoryAlerts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** The screen asks for the notification permission first, when needed. */
+    fun onNewStoryAlertsChange(enabled: Boolean) {
+        viewModelScope.launch { setNewStoryAlerts(enabled) }
     }
 }

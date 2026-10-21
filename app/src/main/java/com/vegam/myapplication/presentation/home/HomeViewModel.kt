@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.vegam.myapplication.domain.usecase.CheckForNewStoryUseCase
 import com.vegam.myapplication.domain.usecase.GetCategoriesUseCase
 import com.vegam.myapplication.domain.usecase.GetContinueReadingUseCase
 import com.vegam.myapplication.domain.usecase.GetStoriesUseCase
@@ -30,6 +31,7 @@ class HomeViewModel @Inject constructor(
     private val getStories: GetStoriesUseCase,
     private val getContinueReading: GetContinueReadingUseCase,
     private val refreshContent: RefreshContentUseCase,
+    private val checkForNewStory: CheckForNewStoryUseCase,
 ) : ViewModel() {
 
     // Opened from an app-icon shortcut → start on that category's tab.
@@ -75,7 +77,10 @@ class HomeViewModel @Inject constructor(
         if (isRefreshing.value) return
         viewModelScope.launch {
             isRefreshing.value = true
-            refreshContent().onFailure { events.send(HomeEvent.RefreshFailed) }
+            refreshContent()
+                // New stories are on screen now, so the background check won't announce them later.
+                .onSuccess { checkForNewStory(userIsInApp = true) }
+                .onFailure { events.send(HomeEvent.RefreshFailed) }
             isRefreshing.value = false
         }
     }
