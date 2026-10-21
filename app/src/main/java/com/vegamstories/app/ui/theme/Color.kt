@@ -7,6 +7,10 @@ val VegamRed = Color(0xFFE53935)
 val VegamRedDark = Color(0xFFC62828)
 val VegamRedLight = Color(0xFFFFEBEE)
 
+// Brand (dark): a deep, muted red for tinted surfaces, so red icons and text still stand out on it.
+val NightRedContainer = Color(0xFF3D1A1D)
+val NightOnRedContainer = Color(0xFFFFDAD6)
+
 // Neutrals (light)
 val Ink = Color(0xFF1C1B1F)
 val InkMuted = Color(0xFF6B6B70)

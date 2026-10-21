@@ -57,8 +57,8 @@ fun Modifier.glassBottomBarSpace(): Modifier = navigationBarsPadding().padding(b
 
 /**
  * Floating "frosted glass" bottom bar: a translucent pill over AppBackground with a bright
- * highlight along its top edge and a hairline border. The selected tab gets a soft red lens
- * behind its icon, which fades in while the icon pops.
+ * highlight along its top edge and a hairline border. The selected tab gets a soft lens behind
+ * its icon (pink by day, frosted white by night), which fades in while the icon pops.
  *
  * It's translucent, not blurred: Compose can't blur what's behind a view without extra
  * libraries, and the backdrop here is soft gradients anyway, so the glass reads the same.
@@ -103,6 +103,7 @@ fun GlassBottomBar(
             GlassBarItem(
                 destination = destination,
                 selected = selected,
+                lens = glass.lens,
                 onClick = { onNavigate(destination) },
                 modifier = Modifier.weight(1f),
             )
@@ -114,6 +115,7 @@ fun GlassBottomBar(
 private fun GlassBarItem(
     destination: TopLevelDestination,
     selected: Boolean,
+    lens: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -123,7 +125,7 @@ private fun GlassBarItem(
         label = "tabContent",
     )
     val lensColor by animateColorAsState(
-        if (selected) primary.copy(alpha = 0.16f) else Color.Transparent,
+        if (selected) lens else Color.Transparent,
         label = "tabLens",
     )
     val iconScale by animateFloatAsState(
@@ -175,6 +177,8 @@ private class GlassColors(
     val edgeTop: Color,
     val edgeBottom: Color,
     val sheen: Color,
+    /** Behind the selected tab's icon. */
+    val lens: Color,
 )
 
 /** Milky glass on the light background. */
@@ -184,6 +188,7 @@ private val DayGlass = GlassColors(
     edgeTop = Color.White.copy(alpha = 0.95f),
     edgeBottom = VegamRed.copy(alpha = 0.10f),
     sheen = Color.White.copy(alpha = 0.45f),
+    lens = VegamRed.copy(alpha = 0.16f),
 )
 
 /** Smoked glass on the dark background. */
@@ -193,6 +198,8 @@ private val NightGlass = GlassColors(
     edgeTop = Color.White.copy(alpha = 0.22f),
     edgeBottom = Color.White.copy(alpha = 0.05f),
     sheen = Color.White.copy(alpha = 0.06f),
+    // Neutral, not red: a red tint on smoked glass turns into a heavy maroon block.
+    lens = Color.White.copy(alpha = 0.10f),
 )
 
 // ---------------- Previews ----------------
