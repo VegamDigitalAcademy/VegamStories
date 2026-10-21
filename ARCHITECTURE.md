@@ -12,7 +12,7 @@ presentation  ──▶  domain  ◀──  data
 ```
 
 ```
-com.vegam.myapplication
+com.vegamstories.app
 ├── VegamStoriesApp.kt          @HiltAndroidApp + Coil image cache setup
 ├── MainActivity.kt             @AndroidEntryPoint, hosts VegamApp()
 ├── domain/                     Pure Kotlin. No Android/Room/Retrofit imports.

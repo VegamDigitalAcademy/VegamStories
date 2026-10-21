@@ -21,11 +21,11 @@ val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY").o
 val hasSupabase = supabaseUrl.isNotEmpty() && supabaseAnonKey.isNotEmpty()
 
 android {
-    namespace = "com.vegam.myapplication"
+    namespace = "com.vegamstories.app"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.vegam.myapplication"
+        applicationId = "com.vegamstories.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
