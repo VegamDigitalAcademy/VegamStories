@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination
@@ -29,9 +30,10 @@ import com.vegam.myapplication.presentation.navigation.SearchRoute
 import com.vegam.myapplication.presentation.navigation.TopLevelDestination
 import com.vegam.myapplication.presentation.navigation.VegamNavHost
 import com.vegam.myapplication.presentation.navigation.navigateToTopLevel
-import com.vegam.myapplication.presentation.shortcuts.ShortcutTarget
 import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewTheme
+import com.vegam.myapplication.presentation.shortcuts.ShortcutTarget
+import com.vegam.myapplication.ui.theme.AppBackground
 import kotlinx.coroutines.launch
 
 /**
@@ -54,32 +56,36 @@ fun VegamApp(
         !currentDestination.hasRoute(ReaderRoute::class) &&
         !currentDestination.hasRoute(SearchRoute::class)
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        // Each screen draws its own top bar and handles the status-bar inset.
-        contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            if (showBottomBar) {
-                VegamBottomBar(
-                    currentDestination = currentDestination,
-                    onNavigate = navController::navigateToTopLevel,
-                )
-            }
-        },
-    ) { innerPadding ->
-        VegamNavHost(
-            navController = navController,
-            shortcutTarget = shortcutTarget,
-            onShortcutHandled = onShortcutHandled,
-            onShowMessage = { message ->
-                scope.launch {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message)
+    // Gradient + arches behind every screen; screens and the Scaffold are transparent on top.
+    AppBackground {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            // Each screen draws its own top bar and handles the status-bar inset.
+            contentWindowInsets = WindowInsets(0),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                if (showBottomBar) {
+                    VegamBottomBar(
+                        currentDestination = currentDestination,
+                        onNavigate = navController::navigateToTopLevel,
+                    )
                 }
             },
-            modifier = Modifier.padding(innerPadding),
-        )
+        ) { innerPadding ->
+            VegamNavHost(
+                navController = navController,
+                shortcutTarget = shortcutTarget,
+                onShortcutHandled = onShortcutHandled,
+                onShowMessage = { message ->
+                    scope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message)
+                    }
+                },
+                modifier = Modifier.padding(innerPadding),
+            )
+        }
     }
 }
 
@@ -88,7 +94,8 @@ private fun VegamBottomBar(
     currentDestination: NavDestination?,
     onNavigate: (TopLevelDestination) -> Unit,
 ) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
+    // Mostly opaque so labels stay crisp, with a hint of the background showing through.
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)) {
         TopLevelDestination.entries.forEach { destination ->
             val selected = currentDestination?.hierarchy?.any { it.hasRoute(destination.route::class) } == true
             NavigationBarItem(

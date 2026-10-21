@@ -1,10 +1,9 @@
 package com.vegam.myapplication.presentation.preview
 
 import android.content.res.Configuration
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import com.vegam.myapplication.ui.theme.AppBackground
 import com.vegam.myapplication.ui.theme.MyApplicationTheme
 
 /** Full phone-sized screen, light + dark. Use on screen-level previews. */
@@ -34,6 +33,6 @@ annotation class ComponentPreviews
 @Composable
 fun PreviewTheme(content: @Composable () -> Unit) {
     MyApplicationTheme {
-        Surface(color = MaterialTheme.colorScheme.background) { content() }
+        AppBackground { content() }
     }
 }

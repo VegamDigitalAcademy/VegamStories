@@ -12,6 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -62,7 +63,7 @@ fun HistoryContent(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent, // AppBackground shows through
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
         val modifier = Modifier

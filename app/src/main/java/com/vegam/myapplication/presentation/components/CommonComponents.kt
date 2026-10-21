@@ -84,7 +84,7 @@ fun BackTopBar(
             }
         },
         actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
 }
 

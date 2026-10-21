@@ -9,6 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,7 +39,7 @@ fun FavoritesContent(
 ) {
     Scaffold(
         topBar = { BackTopBar(title = stringResource(R.string.nav_favorites), onBack = null) },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent, // AppBackground shows through
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
         Column(

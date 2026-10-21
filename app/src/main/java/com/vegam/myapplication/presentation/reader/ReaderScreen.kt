@@ -388,7 +388,7 @@ private fun ReaderTopBar(
         IconButton(onClick = onBack) {
             Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.cd_back))
         }
-        Text(
+        /*Text(
             text = stringResource(R.string.brand_short),
             color = Color.White,
             fontSize = 11.sp,
@@ -397,7 +397,7 @@ private fun ReaderTopBar(
                 .clip(RoundedCornerShape(4.dp))
                 .background(MaterialTheme.colorScheme.primary)
                 .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
+        )*/
         Spacer(Modifier.width(8.dp))
         Text(
             text = title,
