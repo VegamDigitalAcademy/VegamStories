@@ -1,24 +1,35 @@
 package com.vegam.myapplication.presentation
 
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.vegam.myapplication.presentation.navigation.EmphasizedEasing
 import com.vegam.myapplication.presentation.navigation.GlassBottomBar
+import com.vegam.myapplication.presentation.navigation.NAV_ANIM_MS
 import com.vegam.myapplication.presentation.navigation.ReaderRoute
 import com.vegam.myapplication.presentation.navigation.SearchRoute
 import com.vegam.myapplication.presentation.navigation.VegamNavHost
+import com.vegam.myapplication.presentation.navigation.glassBottomBarSpace
 import com.vegam.myapplication.presentation.navigation.navigateToTopLevel
 import com.vegam.myapplication.presentation.shortcuts.ShortcutTarget
 import com.vegam.myapplication.ui.theme.AppBackground
@@ -40,27 +51,22 @@ fun VegamApp(
     val scope = rememberCoroutineScope()
 
     // The reader and search are full-screen; everything else keeps the bottom bar.
-    val showBottomBar = currentDestination != null &&
-        !currentDestination.hasRoute(ReaderRoute::class) &&
-        !currentDestination.hasRoute(SearchRoute::class)
+    // Visible before the first destination is known, since the app starts on Home.
+    val showBottomBar = currentDestination == null ||
+        (!currentDestination.hasRoute(ReaderRoute::class) && !currentDestination.hasRoute(SearchRoute::class))
 
-    // Gradient + arches behind every screen; screens and the Scaffold are transparent on top.
+    var lastTabDestination by remember { mutableStateOf(currentDestination) }
+    LaunchedEffect(currentDestination, showBottomBar) {
+        if (showBottomBar) lastTabDestination = currentDestination
+    }
+
+    // Gradient + arches behind every screen; screens are transparent on top.
     AppBackground {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = Color.Transparent,
-            // Each screen draws its own top bar and handles the status-bar inset.
-            contentWindowInsets = WindowInsets(0),
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                if (showBottomBar) {
-                    GlassBottomBar(
-                        currentDestination = currentDestination,
-                        onNavigate = navController::navigateToTopLevel,
-                    )
-                }
-            },
-        ) { innerPadding ->
+        // The bar and snackbar float over the screens instead of resizing them. If the bar's
+        // space were taken from the screen area, every screen would shrink and grow while the
+        // bar animates (the reader visibly squeezing on Back). Tab screens reserve the bar's
+        // space themselves instead (VegamNavHost), so nothing resizes during a transition.
+        Box(Modifier.fillMaxSize()) {
             VegamNavHost(
                 navController = navController,
                 shortcutTarget = shortcutTarget,
@@ -71,8 +77,28 @@ fun VegamApp(
                         snackbarHostState.showSnackbar(message)
                     }
                 },
-                modifier = Modifier.padding(innerPadding),
+                modifier = Modifier.fillMaxSize(),
+            )
+            AnimatedVisibility(
+                visible = showBottomBar,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(barAnim()) { it } + fadeIn(barAnim()),
+                exit = slideOutVertically(barAnim()) { it } + fadeOut(barAnim()),
+            ) {
+                GlassBottomBar(
+                    // While sliding away, keep the tab we came from highlighted.
+                    currentDestination = if (showBottomBar) currentDestination else lastTabDestination,
+                    onNavigate = navController::navigateToTopLevel,
+                )
+            }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .then(if (showBottomBar) Modifier.glassBottomBarSpace() else Modifier.navigationBarsPadding()),
             )
         }
     }
 }
+
+private fun <T> barAnim() = tween<T>(NAV_ANIM_MS, easing = EmphasizedEasing)

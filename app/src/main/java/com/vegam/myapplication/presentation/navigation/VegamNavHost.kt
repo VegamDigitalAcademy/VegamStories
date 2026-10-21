@@ -1,5 +1,7 @@
 package com.vegam.myapplication.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -33,43 +35,52 @@ fun VegamNavHost(
         navController = navController,
         startDestination = HomeRoute(),
         modifier = modifier,
+        // See NavTransitions.kt: slide + fade for screens, fade-through for tabs.
+        enterTransition = { enterTransition() },
+        exitTransition = { exitTransition() },
+        popEnterTransition = { popEnterTransition() },
+        popExitTransition = { popExitTransition() },
     ) {
         composable<HomeRoute> {
-            HomeScreen(
-                onStoryClick = openStory,
-                onSearchClick = { navController.navigate(SearchRoute) },
-                onMenuClick = { navController.navigateToTopLevel(TopLevelDestination.MENU) },
-                onShowMessage = onShowMessage,
-            )
+            AboveBottomBar {
+                HomeScreen(
+                    onStoryClick = openStory,
+                    onSearchClick = { navController.navigate(SearchRoute) },
+                    onMenuClick = { navController.navigateToTopLevel(TopLevelDestination.MENU) },
+                    onShowMessage = onShowMessage,
+                )
+            }
         }
         composable<FavoritesRoute> {
-            FavoritesScreen(onStoryClick = openStory)
+            AboveBottomBar { FavoritesScreen(onStoryClick = openStory) }
         }
         composable<DownloadsRoute> {
-            DownloadsScreen(onStoryClick = openStory)
+            AboveBottomBar { DownloadsScreen(onStoryClick = openStory) }
         }
         composable<MenuRoute> {
-            MenuScreen(
-                onBack = { navController.navigateToTopLevel(TopLevelDestination.HOME) },
-                onFavorites = { navController.navigateToTopLevel(TopLevelDestination.FAVORITES) },
-                onDownloads = { navController.navigateToTopLevel(TopLevelDestination.DOWNLOADS) },
-                onHistory = { navController.navigate(HistoryRoute) },
-                onSettings = { navController.navigate(SettingsRoute) },
-                onInfoPage = { page -> navController.navigate(InfoRoute(page.name)) },
-            )
+            AboveBottomBar {
+                MenuScreen(
+                    onBack = { navController.navigateToTopLevel(TopLevelDestination.HOME) },
+                    onFavorites = { navController.navigateToTopLevel(TopLevelDestination.FAVORITES) },
+                    onDownloads = { navController.navigateToTopLevel(TopLevelDestination.DOWNLOADS) },
+                    onHistory = { navController.navigate(HistoryRoute) },
+                    onSettings = { navController.navigate(SettingsRoute) },
+                    onInfoPage = { page -> navController.navigate(InfoRoute(page.name)) },
+                )
+            }
         }
         composable<HistoryRoute> {
-            HistoryScreen(onBack = navController::popBackStack, onStoryClick = openStory)
+            AboveBottomBar { HistoryScreen(onBack = navController::popBackStack, onStoryClick = openStory) }
         }
         composable<SearchRoute> {
             SearchScreen(onBack = navController::popBackStack, onStoryClick = openStory)
         }
         composable<SettingsRoute> {
-            SettingsScreen(onBack = navController::popBackStack)
+            AboveBottomBar { SettingsScreen(onBack = navController::popBackStack) }
         }
         composable<InfoRoute> { entry ->
             val page = InfoPage.valueOf(entry.toRoute<InfoRoute>().page)
-            InfoScreen(page = page, onBack = navController::popBackStack)
+            AboveBottomBar { InfoScreen(page = page, onBack = navController::popBackStack) }
         }
         composable<ReaderRoute> {
             ReaderScreen(
@@ -100,6 +111,16 @@ fun VegamNavHost(
         }
         onShortcutHandled()
     }
+}
+
+/**
+ * For screens that show the bottom bar (everything except the reader and search). The bar
+ * floats over the screens, so these keep a fixed space for it. Fixed, not animated, so no
+ * screen changes size while the bar slides in or out.
+ */
+@Composable
+private fun AboveBottomBar(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().glassBottomBarSpace()) { content() }
 }
 
 /**

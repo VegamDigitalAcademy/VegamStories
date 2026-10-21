@@ -46,6 +46,15 @@ import com.vegam.myapplication.presentation.preview.ComponentPreviews
 import com.vegam.myapplication.presentation.preview.PreviewTheme
 import com.vegam.myapplication.ui.theme.VegamRed
 
+/** Space the bar takes above the system navigation bar: 6 (top gap) + 68 (bar) + 10 (bottom gap). */
+val GlassBottomBarHeight = 84.dp
+
+/**
+ * Keeps a screen's content clear of the floating bar. The bar floats over the screens instead of
+ * resizing them, so screens that show it reserve this fixed space themselves (see VegamNavHost).
+ */
+fun Modifier.glassBottomBarSpace(): Modifier = navigationBarsPadding().padding(bottom = GlassBottomBarHeight)
+
 /**
  * Floating "frosted glass" bottom bar: a translucent pill over AppBackground with a bright
  * highlight along its top edge and a hairline border. The selected tab gets a soft red lens
@@ -65,7 +74,7 @@ fun GlassBottomBar(
     Row(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp) // keep in sync with GlassBottomBarHeight
             .fillMaxWidth()
             .height(68.dp)
             .clip(shape)
