@@ -25,7 +25,8 @@ import com.vegam.myapplication.data.local.entity.StoryPageEntity
     // 2: story_pages holds one image per page instead of a JSON list of panels.
     // 3: stories.likeCount + pending_likes (see MIGRATION_2_3).
     version = 3,
-    exportSchema = false,
+    // Schemas go to app/schemas/ (see the room {} block in app/build.gradle.kts).
+    exportSchema = true,
 )
 abstract class VegamDatabase : RoomDatabase() {
     abstract fun storyDao(): StoryDao

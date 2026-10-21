@@ -22,10 +22,13 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): VegamDatabase =
         Room.databaseBuilder(context, VegamDatabase::class.java, VegamDatabase.NAME)
             // Keeps favorites/likes, downloads and progress when updating from version 2.
+            // Every version bump needs a Migration here: an upgrade without one crashes on
+            // purpose instead of wiping the user's favorites, likes, downloads and progress.
             .addMigrations(MIGRATION_2_3)
-            // Server content is only a cache, so during development a schema change can
-            // simply rebuild the DB. Replace with real migrations before release.
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            // Version 1 never shipped and has no migration; only dev installs can have it.
+            .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1)
+            // Installing an older build over a newer one has no way back, so start fresh.
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
 
     @Provides
