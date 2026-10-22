@@ -2,6 +2,7 @@ package com.vegamstories.app.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,7 +23,8 @@ import com.vegamstories.app.R
 /**
  * Every network image in the app goes through here:
  *  - loading → shimmer
- *  - failed  → muted "broken image" icon (instead of an empty box)
+ *  - failed  → [fallback] if given, else a muted "broken image" icon (instead of an empty box)
+ *  - no [model] → [fallback] if given
  *  - success → the image (Coil cross-fades it in)
  */
 @Composable
@@ -31,7 +33,13 @@ fun StoryImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    /** Shown when there is no image ([model] null) or it fails to load. */
+    fallback: (@Composable BoxScope.() -> Unit)? = null,
 ) {
+    if (model == null && fallback != null) {
+        Box(modifier) { fallback() }
+        return
+    }
     var state by remember(model) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
 
     Box(modifier) {
@@ -46,7 +54,7 @@ fun StoryImage(
             is AsyncImagePainter.State.Loading, AsyncImagePainter.State.Empty ->
                 ShimmerBox(Modifier.matchParentSize())
 
-            is AsyncImagePainter.State.Error -> Box(
+            is AsyncImagePainter.State.Error -> if (fallback != null) fallback() else Box(
                 modifier = Modifier
                     .matchParentSize()
                     .background(MaterialTheme.colorScheme.surfaceVariant),

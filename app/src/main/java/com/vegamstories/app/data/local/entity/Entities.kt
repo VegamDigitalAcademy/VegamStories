@@ -67,7 +67,8 @@ data class StoryTranslationEntity(
     val language: String,
     val title: String,
     val summary: String,
-    val coverImageUrl: String,
+    /** Optional: without it the app shows the first comic page, or a title card. */
+    val coverImageUrl: String?,
     /** Comic pages in this language (rows in story_pages). */
     val pageCount: Int,
     /** The story as plain text (paragraphs separated by a blank line); null = no text version. */

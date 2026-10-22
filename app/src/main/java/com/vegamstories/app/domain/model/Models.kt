@@ -21,7 +21,8 @@ data class Story(
     val episodeNumber: Int,
     val title: String,
     val summary: String,
-    val coverImageUrl: String,
+    /** The cover, or else the first comic page; null = no picture, a title card is shown (StoryCover). */
+    val coverImageUrl: String?,
     val pageCount: Int,
     val publishedAt: Long,
     val video: StoryVideo?,

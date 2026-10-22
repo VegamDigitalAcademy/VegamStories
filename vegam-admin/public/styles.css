@@ -191,3 +191,4 @@ textarea.story-text { min-height: 180px; line-height: 1.6; font-size: 14px; }
 .lang-tab .muted { margin-left: 4px; }
 .lang-tab.active .muted { color: rgba(255, 255, 255, 0.8); }
 .cat-names { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+.story-item .noimg { display: flex; align-items: center; justify-content: center; color: #fff7e6; background: #1e1b4b; font-weight: 700; }

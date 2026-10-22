@@ -146,6 +146,9 @@ class MigrationTest {
             assertFalse(english.hasText)
             assertEquals(listOf("Moral Stories"), stories.observeCategories("en").first().map { it.name })
             assertEquals(2, stories.getPages("moral-1", "en").size)
+            // The English version has no cover: its first comic page stands in.
+            assertEquals(null, english.coverImageUrl)
+            assertEquals("https://example.com/en0.webp", english.firstPageUrl)
 
             // Home in Odia: nothing, the story has no Odia version.
             assertTrue(stories.observeAllStories("or").first().isEmpty())
@@ -171,7 +174,8 @@ class MigrationTest {
     }
 
     private fun translation(language: String, title: String, body: String?) = StoryTranslationEntity(
-        storyId = "moral-1", language = language, title = title, summary = "", coverImageUrl = "https://example.com/$language.webp",
+        storyId = "moral-1", language = language, title = title, summary = "",
+        coverImageUrl = if (language == "en") null else "https://example.com/$language.webp",
         pageCount = if (language == "en") 2 else 1, body = body,
         videoTitle = null, videoDescription = null, videoThumbnailUrl = null, videoUrl = null,
     )
@@ -194,7 +198,7 @@ class MigrationTest {
      */
     private fun withMigratedDatabase(block: suspend (VegamDatabase) -> Unit) {
         val db = Room.databaseBuilder(context, VegamDatabase::class.java, TEST_DB)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .build()
         try {
             runBlocking { block(db) }

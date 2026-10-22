@@ -75,7 +75,8 @@ class NewStoryNotifier @Inject constructor(
         }
     }
 
-    private suspend fun loadCover(url: String): Bitmap? = try {
+    /** The cover (or first comic page); null when the story has no picture: the notification simply has none. */
+    private suspend fun loadCover(url: String?): Bitmap? = if (url == null) null else try {
         val request = ImageRequest.Builder(context)
             .data(url)
             .size(COVER_WIDTH_PX, COVER_HEIGHT_PX)

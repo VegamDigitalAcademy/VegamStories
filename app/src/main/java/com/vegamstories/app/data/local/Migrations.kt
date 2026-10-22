@@ -82,3 +82,20 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         )
     }
 }
+
+/** 6 → 7: the cover is optional. SQLite can't relax NOT NULL in place, so the table is copied. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `story_translations_new` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, `summary` TEXT NOT NULL, `coverImageUrl` TEXT, " +
+                "`pageCount` INTEGER NOT NULL, `body` TEXT, `videoTitle` TEXT, `videoDescription` TEXT, " +
+                "`videoThumbnailUrl` TEXT, `videoUrl` TEXT, PRIMARY KEY(`storyId`, `language`), " +
+                "FOREIGN KEY(`storyId`) REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("INSERT INTO `story_translations_new` SELECT * FROM `story_translations`")
+        db.execSQL("DROP TABLE `story_translations`")
+        db.execSQL("ALTER TABLE `story_translations_new` RENAME TO `story_translations`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_story_translations_language` ON `story_translations` (`language`)")
+    }
+}

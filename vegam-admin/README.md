@@ -91,7 +91,8 @@ you, and the admin page opens. The login lasts 24 hours by default.
   **Language versions** each language (తెలుగు | English | ଓଡ଼ିଆ …) has its own title, summary,
   cover, video, story text and comic pages. **Add language version** adds one; **Remove this
   version** deletes it on Save. The app shows a story in a language only if it has that version.
-  Every version needs a title, a cover and at least one format (pages, text or a YouTube video).
+  Every version needs a title and at least one format (pages, text or a YouTube video). The cover
+  is optional: without one the app shows the first comic page, or else a title card it draws itself.
 - **Story text:** optional, per version. Leave a blank line between paragraphs.
 - **Categories:** **+** adds one, **✎** edits the selected one's names: one name per language.
 - **+ New language:** the standard code (`or` Odia, `hi` Hindi, `ta` Tamil, `kn` Kannada), its
@@ -108,7 +109,7 @@ cover 480×640, panels 800×600, video thumbnail 960×540.
 ## Updating the site later
 
 Before deploying this version, run these once in Supabase → SQL Editor, in order (skip any you
-already ran): `004_story_texts.sql`, `005_languages.sql`, `006_story_translations.sql`. 006 turns
+already ran): `004_story_texts.sql`, `005_languages.sql`, `006_story_translations.sql`, `007_optional_cover.sql`. 006 turns
 existing stories and category names into their Telugu version; deploy this site and the new app
 right after it, as older versions read the columns it removes.
 

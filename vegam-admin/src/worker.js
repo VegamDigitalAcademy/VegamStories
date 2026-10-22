@@ -176,7 +176,7 @@ async function route(request, env, url, email) {
  *         translations: [{ language, title, summary, cover_url, body,
  *                          video_url, video_title, video_description, video_thumbnail_url,
  *                          pages: [{ image_url }] }] }                     — one per language
- * Every language version needs a title, a cover and at least one format (pages, text or video).
+ * Every language version needs a title and at least one format (pages, text or video); the cover is optional.
  * Writes the story row, replaces its translations and pages, then deletes unused images in R2.
  */
 async function saveStory(db, env, id, body) {
@@ -234,7 +234,8 @@ function readTranslation(t, env, storyId, knownLanguages) {
     language,
     title: requireText(t.title, `${label}: title`),
     summary: typeof t.summary === 'string' ? t.summary.trim() : '',
-    cover_url: requireMediaUrl(t.cover_url, env, storyId, `${label}: cover image`),
+    // Optional: without one the app shows the first comic page, or a title card.
+    cover_url: t.cover_url ? requireMediaUrl(t.cover_url, env, storyId, `${label}: cover image`) : null,
     body: body || null,
     video_url: optional(t.video_url),
     video_title: optional(t.video_title),

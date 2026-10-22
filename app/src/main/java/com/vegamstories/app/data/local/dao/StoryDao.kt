@@ -29,6 +29,8 @@ internal const val STORY_WITH_STATE_SELECT = """
         t.title AS title,
         t.summary AS summary,
         t.coverImageUrl AS coverImageUrl,
+        (SELECT fp.imageUrl FROM story_pages fp WHERE fp.storyId = s.id AND fp.language = t.language
+            ORDER BY fp.pageIndex LIMIT 1) AS firstPageUrl,
         t.pageCount AS pageCount,
         (t.body IS NOT NULL) AS hasText,
         t.videoTitle AS videoTitle,

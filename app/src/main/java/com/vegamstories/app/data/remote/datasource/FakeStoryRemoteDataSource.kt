@@ -69,8 +69,9 @@ class FakeStoryRemoteDataSource @Inject constructor(
             language = language,
             title = title,
             summary = "$title – $categoryName.",
-            coverUrl = image("$id-$language-cover", 480, 640),
-            pages = buildPages("$id-$language", seed),
+            // Episodes 7 and 8 have no cover: 7 shows its first comic page, 8 (text only) a title card.
+            coverUrl = if (episode >= 7) null else image("$id-$language-cover", 480, 640),
+            pages = if (episode == 8) emptyList() else buildPages("$id-$language", seed),
             text = if (episode % 3 != 0) sampleText(language, title) else null,
             video = if (episode % 2 == 1) buildVideo("$id-$language", title) else null,
         )

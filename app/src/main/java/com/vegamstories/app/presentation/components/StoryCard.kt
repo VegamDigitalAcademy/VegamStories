@@ -57,10 +57,9 @@ fun StoryCard(
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            StoryImage(
-                model = story.coverImageUrl,
+            StoryCover(
+                story = story,
                 contentDescription = story.title,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
             )
             ImageBadge(
@@ -200,10 +199,9 @@ fun StoryListRow(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StoryImage(
-            model = story.coverImageUrl,
+        StoryCover(
+            story = story,
             contentDescription = story.title,
-            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(width = 56.dp, height = 72.dp)
                 .clip(RoundedCornerShape(8.dp))

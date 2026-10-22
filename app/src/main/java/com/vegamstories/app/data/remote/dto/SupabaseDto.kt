@@ -30,7 +30,8 @@ data class SupabaseTranslationRow(
     @SerialName("language") val language: String,
     @SerialName("title") val title: String,
     @SerialName("summary") val summary: String = "",
-    @SerialName("cover_url") val coverUrl: String,
+    /** Optional (supabase/migrations/007). */
+    @SerialName("cover_url") val coverUrl: String? = null,
     /** The story as plain text (paragraphs separated by a blank line); null = no text version. */
     @SerialName("body") val body: String? = null,
     @SerialName("video_title") val videoTitle: String? = null,

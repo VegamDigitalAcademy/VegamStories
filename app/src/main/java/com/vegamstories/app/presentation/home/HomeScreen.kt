@@ -57,6 +57,7 @@ import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.SectionHeader
 import com.vegamstories.app.presentation.components.StoryGrid
 import com.vegamstories.app.presentation.components.StoryGridSkeleton
+import com.vegamstories.app.presentation.components.StoryCover
 import com.vegamstories.app.presentation.components.StoryImage
 import com.vegamstories.app.presentation.components.VegamLogoMark
 import com.vegamstories.app.presentation.components.fullWidthItem
@@ -299,10 +300,9 @@ private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
-            StoryImage(
-                model = story.coverImageUrl,
+            StoryCover(
+                story = story,
                 contentDescription = story.title,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(width = 64.dp, height = 80.dp)
                     .clip(RoundedCornerShape(10.dp)),

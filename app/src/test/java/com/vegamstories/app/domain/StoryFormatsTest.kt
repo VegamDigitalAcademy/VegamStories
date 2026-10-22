@@ -1,5 +1,8 @@
 package com.vegamstories.app.domain
 
+import com.vegamstories.app.data.local.entity.StoryEntity
+import com.vegamstories.app.data.local.entity.StoryWithStateRow
+import com.vegamstories.app.data.mapper.toDomain
 import com.vegamstories.app.data.mapper.toNameEntities
 import com.vegamstories.app.data.mapper.toPageEntities
 import com.vegamstories.app.data.mapper.toTranslationEntities
@@ -83,6 +86,31 @@ class StoryFormatsTest {
         val names = CategoryDto("moral", names = mapOf("te" to "నీతి కథలు", "en" to "Moral Stories", "or" to " ")).toNameEntities()
         assertEquals(listOf("te" to "నీతి కథలు", "en" to "Moral Stories"), names.map { it.language to it.name })
     }
+
+    @Test
+    fun `the cover is the cover image, else the first comic page, else none (title card)`() {
+        assertEquals("cover.webp", row(cover = "cover.webp", firstPage = "p0.webp").toDomain().coverImageUrl)
+        assertEquals("p0.webp", row(cover = null, firstPage = "p0.webp").toDomain().coverImageUrl)
+        assertNull(row(cover = null, firstPage = null).toDomain().coverImageUrl)
+    }
+
+    @Test
+    fun `a blank cover from the server counts as no cover`() {
+        val dto = StoryDto(
+            id = "moral-1", categoryId = "moral", episode = 1, publishedAt = 0L,
+            translations = listOf(StoryTranslationDto("te", "కథ", coverUrl = " ", text = "కథ")),
+        )
+        assertNull(dto.toTranslationEntities().single().coverImageUrl)
+    }
+
+    private fun row(cover: String?, firstPage: String?) = StoryWithStateRow(
+        story = StoryEntity(id = "moral-1", categoryId = "moral", episodeNumber = 1, publishedAt = 0L, likeCount = 0),
+        language = "te", title = "కథ", summary = "", coverImageUrl = cover, firstPageUrl = firstPage,
+        pageCount = if (firstPage == null) 0 else 1, hasText = true,
+        videoTitle = null, videoDescription = null, videoThumbnailUrl = null, videoUrl = null,
+        categoryName = "నీతి కథలు", isFavorite = false, isDownloaded = false,
+        progressLastPageIndex = null, progressTotalPages = null, progressIsCompleted = null, progressUpdatedAt = null,
+    )
 
     private val languages = listOf(
         Language("te", "Telugu", "తెలుగు"),

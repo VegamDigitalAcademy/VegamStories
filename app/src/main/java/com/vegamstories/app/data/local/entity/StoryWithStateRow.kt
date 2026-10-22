@@ -12,7 +12,9 @@ data class StoryWithStateRow(
     val language: String,
     val title: String,
     val summary: String,
-    val coverImageUrl: String,
+    val coverImageUrl: String?,
+    /** First comic page of this version, the cover's stand-in. */
+    val firstPageUrl: String?,
     val pageCount: Int,
     /** This version has the story as text. */
     val hasText: Boolean,

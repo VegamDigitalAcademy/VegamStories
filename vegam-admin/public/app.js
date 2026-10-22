@@ -128,7 +128,9 @@ function renderStoryList() {
       const item = el(
         'div',
         { class: `story-item${state.current && state.current.id === s.id && !state.current.isNew ? ' active' : ''}` },
-        storyCover(s) ? el('img', { src: storyCover(s), alt: '', loading: 'lazy' }) : el('div', { class: 'noimg' }),
+        storyCover(s)
+          ? el('img', { src: storyCover(s), alt: '', loading: 'lazy' })
+          : el('div', { class: 'noimg', title: 'No cover: the app shows the first comic page or a title card' }, storyTitle(s).slice(0, 1)),
         el(
           'div',
           { class: 'meta' },
@@ -668,7 +670,6 @@ function validate(s) {
   for (const v of s.versions) {
     const where = `${languageLabel(v.language)}:`;
     if (!v.title.trim()) return `${where} add a title`;
-    if (!v.cover.url && !v.cover.blob) return `${where} add a cover image`;
     if (v.video_url && !/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(v.video_url)) return `${where} the video link must be a YouTube link`;
     if (v.video_url && !v.thumb.url && !v.thumb.blob) return `${where} add a video thumbnail (or remove the video link)`;
     if (!v.pages.length && !v.body.trim() && !v.video_url) {
@@ -726,7 +727,7 @@ async function save() {
         language: v.language,
         title: v.title,
         summary: v.summary,
-        cover_url: v.cover.url,
+        cover_url: v.cover.url || null,
         body: v.body,
         video_url: v.video_url,
         video_title: v.video_title,

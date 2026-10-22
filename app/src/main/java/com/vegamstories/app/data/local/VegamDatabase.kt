@@ -33,7 +33,8 @@ import com.vegamstories.app.data.local.entity.StoryTranslationEntity
     // 4: story_texts, the story as text (see MIGRATION_3_4).
     // 5: languages, managed on the server (see MIGRATION_4_5).
     // 6: everything per language: story_translations, story_pages.language, category_names (MIGRATION_5_6).
-    version = 6,
+    // 7: story_translations.coverImageUrl optional (MIGRATION_6_7).
+    version = 7,
     // Schemas go to app/schemas/ (see the room {} block in app/build.gradle.kts).
     exportSchema = true,
 )

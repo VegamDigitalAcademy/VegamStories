@@ -50,7 +50,8 @@ data class StoryTranslationDto(
     @SerialName("language") val language: String,
     @SerialName("title") val title: String,
     @SerialName("summary") val summary: String = "",
-    @SerialName("cover_url") val coverUrl: String,
+    /** Optional: without it the app shows the first comic page, or a title card. */
+    @SerialName("cover_url") val coverUrl: String? = null,
     @SerialName("pages") val pages: List<PageDto> = emptyList(),
     /** The story as plain text (paragraphs separated by a blank line); null = no text version. */
     @SerialName("text") val text: String? = null,
