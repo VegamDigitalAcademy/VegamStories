@@ -185,3 +185,9 @@ textarea.story-text { min-height: 180px; line-height: 1.6; font-size: 14px; }
 .text-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .add-text { margin-top: 12px; gap: 8px; flex-wrap: wrap; }
 .add-text select { max-width: 260px; }
+.lang-tabs { gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.lang-tab { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; font: inherit; }
+.lang-tab.active { background: var(--red-dark); border-color: var(--red-dark); color: #fff; font-weight: 600; }
+.lang-tab .muted { margin-left: 4px; }
+.lang-tab.active .muted { color: rgba(255, 255, 255, 0.8); }
+.cat-names { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
