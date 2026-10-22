@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lets the app check connectivity (e.g. "you're offline" messages, smarter refresh). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- "New story" alerts (Android 13+ asks the user; requested only when they turn alerts on). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Lets the "Watch on YouTube" button find the YouTube app / browser on Android 11+ -->
     <queries>
@@ -16,6 +18,7 @@
 
     <application
         android:name=".VegamStoriesApp"
+        android:enableOnBackInvokedCallback="false"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -29,6 +32,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:theme="@style/Theme.MyApplication"
             android:windowSoftInputMode="adjustResize">
@@ -38,6 +43,31 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Home screen widget: continue reading / today's new story. -->
+        <receiver
+            android:name=".presentation.widget.StoryWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/story_widget_info" />
+        </receiver>
+
+        <!-- WorkManager is started by VegamStoriesApp (Configuration.Provider) so workers get Hilt. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
         <!-- Remembers the in-app language on Android 7-12 (Android 13+ stores it in the system). -->
         <service

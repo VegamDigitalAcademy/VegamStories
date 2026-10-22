@@ -39,7 +39,7 @@
 
     <!-- Library screens -->
     <string name="favorites_empty_title">ఇంకా ఇష్టమైనవి లేవు</string>
-    <string name="favorites_empty_message">ఏ కథపైనైనా హార్ట్‌ను నొక్కితే అది ఇక్కడ ఉంటుంది.</string>
+    <string name="favorites_empty_message">కథ చదువుతున్నప్పుడు హార్ట్‌ను నొక్కితే అది ఇక్కడ ఉంటుంది.</string>
     <string name="downloads_empty_title">డౌన్‌లోడ్‌లు లేవు</string>
     <string name="downloads_empty_message">ఆఫ్‌లైన్‌లో చదవడానికి కథను తెరిచి డౌన్‌లోడ్ చేయండి.</string>
     <string name="history_title">చదివిన కథలు</string>
@@ -101,4 +101,50 @@
     <string name="cd_download">డౌన్‌లోడ్</string>
     <string name="cd_clear">తొలగించు</string>
     <string name="cd_play_video">వీడియో ప్లే చేయి</string>
+
+    <!-- Likes -->
+    <string name="like_prompt_title">మీకు ఈ కథ నచ్చిందా?</string>
+    <string name="like_prompt_hint">నచ్చితే హార్ట్‌ని నొక్కండి</string>
+    <string name="liked_title">మీకు ఈ కథ నచ్చింది!</string>
+    <string name="liked_hint">ధన్యవాదాలు! ఇది మీ ఇష్టమైనవాటిలో సేవ్ అయింది.</string>
+    <string name="like_count_zero">మొదటి లైక్ మీదే కావచ్చు</string>
+    <plurals name="like_count">
+        <item quantity="one">%s లైక్</item>
+        <item quantity="other">%s లైక్‌లు</item>
+    </plurals>
+    <string name="next_episode_label">తదుపరి ఎపిసోడ్</string>
+    <string name="read_action">చదవండి</string>
+    <string name="skip_to_next_story">తదుపరి కథకు వెళ్ళండి</string>
+    <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
+    <string name="cd_like">లైక్</string>
+
+    <!-- కొత్త కథల నోటిఫికేషన్లు -->
+    <string name="settings_notifications_section">నోటిఫికేషన్లు</string>
+    <string name="settings_new_story_alerts">కొత్త కథల అలర్ట్‌లు</string>
+    <string name="settings_new_story_alerts_desc">కొత్త కథ ప్రచురించినప్పుడు నోటిఫికేషన్ పొందండి</string>
+    <string name="settings_notifications_blocked">ఈ యాప్‌కు నోటిఫికేషన్లు ఆఫ్‌లో ఉన్నాయి. ఫోన్ సెట్టింగ్‌లలో అనుమతించడానికి నొక్కండి.</string>
+    <string name="notification_channel_new_stories">కొత్త కథలు</string>
+    <string name="notification_channel_new_stories_desc">కొత్త కథ ప్రచురించినప్పుడు వచ్చే నోటిఫికేషన్</string>
+    <string name="notification_new_story_title">కొత్త కథ</string>
+
+    <!-- హోమ్ స్క్రీన్ విడ్జెట్ -->
+    <string name="widget_name">చదవడం కొనసాగించండి</string>
+    <string name="widget_description">ఆపిన చోటు నుండి చదవండి, లేదా ఈ రోజు కొత్త కథ చదవండి.</string>
+    <string name="widget_new_today">ఈ రోజు కొత్త కథ</string>
+    <string name="widget_latest">తాజా కథ</string>
+    <string name="widget_empty">కథలు లోడ్ చేయడానికి యాప్‌ను తెరవండి</string>
+    <string name="cd_unlike">లైక్ తీసివేయి</string>
+
+    <!-- Reader options -->
+    <string name="reader_options_title">చదివే ఎంపికలు</string>
+    <string name="cd_reader_options">చదివే ఎంపికలు</string>
+    <string name="reader_scroll">స్క్రోలింగ్</string>
+    <string name="reader_scroll_paged">పేజీ వారీగా</string>
+    <string name="reader_scroll_vertical">నిరంతరంగా</string>
+    <string name="reader_background">పేజీ నేపథ్యం</string>
+    <string name="reader_background_default">డిఫాల్ట్</string>
+    <string name="reader_background_sepia">సెపియా</string>
+    <string name="reader_background_dark">డార్క్</string>
+    <string name="reader_keep_screen_on">స్క్రీన్ ఆన్‌లో ఉంచు</string>
+    <string name="reader_keep_screen_on_desc">మీరు చదువుతున్నప్పుడు స్క్రీన్ మసకబారదు, లాక్ అవ్వదు</string>
 </resources>

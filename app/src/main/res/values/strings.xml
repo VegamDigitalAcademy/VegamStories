@@ -40,7 +40,7 @@
 
     <!-- Library screens -->
     <string name="favorites_empty_title">No favorites yet</string>
-    <string name="favorites_empty_message">Tap the heart on any story to keep it here.</string>
+    <string name="favorites_empty_message">Like a story while reading it to keep it here.</string>
     <string name="downloads_empty_title">No downloads</string>
     <string name="downloads_empty_message">Download a story from the reader to read it offline.</string>
     <string name="history_title">Read stories</string>
@@ -105,4 +105,50 @@
     <string name="cd_download">Download</string>
     <string name="cd_clear">Clear</string>
     <string name="cd_play_video">Play video</string>
+
+    <!-- Likes (the heart): card shows the count, the reader lets you like -->
+    <string name="like_prompt_title">Did you like this story?</string>
+    <string name="like_prompt_hint">Tap the heart to like it</string>
+    <string name="liked_title">You liked this story!</string>
+    <string name="liked_hint">Thanks! It\'s saved in your favorites.</string>
+    <string name="like_count_zero">Be the first to like it</string>
+    <plurals name="like_count">
+        <item quantity="one">%s like</item>
+        <item quantity="other">%s likes</item>
+    </plurals>
+    <string name="next_episode_label">NEXT EPISODE</string>
+    <string name="read_action">Read</string>
+    <string name="skip_to_next_story">Skip to the next story</string>
+    <string name="all_episodes_read">You\'ve reached the latest episode in this series.</string>
+    <string name="cd_like">Like</string>
+
+    <!-- New-story notifications -->
+    <string name="settings_notifications_section">NOTIFICATIONS</string>
+    <string name="settings_new_story_alerts">New story alerts</string>
+    <string name="settings_new_story_alerts_desc">Get a notification when a new story is published</string>
+    <string name="settings_notifications_blocked">Notifications are turned off for this app. Tap to allow them in your phone\'s settings.</string>
+    <string name="notification_channel_new_stories">New stories</string>
+    <string name="notification_channel_new_stories_desc">A notification when a new story is published</string>
+    <string name="notification_new_story_title">New story</string>
+
+    <!-- Home screen widget -->
+    <string name="widget_name">Continue reading</string>
+    <string name="widget_description">Pick up where you left off, or read today\'s new story.</string>
+    <string name="widget_new_today">TODAY\'S NEW STORY</string>
+    <string name="widget_latest">LATEST STORY</string>
+    <string name="widget_empty">Open the app to load stories</string>
+    <string name="cd_unlike">Unlike</string>
+
+    <!-- Reader options -->
+    <string name="reader_options_title">Reading options</string>
+    <string name="cd_reader_options">Reading options</string>
+    <string name="reader_scroll">Scrolling</string>
+    <string name="reader_scroll_paged">Page by page</string>
+    <string name="reader_scroll_vertical">Continuous</string>
+    <string name="reader_background">Page background</string>
+    <string name="reader_background_default">Default</string>
+    <string name="reader_background_sepia">Sepia</string>
+    <string name="reader_background_dark">Dark</string>
+    <string name="reader_keep_screen_on">Keep screen on</string>
+    <string name="reader_keep_screen_on_desc">The screen won\'t dim or lock while you read</string>
 </resources>
