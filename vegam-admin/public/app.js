@@ -78,6 +78,16 @@ async function loadStories() {
 // Story list
 // -------------------------------------------------------------------------------------------
 
+/** e.g. "Comic · Text TE EN · Video", from the list row (page count, text languages, video link). */
+function formatsLabel(s) {
+  const parts = [];
+  if (s.story_pages?.[0]?.count > 0) parts.push('Comic');
+  const languages = (s.story_texts || []).map((t) => t.language.toUpperCase()).sort().reverse(); // TE before EN
+  if (languages.length) parts.push(`Text ${languages.join(' ')}`);
+  if (s.video_url) parts.push('Video');
+  return parts.join(' · ') || 'No content yet';
+}
+
 function renderStoryList() {
   const list = $('storyList');
   const query = $('searchInput').value.trim().toLowerCase();
@@ -107,6 +117,7 @@ function renderStoryList() {
           { class: 'meta' },
           el('div', { class: 'title ellipsis' }, s.title),
           el('div', { class: 'muted small' }, `Ep ${s.episode} · ${s.id} · ♥ ${s.like_count ?? 0}`),
+          el('div', { class: 'muted small formats', title: 'Formats: comic, text (languages), video' }, formatsLabel(s)),
         ),
         el('span', { class: `badge ${s.is_published ? 'live' : 'draft'}` }, s.is_published ? 'LIVE' : 'DRAFT'),
       );
@@ -139,6 +150,8 @@ function emptyStory() {
     video_url: '',
     video_title: '',
     video_description: '',
+    text_te: '',
+    text_en: '',
     cover: emptyImage(),
     thumb: emptyImage(),
     pages: [], // [{ image: {url, blob, preview} }]
@@ -151,6 +164,7 @@ function fromServer(row) {
     .slice()
     .sort((a, b) => a.page_index - b.page_index)
     .map((p) => ({ image: img(p.image_url) }));
+  const text = (language) => (row.story_texts || []).find((t) => t.language === language)?.body || '';
   return {
     isNew: false,
     idEdited: true,
@@ -164,6 +178,8 @@ function fromServer(row) {
     video_url: row.video_url || '',
     video_title: row.video_title || '',
     video_description: row.video_description || '',
+    text_te: text('te'),
+    text_en: text('en'),
     cover: img(row.cover_url),
     thumb: img(row.video_thumbnail_url),
     pages,
@@ -232,6 +248,9 @@ function renderEditor() {
   $('videoUrlInput').value = s.video_url;
   $('videoTitleInput').value = s.video_title;
   $('videoDescInput').value = s.video_description;
+  $('teTextInput').value = s.text_te;
+  $('enTextInput').value = s.text_en;
+  updateTextCounts();
   $('publishedInput').checked = s.is_published;
   updatePublishedLabel();
 
@@ -451,7 +470,26 @@ function readForm() {
   s.video_url = $('videoUrlInput').value.trim();
   s.video_title = $('videoTitleInput').value;
   s.video_description = $('videoDescInput').value;
+  s.text_te = $('teTextInput').value;
+  s.text_en = $('enTextInput').value;
   s.is_published = $('publishedInput').checked;
+}
+
+/** Paragraphs are separated by a blank line, as the app splits them. */
+function paragraphs(text) {
+  return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+}
+
+function textCount(text) {
+  const paras = paragraphs(text);
+  if (!paras.length) return '(empty — no text in this language)';
+  const words = text.trim().split(/\s+/).length;
+  return `(${paras.length} paragraph${paras.length === 1 ? '' : 's'}, ${words} words)`;
+}
+
+function updateTextCounts() {
+  $('teTextCount').textContent = textCount($('teTextInput').value);
+  $('enTextCount').textContent = textCount($('enTextInput').value);
 }
 
 function validate(s) {
@@ -463,7 +501,9 @@ function validate(s) {
   if (!s.cover.url && !s.cover.blob) return 'Add a cover image';
   if (s.video_url && !/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(s.video_url)) return 'The video link must be a YouTube link';
   if (s.video_url && !s.thumb.url && !s.thumb.blob) return 'Add a video thumbnail (or remove the video link)';
-  if (!s.pages.length) return 'Add at least one page image';
+  if (!s.pages.length && !s.text_te.trim() && !s.text_en.trim() && !s.video_url) {
+    return 'Add at least one format: page images, story text or a YouTube video';
+  }
   for (const [pi, page] of s.pages.entries()) {
     if (!page.image.url && !page.image.blob) return `Page ${pi + 1} has no image`;
   }
@@ -511,6 +551,10 @@ async function save() {
         video_thumbnail_url: s.video_url ? s.thumb.url : null,
       },
       pages: s.pages.map((p) => ({ image_url: p.image.url })),
+      texts: [
+        { language: 'te', body: s.text_te },
+        { language: 'en', body: s.text_en },
+      ],
     };
     const result = await api('PUT', `stories/${s.id}`, payload);
     s.isNew = false;
@@ -607,10 +651,11 @@ function bindStaticEvents() {
     state.current.idEdited = true;
     setDirty(true);
   });
-  ['titleInput', 'summaryInput', 'videoUrlInput', 'videoTitleInput', 'videoDescInput', 'publishedAtInput'].forEach((id) =>
+  ['titleInput', 'summaryInput', 'videoUrlInput', 'videoTitleInput', 'videoDescInput', 'publishedAtInput', 'teTextInput', 'enTextInput'].forEach((id) =>
     $(id).addEventListener('input', () => {
       setDirty(true);
       if (id === 'titleInput') renderPreview();
+      if (id === 'teTextInput' || id === 'enTextInput') updateTextCounts();
     }),
   );
   $('storyForm').addEventListener('submit', (e) => e.preventDefault());

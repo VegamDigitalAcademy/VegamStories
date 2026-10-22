@@ -177,3 +177,7 @@ body:has(.preview:not(.hidden)) .actions { right: 360px; }
   .grid { grid-template-columns: 1fr; }
   .media-row { flex-direction: column; }
 }
+
+/* Story text boxes: comfortable to write long text in. */
+textarea.story-text { min-height: 180px; line-height: 1.6; font-size: 14px; }
+.formats { letter-spacing: 1px; }

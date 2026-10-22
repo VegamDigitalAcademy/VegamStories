@@ -13,6 +13,8 @@ const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\.(webp|jpg|png)$/;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const TEXT_LANGUAGES = ['te', 'en'];
+const MAX_TEXT_CHARS = 50000;
 
 export default {
   async fetch(request, env) {
@@ -72,8 +74,8 @@ async function route(request, env, url, email) {
     if (parts.length === 1 && method === 'GET') {
       return json(
         await db.get(
-          'stories?select=id,category_id,episode,title,cover_url,is_published,published_at,like_count' +
-            '&order=category_id.asc,episode.asc',
+          'stories?select=id,category_id,episode,title,cover_url,is_published,published_at,like_count,video_url,' +
+            'story_pages(count),story_texts(language)&order=category_id.asc,episode.asc',
         ),
       );
     }
@@ -82,7 +84,8 @@ async function route(request, env, url, email) {
 
     if (parts.length === 2 && method === 'GET') {
       const rows = await db.get(
-        `stories?id=eq.${id}&select=*,story_pages(page_index,image_url)&story_pages.order=page_index.asc`,
+        `stories?id=eq.${id}&select=*,story_pages(page_index,image_url),story_texts(language,body)` +
+          '&story_pages.order=page_index.asc',
       );
       if (!rows.length) throw new HttpError(404, 'Story not found');
       return json(rows[0]);
@@ -93,7 +96,7 @@ async function route(request, env, url, email) {
     }
 
     if (parts.length === 2 && method === 'DELETE') {
-      await db.delete(`stories?id=eq.${id}`); // pages go too (ON DELETE CASCADE)
+      await db.delete(`stories?id=eq.${id}`); // pages and texts go too (ON DELETE CASCADE)
       const removed = await deleteImages(env, `${id}/`, new Set());
       return json({ deleted: id, imagesRemoved: removed });
     }
@@ -135,8 +138,10 @@ async function route(request, env, url, email) {
 /**
  * Body: { story: {category_id, episode, title, summary, cover_url, published_at, is_published,
  *                 video_title, video_description, video_thumbnail_url, video_url},
- *         pages: [{ image_url }] }   — one finished comic image per page, in reading order
- * Writes the story row, replaces its pages, then deletes images in R2 that are no longer used.
+ *         pages: [{ image_url }],    — one finished comic image per page, in reading order
+ *         texts: [{ language, body }] } — the story as plain text, 'te' and/or 'en'
+ * A story needs at least one format: comic pages, text or a video.
+ * Writes the story row, replaces its pages and texts, then deletes images in R2 that are no longer used.
  */
 async function saveStory(db, env, id, body) {
   const s = body.story || {};
@@ -165,11 +170,16 @@ async function saveStory(db, env, id, body) {
     page_index: pageIndex,
     image_url: requireMediaUrl(page && page.image_url, env, id, `Page ${pageIndex + 1} image`),
   }));
-  if (!pages.length) throw new HttpError(400, 'Add at least one page');
+  const texts = readTexts(body.texts, id);
+  if (!pages.length && !texts.length && !story.video_url) {
+    throw new HttpError(400, 'Add at least one format: comic pages, story text or a YouTube video');
+  }
 
   const [saved] = await db.upsert('stories', [story]);
   await db.delete(`story_pages?story_id=eq.${id}`);
-  await db.insert('story_pages', pages);
+  if (pages.length) await db.insert('story_pages', pages);
+  await db.delete(`story_texts?story_id=eq.${id}`);
+  if (texts.length) await db.insert('story_texts', texts);
 
   // Images that were replaced or removed in this edit are no longer referenced → delete them.
   const used = new Set(
@@ -179,7 +189,27 @@ async function saveStory(db, env, id, body) {
   );
   const imagesRemoved = await deleteImages(env, `${id}/`, used);
 
-  return { story: saved, pages: pages.length, imagesRemoved };
+  return { story: saved, pages: pages.length, texts: texts.map((t) => t.language), imagesRemoved };
+}
+
+/**
+ * The story's texts as rows for story_texts. Empty ones are left out (= no text in that language).
+ * Line breaks are normalised; paragraphs are separated by a blank line.
+ */
+function readTexts(value, storyId) {
+  const texts = [];
+  for (const t of Array.isArray(value) ? value : []) {
+    const language = t && t.language;
+    if (!TEXT_LANGUAGES.includes(language)) throw new HttpError(400, `Unknown text language: ${language}`);
+    if (texts.some((x) => x.language === language)) throw new HttpError(400, `Two texts in ${language}`);
+    const body = typeof t.body === 'string' ? t.body.replace(/\r\n?/g, '\n').trim() : '';
+    if (!body) continue;
+    if (body.length > MAX_TEXT_CHARS) {
+      throw new HttpError(413, `The ${language === 'te' ? 'Telugu' : 'English'} text is longer than ${MAX_TEXT_CHARS} characters`);
+    }
+    texts.push({ story_id: storyId, language, body, updated_at: new Date().toISOString() });
+  }
+  return texts;
 }
 
 /** Deletes every object under [prefix] whose key is not in [keep]. Returns how many were removed. */

@@ -114,11 +114,32 @@
             </div>
           </section>
 
-          <!-- 3. Pages -->
+          <!-- 3. Story text -->
+          <section class="card">
+            <div class="card-head">
+              <h3>Story text</h3>
+              <span class="muted small">The whole story as plain text, read in the app's Read tab.
+                Leave a blank line between paragraphs. Leave a box empty if there's no text in that language.</span>
+            </div>
+            <div class="grid">
+              <label class="field wide">
+                <span>Telugu <em class="muted" id="teTextCount"></em></span>
+                <textarea id="teTextInput" class="input te story-text" rows="10"
+                  placeholder="ఒకప్పుడు ఒక చిన్న ఊరిలో…&#10;&#10;(కొత్త పేరా కోసం ఒక ఖాళీ లైన్ వదలండి)"></textarea>
+              </label>
+              <label class="field wide">
+                <span>English <em class="muted" id="enTextCount"></em></span>
+                <textarea id="enTextInput" class="input story-text" rows="10"
+                  placeholder="Once upon a time, in a small village…&#10;&#10;(leave a blank line for a new paragraph)"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <!-- 4. Pages -->
           <section class="card">
             <div class="card-head">
               <h3>Pages</h3>
-              <span class="muted small">One finished image per page (panels and speech bubbles already in the picture).
+              <span class="muted small">Optional if the story has text or a video. One finished image per page (panels and speech bubbles already in the picture).
                 Drop several on “+ Add pages” — they're ordered by file name. Click an image to replace it.</span>
             </div>
             <div id="pagesContainer" class="pages-grid"></div>

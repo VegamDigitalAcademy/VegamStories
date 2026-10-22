@@ -87,6 +87,10 @@ you, and the admin page opens. The login lasts 24 hours by default.
   name (`01.png`, `02.png`, … or the `p0-0.webp`, `p0-1.webp` files from the YouTube-to-comic prompt).
 - **Captions / speech bubbles:** one bubble per line. The preview on the right shows exactly
   how the page will look in the app.
+- **Story text:** the story as plain text, in Telugu and/or English (the app's Read tab). Leave a
+  blank line between paragraphs; leave a box empty if there's no text in that language. A story
+  needs at least one format: page images, text or a YouTube video. The story list shows each
+  story's formats, e.g. `Comic · Text TE EN · Video`.
 - **Save** (or ⌘S) stores everything. Replaced or removed images are deleted from R2 automatically.
 - **Published** switch: off = draft (not in the app), on = live. Remember to click Save after switching it.
 - **Delete story** removes it from Supabase and deletes its images from R2.
@@ -95,6 +99,9 @@ Any image format works (PNG, JPG, WebP, phone photos). Each is cropped from the 
 cover 480×640, panels 800×600, video thumbnail 960×540.
 
 ## Updating the site later
+
+Before deploying a version that saves story text, run `supabase/migrations/004_story_texts.sql`
+once in Supabase → SQL Editor (it creates the `story_texts` table).
 
 Edit files in `public/` (page) or `src/worker.js` (server part), then run `npx wrangler deploy` again.
 
