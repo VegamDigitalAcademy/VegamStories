@@ -105,6 +105,9 @@ dependencies {
     // Video: YouTube player inside the reader
     implementation(libs.youtube.player.core)
 
+    // Splash screen with the logo
+    implementation(libs.androidx.core.splashscreen)
+
     // In-app language switch (English / Telugu)
     implementation(libs.androidx.appcompat)
 

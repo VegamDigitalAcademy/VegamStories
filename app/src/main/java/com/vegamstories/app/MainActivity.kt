@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -36,6 +37,11 @@ class MainActivity : AppCompatActivity() {
     private var shortcutTarget by mutableStateOf<ShortcutTarget?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Logo splash; stays until the saved theme and story-language choice are read, so the
+        // first screen appears straight after it (no blank frame).
+        installSplashScreen().setKeepOnScreenCondition {
+            viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Only on a fresh launch — after rotation the NavController already restored the screen.
