@@ -62,12 +62,12 @@ fun StoryCard(
                 contentDescription = story.title,
                 modifier = Modifier.matchParentSize(),
             )
-            ImageBadge(
+            /*ImageBadge(
                 text = stringResource(R.string.episode_short, story.episodeNumber),
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(8.dp),
-            )
+            )*/
             if (story.isRead) {
                 ImageBadge(
                     text = stringResource(R.string.read_badge),
