@@ -23,6 +23,18 @@
     <string name="format_comic">బొమ్మల కథ</string>
     <string name="format_text">చదివే కథ</string>
     <string name="format_video">వీడియో</string>
+
+    <!-- రీడర్ ట్యాబ్‌లు, అక్షర కథ -->
+    <string name="reader_tab_comic">బొమ్మలు</string>
+    <string name="reader_tab_read">చదవండి</string>
+    <string name="reader_tab_watch">చూడండి</string>
+    <string name="text_language_telugu">తెలుగు</string>
+    <string name="text_language_english">English</string>
+    <string name="reader_text_size">అక్షరాల పరిమాణం</string>
+    <string name="reader_text_size_small">చిన్న అక్షరాలు</string>
+    <string name="reader_text_size_medium">మధ్యస్థ అక్షరాలు</string>
+    <string name="reader_text_size_large">పెద్ద అక్షరాలు</string>
+    <string name="reader_text_size_extra_large">చాలా పెద్ద అక్షరాలు</string>
     <string name="added_to_favorites">ఇష్టమైనవాటికి జోడించబడింది</string>
     <string name="removed_from_favorites">ఇష్టమైనవాటి నుండి తీసివేయబడింది</string>
     <string name="refresh_failed">కథలను రిఫ్రెష్ చేయలేకపోయాం. సేవ్ చేసిన కథలను చూపిస్తున్నాం.</string>

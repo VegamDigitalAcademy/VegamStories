@@ -78,6 +78,8 @@ class SettingsRepositoryImpl @Inject constructor(
             scrollMode = this[READER_SCROLL_MODE].toEnumOr(defaults.scrollMode),
             keepScreenOn = this[READER_KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
             pageBackground = this[READER_PAGE_BACKGROUND].toEnumOr(defaults.pageBackground),
+            preferredFormat = this[READER_PREFERRED_FORMAT].toEnumOr(defaults.preferredFormat),
+            textSize = this[READER_TEXT_SIZE].toEnumOr(defaults.textSize),
         )
     }
 
@@ -85,6 +87,8 @@ class SettingsRepositoryImpl @Inject constructor(
         this[READER_SCROLL_MODE] = settings.scrollMode.name
         this[READER_KEEP_SCREEN_ON] = settings.keepScreenOn
         this[READER_PAGE_BACKGROUND] = settings.pageBackground.name
+        this[READER_PREFERRED_FORMAT] = settings.preferredFormat.name
+        this[READER_TEXT_SIZE] = settings.textSize.name
     }
 
     /** Unknown or missing names (e.g. from an older app version) fall back to [default]. */
@@ -96,6 +100,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_SCROLL_MODE = stringPreferencesKey("reader_scroll_mode")
         val READER_KEEP_SCREEN_ON = booleanPreferencesKey("reader_keep_screen_on")
         val READER_PAGE_BACKGROUND = stringPreferencesKey("reader_page_background")
+        val READER_PREFERRED_FORMAT = stringPreferencesKey("reader_preferred_format")
+        val READER_TEXT_SIZE = stringPreferencesKey("reader_text_size")
         val NEW_STORY_ALERTS = booleanPreferencesKey("new_story_alerts")
         val LAST_SEEN_STORY_ID = stringPreferencesKey("last_seen_story_id")
         val LAST_SEEN_STORY_PUBLISHED_AT = longPreferencesKey("last_seen_story_published_at")

@@ -42,6 +42,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
+import com.vegamstories.app.domain.model.ReaderTextSize
+import com.vegamstories.app.domain.model.StoryFormat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -120,6 +125,8 @@ fun ReaderOptionsSheet(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onPageBackgroundChange: (PageBackground) -> Unit,
     onDismiss: () -> Unit,
+    format: StoryFormat = StoryFormat.COMIC,
+    onTextSizeChange: (ReaderTextSize) -> Unit = {},
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -130,6 +137,8 @@ fun ReaderOptionsSheet(
             onScrollModeChange = onScrollModeChange,
             onKeepScreenOnChange = onKeepScreenOnChange,
             onPageBackgroundChange = onPageBackgroundChange,
+            format = format,
+            onTextSizeChange = onTextSizeChange,
         )
     }
 }
@@ -140,6 +149,8 @@ private fun ReaderOptionsContent(
     onScrollModeChange: (ReaderScrollMode) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onPageBackgroundChange: (PageBackground) -> Unit,
+    format: StoryFormat = StoryFormat.COMIC,
+    onTextSizeChange: (ReaderTextSize) -> Unit = {},
 ) {
     Column(
         Modifier
@@ -152,9 +163,33 @@ private fun ReaderOptionsContent(
             fontWeight = FontWeight.SemiBold,
         )
 
-        // ---- Scroll mode ----
-        OptionLabel(stringResource(R.string.reader_scroll))
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        // ---- Text size (Read tab) ----
+        if (format == StoryFormat.TEXT) {
+            OptionLabel(stringResource(R.string.reader_text_size))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                ReaderTextSize.entries.forEachIndexed { i, size ->
+                    val label = stringResource(size.labelRes)
+                    SegmentedButton(
+                        selected = settings.textSize == size,
+                        onClick = { onTextSizeChange(size) },
+                        shape = SegmentedButtonDefaults.itemShape(index = i, count = ReaderTextSize.entries.size),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                        icon = {},
+                        modifier = Modifier.semantics { contentDescription = label },
+                    ) {
+                        // A letter at the real size shows the choice at a glance.
+                        Text("అ", fontSize = size.fontSizeSp.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
+        // ---- Scroll mode (comic only) ----
+        if (format == StoryFormat.COMIC) OptionLabel(stringResource(R.string.reader_scroll))
+        if (format == StoryFormat.COMIC) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             ScrollOption.entries.forEachIndexed { i, option ->
                 SegmentedButton(
                     selected = settings.scrollMode == option.mode,
@@ -212,6 +247,14 @@ private fun ReaderOptionsContent(
         }
     }
 }
+
+private val ReaderTextSize.labelRes: Int
+    get() = when (this) {
+        ReaderTextSize.SMALL -> R.string.reader_text_size_small
+        ReaderTextSize.MEDIUM -> R.string.reader_text_size_medium
+        ReaderTextSize.LARGE -> R.string.reader_text_size_large
+        ReaderTextSize.EXTRA_LARGE -> R.string.reader_text_size_extra_large
+    }
 
 private enum class ScrollOption(val mode: ReaderScrollMode, @StringRes val titleRes: Int) {
     PAGED(ReaderScrollMode.PAGED, R.string.reader_scroll_paged),

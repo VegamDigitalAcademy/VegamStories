@@ -9,6 +9,13 @@ import com.vegamstories.app.domain.model.ReaderScrollMode
 import com.vegamstories.app.domain.model.ReaderSettings
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryDetail
+import com.vegamstories.app.domain.model.ReaderTextSize
+import com.vegamstories.app.domain.model.StoryFormat
+import com.vegamstories.app.domain.model.StoryText
+import com.vegamstories.app.domain.model.TextLanguage
+import com.vegamstories.app.domain.model.AppLanguage
+import com.vegamstories.app.domain.model.pick
+import com.vegamstories.app.domain.usecase.GetAppLanguageUseCase
 import com.vegamstories.app.domain.usecase.GetNextStoryUseCase
 import com.vegamstories.app.domain.usecase.GetReaderSettingsUseCase
 import com.vegamstories.app.domain.usecase.GetStoryDetailUseCase
@@ -21,6 +28,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,6 +39,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 data class ReaderUiState(
@@ -38,16 +47,40 @@ data class ReaderUiState(
     val detail: StoryDetail? = null,
     /** Next episode in the same category, offered at the end; null on the last episode. */
     val nextStory: Story? = null,
-    /** Page to open on: where the reader left off, unless the story was finished. */
+    /** Comic page to open on: where the reader left off, unless the story was finished. */
     val initialPage: Int = 0,
-    /** Scroll mode, keep-screen-on and page background; loaded before the reader first shows. */
+    /** How far into the text to open, 0..1 (progress is shared by all formats). */
+    val initialTextFraction: Float = 0f,
+    /** Scroll mode, keep-screen-on, page background, format and text size; loaded before the reader first shows. */
     val settings: ReaderSettings = ReaderSettings(),
+    /** The tab the user picked in this reader, if any. */
+    val selectedFormat: StoryFormat? = null,
+    /** The text language the user picked in this reader, if any. */
+    val selectedTextLanguage: TextLanguage? = null,
+    /** Text language that matches the app's language; used until the user picks one. */
+    val appTextLanguage: TextLanguage? = null,
 ) {
     val hasVideo: Boolean get() = detail?.story?.video != null
     /** The "Did you like this story?" page, right after the last comic page. */
     val likePageIndex: Int get() = detail?.pages?.size ?: 0
-    /** Comic pages + the like page + optional video page at the end. */
-    val totalPagerPages: Int get() = if (detail == null) 0 else likePageIndex + 1 + if (hasVideo) 1 else 0
+    /** Comic pages + the like page. The video has its own Watch tab. */
+    val totalPagerPages: Int get() = if (detail == null) 0 else likePageIndex + 1
+
+    /** The formats this story comes in, in tab order. */
+    val formats: Set<StoryFormat> get() = detail?.story?.formats.orEmpty()
+
+    /** The tab to show: the one picked here, else the saved favourite, else the first the story has. */
+    val format: StoryFormat
+        get() = selectedFormat?.takeIf { it in formats }
+            ?: settings.preferredFormat.takeIf { it in formats }
+            ?: formats.firstOrNull()
+            ?: StoryFormat.COMIC
+
+    /** Languages the story's text is in, Telugu first. */
+    val textLanguages: List<TextLanguage> get() = detail?.texts.orEmpty().map { it.language }.sorted()
+
+    /** The text to read: in the language picked here, else the app's language, else Telugu, else any. */
+    val text: StoryText? get() = detail?.texts.orEmpty().pick(selectedTextLanguage ?: appTextLanguage)
 }
 
 sealed interface ReaderEvent {
@@ -62,6 +95,7 @@ class ReaderViewModel @Inject constructor(
     getStoryDetail: GetStoryDetailUseCase,
     getNextStory: GetNextStoryUseCase,
     getReaderSettings: GetReaderSettingsUseCase,
+    getAppLanguage: GetAppLanguageUseCase,
     private val updateReaderSettings: UpdateReaderSettingsUseCase,
     private val saveReadingProgress: SaveReadingProgressUseCase,
     private val toggleFavorite: ToggleFavoriteUseCase,
@@ -74,8 +108,19 @@ class ReaderViewModel @Inject constructor(
     private val nextStory: Flow<Story?> = flow { emit(getNextStory(storyId)) }
         .flatMapLatest { id -> if (id == null) flowOf(null) else getStoryDetail(id).map { it?.story } }
 
-    /** Captured from the first emission only, so saving progress doesn't move the pager. */
+    /** Captured from the first emission only, so saving progress doesn't move the pager or the text. */
     private var initialPage: Int? = null
+    private var initialTextFraction = 0f
+
+    private val selectedFormat = MutableStateFlow<StoryFormat?>(null)
+    private val selectedTextLanguage = MutableStateFlow<TextLanguage?>(null)
+
+    /** Text in the app's language: Telugu/English as chosen in Settings, or the phone's language. */
+    private val appTextLanguage: TextLanguage? = when (getAppLanguage()) {
+        AppLanguage.TELUGU -> TextLanguage.TELUGU
+        AppLanguage.ENGLISH -> TextLanguage.ENGLISH
+        AppLanguage.SYSTEM -> TextLanguage.fromCode(Locale.getDefault().language)
+    }
 
     private val events = Channel<ReaderEvent>(Channel.BUFFERED)
     val eventFlow = events.receiveAsFlow()
@@ -84,23 +129,56 @@ class ReaderViewModel @Inject constructor(
         getStoryDetail(storyId),
         nextStory,
         getReaderSettings(),
-    ) { detail, next, settings ->
+        selectedFormat,
+        selectedTextLanguage,
+    ) { detail, next, settings, format, textLanguage ->
         if (detail != null && initialPage == null) {
+            // Progress is per story, whichever format it was saved in: resume at the same fraction.
             val progress = detail.story.progress
-            initialPage = if (progress == null || progress.isCompleted) 0 else progress.lastPageIndex
+            val fraction = if (progress == null || progress.isCompleted || progress.totalPages <= 0) {
+                0f
+            } else {
+                progress.lastPageIndex.toFloat() / progress.totalPages
+            }
+            val comicPages = detail.pages.size
+            initialPage = if (comicPages == 0) 0 else (fraction * comicPages).toInt().coerceIn(0, comicPages - 1)
+            initialTextFraction = fraction
         }
         ReaderUiState(
             isLoading = false,
             detail = detail,
             nextStory = next,
             initialPage = initialPage ?: 0,
+            initialTextFraction = initialTextFraction,
             settings = settings,
+            selectedFormat = format,
+            selectedTextLanguage = textLanguage,
+            appTextLanguage = appTextLanguage,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReaderUiState())
 
     fun onPageChanged(pagerIndex: Int) {
         val pageCount = uiState.value.detail?.pages?.size ?: return
         viewModelScope.launch { saveReadingProgress(storyId, pagerIndex, pageCount) }
+    }
+
+    /** Read tab: [paragraphIndex] is the last paragraph on screen; the last one finishes the story. */
+    fun onTextProgress(paragraphIndex: Int, paragraphCount: Int) {
+        viewModelScope.launch { saveReadingProgress(storyId, paragraphIndex, paragraphCount) }
+    }
+
+    /** Switches tab and remembers it for the next story. */
+    fun onFormatSelected(format: StoryFormat) {
+        selectedFormat.value = format
+        viewModelScope.launch { updateReaderSettings { it.copy(preferredFormat = format) } }
+    }
+
+    fun onTextLanguageSelected(language: TextLanguage) {
+        selectedTextLanguage.value = language
+    }
+
+    fun onTextSizeChange(size: ReaderTextSize) {
+        viewModelScope.launch { updateReaderSettings { it.copy(textSize = size) } }
     }
 
     fun onToggleFavorite() {

@@ -23,6 +23,18 @@
     <string name="format_comic">Comic</string>
     <string name="format_text">Text</string>
     <string name="format_video">Video</string>
+
+    <!-- Reader tabs and text reading -->
+    <string name="reader_tab_comic">Comic</string>
+    <string name="reader_tab_read">Read</string>
+    <string name="reader_tab_watch">Watch</string>
+    <string name="text_language_telugu">తెలుగు</string>
+    <string name="text_language_english">English</string>
+    <string name="reader_text_size">Text size</string>
+    <string name="reader_text_size_small">Small text</string>
+    <string name="reader_text_size_medium">Medium text</string>
+    <string name="reader_text_size_large">Large text</string>
+    <string name="reader_text_size_extra_large">Extra large text</string>
     <string name="added_to_favorites">Added to favorites</string>
     <string name="removed_from_favorites">Removed from favorites</string>
     <string name="refresh_failed">Couldn\'t refresh stories. Showing saved stories.</string>

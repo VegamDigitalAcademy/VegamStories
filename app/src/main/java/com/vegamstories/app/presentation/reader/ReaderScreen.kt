@@ -47,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +60,10 @@ import com.vegamstories.app.domain.model.PageBackground
 import com.vegamstories.app.domain.model.ReaderScrollMode
 import com.vegamstories.app.domain.model.ReaderSettings
 import com.vegamstories.app.domain.model.StoryDetail
+import com.vegamstories.app.domain.model.ReaderTextSize
+import com.vegamstories.app.domain.model.StoryFormat
+import com.vegamstories.app.domain.model.StoryText
+import com.vegamstories.app.domain.model.TextLanguage
 import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.LikeButton
 import com.vegamstories.app.presentation.components.LoadingBox
@@ -102,6 +105,10 @@ fun ReaderScreen(
         onScrollModeChange = viewModel::onScrollModeChange,
         onKeepScreenOnChange = viewModel::onKeepScreenOnChange,
         onPageBackgroundChange = viewModel::onPageBackgroundChange,
+        onFormatSelected = viewModel::onFormatSelected,
+        onTextLanguageSelected = viewModel::onTextLanguageSelected,
+        onTextProgress = viewModel::onTextProgress,
+        onTextSizeChange = viewModel::onTextSizeChange,
     )
 }
 
@@ -117,6 +124,10 @@ fun ReaderScreenContent(
     onScrollModeChange: (ReaderScrollMode) -> Unit = {},
     onKeepScreenOnChange: (Boolean) -> Unit = {},
     onPageBackgroundChange: (PageBackground) -> Unit = {},
+    onFormatSelected: (StoryFormat) -> Unit = {},
+    onTextLanguageSelected: (TextLanguage) -> Unit = {},
+    onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit = { _, _ -> },
+    onTextSizeChange: (ReaderTextSize) -> Unit = {},
 ) {
     ReaderPageTheme(background = state.settings.pageBackground) {
         Box(
@@ -146,6 +157,10 @@ fun ReaderScreenContent(
                     onScrollModeChange = onScrollModeChange,
                     onKeepScreenOnChange = onKeepScreenOnChange,
                     onPageBackgroundChange = onPageBackgroundChange,
+                    onFormatSelected = onFormatSelected,
+                    onTextLanguageSelected = onTextLanguageSelected,
+                    onTextProgress = onTextProgress,
+                    onTextSizeChange = onTextSizeChange,
                 )
             }
         }
@@ -164,6 +179,10 @@ private fun ReaderContent(
     onScrollModeChange: (ReaderScrollMode) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onPageBackgroundChange: (PageBackground) -> Unit,
+    onFormatSelected: (StoryFormat) -> Unit,
+    onTextLanguageSelected: (TextLanguage) -> Unit,
+    onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
+    onTextSizeChange: (ReaderTextSize) -> Unit,
 ) {
     val story = detail.story
     // Lives above both readers, so switching paged ↔ vertical stays on the same page.
@@ -176,7 +195,7 @@ private fun ReaderContent(
 
     KeepScreenOn(enabled = state.settings.keepScreenOn)
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) Column@{
         ReaderTopBar(
             title = story.title,
             isFavorite = story.isFavorite,
@@ -187,9 +206,48 @@ private fun ReaderContent(
             onToggleDownload = onToggleDownload,
             onOpenOptions = { showOptions = true },
         )
+        if (state.formats.size > 1) {
+            FormatTabs(
+                formats = state.formats,
+                selected = state.format,
+                onSelect = onFormatSelected,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
         val readerModifier = Modifier
             .weight(1f)
             .fillMaxWidth()
+        // "Did you like this story?" + next episode, at the end of the text and under the video.
+        val likeSection: @Composable () -> Unit = {
+            LikeStoryPage(
+                story = story,
+                nextStory = state.nextStory,
+                onToggleLike = onToggleFavorite,
+                onOpenNextStory = onOpenNextStory,
+                onBack = onBack,
+            )
+        }
+        val text = state.text
+        when {
+            state.format == StoryFormat.TEXT && text != null -> {
+                TextReader(
+                    story = story,
+                    text = text,
+                    languages = state.textLanguages,
+                    onLanguageSelect = onTextLanguageSelected,
+                    textSize = state.settings.textSize,
+                    startFraction = state.initialTextFraction,
+                    onProgress = onTextProgress,
+                    endContent = likeSection,
+                    modifier = readerModifier,
+                )
+                return@Column
+            }
+            state.format == StoryFormat.VIDEO && story.video != null -> {
+                WatchTab(story = story, endContent = likeSection, modifier = readerModifier)
+                return@Column
+            }
+        }
         val page: @Composable (index: Int, onContinue: () -> Unit) -> Unit = { index, onContinue ->
             ReaderPage(
                 index = index,
@@ -231,6 +289,8 @@ private fun ReaderContent(
             onScrollModeChange = onScrollModeChange,
             onKeepScreenOnChange = onKeepScreenOnChange,
             onPageBackgroundChange = onPageBackgroundChange,
+            format = state.format,
+            onTextSizeChange = onTextSizeChange,
             onDismiss = { showOptions = false },
         )
     }
@@ -330,7 +390,7 @@ private fun LazyListState.pageAtCenter(): Int {
         ?: firstVisibleItemIndex
 }
 
-/** What goes on page [index]: a comic page, the like page, or the video page. */
+/** What goes on page [index]: a comic page or the like page. */
 @Composable
 private fun ReaderPage(
     index: Int,
@@ -342,7 +402,6 @@ private fun ReaderPage(
     onOpenNextStory: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val uriHandler = LocalUriHandler.current
     when {
         index < detail.pages.size -> {
             ComicPage(page = detail.pages[index], modifier = Modifier.fillMaxWidth(), framed = !edgeToEdge)
@@ -361,10 +420,6 @@ private fun ReaderPage(
             onOpenNextStory = onOpenNextStory,
             onBack = onBack,
         )
-        else -> detail.story.video?.let { video ->
-            // runCatching: no browser/YouTube app installed must not crash the reader.
-            VideoPage(video = video, onWatch = { runCatching { uriHandler.openUri(video.videoUrl) } })
-        }
     }
 }
 
@@ -531,7 +586,26 @@ private fun ReaderVideoPagePreview() = PreviewTheme {
         state = ReaderUiState(
             isLoading = false,
             detail = previewDetail,
-            initialPage = previewDetail.pages.size + 1, // after the like page = video
+            selectedFormat = StoryFormat.VIDEO, // the Watch tab
+        ),
+        onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
+    )
+}
+
+@ScreenPreviews
+@Composable
+private fun ReaderTextPreview() = PreviewTheme {
+    ReaderScreenContent(
+        state = ReaderUiState(
+            isLoading = false,
+            detail = previewDetail.copy(
+                story = previewDetail.story.copy(hasText = true),
+                texts = listOf(
+                    StoryText(TextLanguage.TELUGU, "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి."),
+                    StoryText(TextLanguage.ENGLISH, "Once upon a time there lived an honest woodcutter.\n\nMoral: Honesty is the best reward."),
+                ),
+            ),
+            selectedFormat = StoryFormat.TEXT,
         ),
         onBack = {}, onPageChanged = {}, onToggleFavorite = {}, onToggleDownload = {}, onOpenNextStory = {},
     )
