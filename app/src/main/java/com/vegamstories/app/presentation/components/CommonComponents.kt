@@ -1,6 +1,7 @@
 package com.vegamstories.app.presentation.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,24 +43,22 @@ import com.vegamstories.app.R
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewTheme
 
-/** Red rounded square with the Telugu "వ" — the Vegam logo mark. */
+/** The Vegam Stories logo (the app icon): the book-and-sparkle mark on its navy rounded square. */
 @Composable
 fun VegamLogoMark(modifier: Modifier = Modifier, size: Int = 30) {
-    Box(
+    Image(
+        painter = painterResource(R.drawable.vegam_logo),
+        contentDescription = null, // the app name is written next to it
         modifier = modifier
             .size(size.dp)
             .clip(RoundedCornerShape((size / 4).dp))
-            .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "వ",
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = (size * 0.55f).sp,
-        )
-    }
+            .background(LogoNavy)
+            .padding((size / 12).dp),
+    )
 }
+
+/** Background of the logo and the app icon (ic_launcher_background). */
+private val LogoNavy = Color(0xFF1E1B4B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
