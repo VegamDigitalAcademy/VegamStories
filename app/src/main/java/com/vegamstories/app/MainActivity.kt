@@ -3,6 +3,7 @@ package com.vegamstories.app
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -37,10 +38,13 @@ class MainActivity : AppCompatActivity() {
     private var shortcutTarget by mutableStateOf<ShortcutTarget?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Logo splash; stays until the saved theme and story-language choice are read, so the
-        // first screen appears straight after it (no blank frame).
+        // Logo splash: on launch it stays at least SPLASH_MIN_MS, and longer if the saved theme and
+        // story-language choice aren't read yet, so the first screen follows with no blank frame.
+        // Not when the screen is only recreated (theme/language change): that would freeze it.
+        val splashUntil = SystemClock.uptimeMillis() + if (savedInstanceState == null) SPLASH_MIN_MS else 0L
         installSplashScreen().setKeepOnScreenCondition {
-            viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
+            SystemClock.uptimeMillis() < splashUntil ||
+                viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
         }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -98,6 +102,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
+        /** The logo splash stays at least this long. */
+        const val SPLASH_MIN_MS = 2_000L
+
         // Same scrims the platform uses for 3-button navigation bars.
         val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
         val DarkScrim = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
