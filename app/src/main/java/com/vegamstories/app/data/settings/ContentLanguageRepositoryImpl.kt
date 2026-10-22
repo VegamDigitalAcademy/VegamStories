@@ -36,7 +36,11 @@ class ContentLanguageRepositoryImpl @Inject constructor(
     override val contentLanguages: Flow<ContentLanguages> =
         combine(storyDao.observeLanguages(), saved) { languages, picked ->
             val all = languages.map { it.toDomain() }
-            ContentLanguages(all = all, selected = resolveContentLanguage(picked, deviceLanguage(), all))
+            ContentLanguages(
+                all = all,
+                selected = resolveContentLanguage(picked, deviceLanguage(), all),
+                isChosen = picked != null,
+            )
         }.distinctUntilChanged()
 
     override val contentLanguage: Flow<String> = contentLanguages.map { it.selected }.distinctUntilChanged()

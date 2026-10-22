@@ -4,6 +4,8 @@ package com.vegamstories.app.domain.model
 data class ContentLanguages(
     val all: List<Language>,
     val selected: String,
+    /** The user has picked a story language at least once (first-launch screen or Home's button). */
+    val isChosen: Boolean = false,
 ) {
     val selectedLanguage: Language? get() = all.firstOrNull { it.code == selected }
 }

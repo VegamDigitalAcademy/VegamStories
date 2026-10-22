@@ -18,6 +18,7 @@ import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.MainViewModel
 import com.vegamstories.app.presentation.VegamApp
 import com.vegamstories.app.presentation.shortcuts.AppShortcutsManager
+import com.vegamstories.app.presentation.onboarding.StoryLanguageScreen
 import com.vegamstories.app.presentation.shortcuts.ShortcutTarget
 import com.vegamstories.app.ui.theme.MyApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -41,9 +42,12 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) handleShortcut(intent)
         setContent {
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-            // Wait for the saved choice so a "Dark" user never sees a light flash.
+            val needsStoryLanguage by viewModel.needsStoryLanguage.collectAsStateWithLifecycle()
+            // Wait for the saved choices so a "Dark" user never sees a light flash, and the
+            // language screen never flashes up for someone who already chose.
             val mode = themeMode
-            if (mode != null) {
+            val firstLaunch = needsStoryLanguage
+            if (mode != null && firstLaunch != null) {
                 val darkTheme = when (mode) {
                     ThemeMode.SYSTEM -> isSystemInDarkTheme() // follows the phone, live
                     ThemeMode.LIGHT -> false
@@ -60,10 +64,15 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 MyApplicationTheme(darkTheme = darkTheme) {
-                    VegamApp(
-                        shortcutTarget = shortcutTarget,
-                        onShortcutHandled = { shortcutTarget = null },
-                    )
+                    if (firstLaunch) {
+                        // Once, before Home. A shortcut tapped meanwhile stays pending and opens after.
+                        StoryLanguageScreen()
+                    } else {
+                        VegamApp(
+                            shortcutTarget = shortcutTarget,
+                            onShortcutHandled = { shortcutTarget = null },
+                        )
+                    }
                 }
             }
         }
