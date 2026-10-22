@@ -17,8 +17,10 @@ import javax.inject.Inject
 
 data class StoryLanguageUiState(
     val languages: List<Language> = emptyList(),
-    /** Pre-highlighted: the phone's/app's language if stories exist in it. */
+    /** Pre-selected: the phone's/app's language if stories exist in it. */
     val suggested: String? = null,
+    /** The card tapped (else [suggested]); saved only when "Let's go" is pressed. */
+    val selected: String? = null,
     val isLoading: Boolean = true,
     /** Languages couldn't be loaded (offline on first launch) and none are saved yet. */
     val loadFailed: Boolean = false,
@@ -37,11 +39,14 @@ class StoryLanguageViewModel @Inject constructor(
 
     private val loading = MutableStateFlow(true)
     private val failed = MutableStateFlow(false)
+    private val tapped = MutableStateFlow<String?>(null)
 
-    val uiState: StateFlow<StoryLanguageUiState> = combine(getContentLanguages(), loading, failed) { languages, isLoading, isFailed ->
+    val uiState: StateFlow<StoryLanguageUiState> = combine(getContentLanguages(), loading, failed, tapped) { languages, isLoading, isFailed, picked ->
+        val codes = languages.all.map { it.code }
         StoryLanguageUiState(
             languages = languages.all,
             suggested = languages.selected,
+            selected = picked?.takeIf { it in codes } ?: languages.selected.takeIf { it in codes },
             // Saved languages (from an earlier refresh) can be shown while a new refresh runs.
             isLoading = isLoading && languages.all.isEmpty(),
             loadFailed = isFailed && languages.all.isEmpty(),
@@ -61,7 +66,12 @@ class StoryLanguageViewModel @Inject constructor(
         }
     }
 
-    /** Saves the choice; MainActivity then shows Home in that language. */
+    /** A card was tapped: only selects it. */
+    fun onLanguageSelected(code: String) {
+        tapped.value = code
+    }
+
+    /** "Let's go" (or Continue when offline): saves [code]; MainActivity then shows Home in that language. */
     fun onLanguageChosen(code: String) {
         viewModelScope.launch { setContentLanguage(code) }
     }

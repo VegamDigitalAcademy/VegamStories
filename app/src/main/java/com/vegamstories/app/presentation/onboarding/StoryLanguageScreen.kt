@@ -1,7 +1,6 @@
 package com.vegamstories.app.presentation.onboarding
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +15,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,6 +55,7 @@ fun StoryLanguageScreen(viewModel: StoryLanguageViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     StoryLanguageContent(
         state = state,
+        onLanguageSelected = viewModel::onLanguageSelected,
         onLanguageChosen = viewModel::onLanguageChosen,
         onRetry = viewModel::load,
     )
@@ -62,6 +64,7 @@ fun StoryLanguageScreen(viewModel: StoryLanguageViewModel = hiltViewModel()) {
 @Composable
 fun StoryLanguageContent(
     state: StoryLanguageUiState,
+    onLanguageSelected: (String) -> Unit,
     onLanguageChosen: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -92,20 +95,40 @@ fun StoryLanguageContent(
             )
             Spacer(Modifier.height(28.dp))
             when {
-                state.languages.isNotEmpty() -> LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .widthIn(max = 480.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(state.languages, key = { it.code }) { language ->
-                        LanguageCard(
-                            language = language,
-                            suggested = language.code == state.suggested,
-                            onClick = { onLanguageChosen(language.code) },
+                state.languages.isNotEmpty() -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .widthIn(max = 480.dp)
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(state.languages, key = { it.code }) { language ->
+                            LanguageCard(
+                                language = language,
+                                selected = language.code == state.selected,
+                                onClick = { onLanguageSelected(language.code) },
+                            )
+                        }
+                        item { Spacer(Modifier.height(8.dp)) }
+                    }
+                    // Tapping a card only selects it; this opens Home in that language.
+                    Button(
+                        onClick = { state.selected?.let(onLanguageChosen) },
+                        enabled = state.selected != null,
+                        modifier = Modifier
+                            .widthIn(max = 480.dp)
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.story_language_go),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
-                    item { Spacer(Modifier.height(24.dp)) }
                 }
                 state.loadFailed -> Column(
                     modifier = Modifier.weight(1f),
@@ -132,19 +155,19 @@ fun StoryLanguageContent(
     }
 }
 
-/** A language in its own script (big), with its English name below. */
+/** A language in its own script (big), with its English name below; a tick when selected. */
 @Composable
-private fun LanguageCard(language: Language, suggested: Boolean, onClick: () -> Unit) {
+private fun LanguageCard(language: Language, selected: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick, role = Role.Button),
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
         shape = RoundedCornerShape(16.dp),
-        color = if (suggested) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = BorderStroke(
-            width = if (suggested) 2.dp else 1.dp,
-            color = if (suggested) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         ),
     ) {
         Row(
@@ -165,12 +188,14 @@ private fun LanguageCard(language: Language, suggested: Boolean, onClick: () -> 
                     )
                 }
             }
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
+            if (selected) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check_circle),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
         }
     }
 }
@@ -188,8 +213,8 @@ private val previewLanguages = listOf(
 @Composable
 private fun StoryLanguagePreview() = PreviewTheme {
     StoryLanguageContent(
-        state = StoryLanguageUiState(languages = previewLanguages, suggested = "te", isLoading = false),
-        onLanguageChosen = {}, onRetry = {},
+        state = StoryLanguageUiState(languages = previewLanguages, suggested = "te", selected = "or", isLoading = false),
+        onLanguageSelected = {}, onLanguageChosen = {}, onRetry = {},
     )
 }
 
@@ -198,6 +223,6 @@ private fun StoryLanguagePreview() = PreviewTheme {
 private fun StoryLanguageOfflinePreview() = PreviewTheme {
     StoryLanguageContent(
         state = StoryLanguageUiState(isLoading = false, loadFailed = true, suggested = "te"),
-        onLanguageChosen = {}, onRetry = {},
+        onLanguageSelected = {}, onLanguageChosen = {}, onRetry = {},
     )
 }

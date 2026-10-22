@@ -28,6 +28,7 @@
     <!-- మొదటిసారి: కథల భాష -->
     <string name="story_language_title">మీ కథల భాషను ఎంచుకోండి</string>
     <string name="story_language_subtitle">కథలు ఈ భాషలో కనిపిస్తాయి. హోమ్‌లోని భాష బటన్‌తో ఎప్పుడైనా మార్చుకోవచ్చు.</string>
+    <string name="story_language_go">ప్రారంభిద్దాం</string>
     <string name="story_language_load_failed">భాషలు లోడ్ కాలేదు. ఇంటర్నెట్ కనెక్షన్ చూసి మళ్ళీ ప్రయత్నించండి.</string>
     <string name="cd_story_language">కథల భాష</string>
     <string name="reader_tab_comic">బొమ్మలు</string>

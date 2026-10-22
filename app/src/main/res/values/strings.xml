@@ -28,6 +28,7 @@
     <!-- First launch: story language -->
     <string name="story_language_title">Choose your story language</string>
     <string name="story_language_subtitle">Stories will be shown in this language. You can change it anytime with the language button on Home.</string>
+    <string name="story_language_go">Let\'s go</string>
     <string name="story_language_load_failed">Couldn\'t load the languages. Check your internet connection and try again.</string>
     <string name="cd_story_language">Story language</string>
     <string name="reader_tab_comic">Comic</string>
