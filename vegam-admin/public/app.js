@@ -323,10 +323,25 @@ function renderVersion() {
   $('bodyInput').value = v.body;
   $('bodyCount').textContent = textCount(v.body);
 
-  renderDrop($('coverDrop'), v.cover, 'cover', 'Drop cover image\nor click');
+  renderCoverDrop(v);
   renderDrop($('thumbDrop'), v.thumb, 'thumb', 'Drop video thumbnail\nor click');
   renderPages();
   renderPreview();
+}
+
+/**
+ * The cover box of a language version, with "Remove": the version then has no cover (the app
+ * shows its first comic page or a title card). The image is deleted from Supabase and R2 on Save.
+ */
+function renderCoverDrop(v) {
+  renderDrop($('coverDrop'), v.cover, 'cover', 'Drop cover image\nor click\n(optional)', () => {
+    if (!confirm(`Remove the ${languageLabel(v.language)} cover?\n\nThe app then shows the first comic page or a title card. The image is deleted when you click Save.`)) return;
+    if (v.cover.preview) URL.revokeObjectURL(v.cover.preview);
+    v.cover = emptyImage();
+    setDirty(true);
+    renderCoverDrop(v);
+    toast('Cover removed. Click Save to delete it.');
+  });
 }
 
 function renderVersionTabs() {
@@ -404,7 +419,7 @@ function updatePublishedLabel() {
  * Replaces [container] with a fresh copy each time (so old click/drop handlers don't pile up)
  * and returns the new element.
  */
-function renderDrop(container, image, kind, emptyText) {
+function renderDrop(container, image, kind, emptyText, onRemove = null) {
   const node = container.cloneNode(false);
   container.replaceWith(node); // no-op if container isn't in the page yet
   const src = image.preview || image.url;
@@ -412,6 +427,14 @@ function renderDrop(container, image, kind, emptyText) {
   if (src) {
     node.append(el('img', { src, alt: '' }));
     if (image.blob) node.append(el('span', { class: 'new-dot' }, 'NEW'));
+    if (onRemove) {
+      const remove = el('button', { type: 'button', class: 'drop-remove', title: 'Remove' }, '✕ Remove');
+      remove.addEventListener('click', (e) => {
+        e.stopPropagation(); // the box itself opens the file picker
+        onRemove();
+      });
+      node.append(remove);
+    }
   } else {
     node.append(el('span', { style: 'white-space:pre-line' }, emptyText));
   }
@@ -419,7 +442,7 @@ function renderDrop(container, image, kind, emptyText) {
     try {
       await setImage(image, file, SIZES[kind]);
       setDirty(true);
-      renderDrop(node, image, kind, emptyText);
+      renderDrop(node, image, kind, emptyText, onRemove);
       renderPreview();
     } catch (err) {
       toast(err.message, true);

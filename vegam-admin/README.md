@@ -93,6 +93,7 @@ you, and the admin page opens. The login lasts 24 hours by default.
   version** deletes it on Save. The app shows a story in a language only if it has that version.
   Every version needs a title and at least one format (pages, text or a YouTube video). The cover
   is optional: without one the app shows the first comic page, or else a title card it draws itself.
+  **✕ Remove** on the cover deletes that language's cover (from Supabase and R2) when you click Save.
 - **Story text:** optional, per version. Leave a blank line between paragraphs.
 - **Categories:** **+** adds one, **✎** edits the selected one's names: one name per language.
 - **+ New language:** the standard code (`or` Odia, `hi` Hindi, `ta` Tamil, `kn` Kannada), its
