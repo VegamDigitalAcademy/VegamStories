@@ -11,8 +11,11 @@ data class Category(
     val sortOrder: Int,
 )
 
+/** A story in one language version ([language]): the title, cover, pages, text and video are that version's. */
 data class Story(
     val id: String,
+    /** Language code of this version, e.g. "te". */
+    val language: String = "te",
     val categoryId: String,
     val categoryName: String,
     val episodeNumber: Int,
@@ -22,7 +25,7 @@ data class Story(
     val pageCount: Int,
     val publishedAt: Long,
     val video: StoryVideo?,
-    /** It can also be read as text (in at least one language). */
+    /** This version can also be read as text. */
     val hasText: Boolean = false,
     /** The heart: [isFavorite] is this device's like, [likeCount] is everyone's. */
     val isFavorite: Boolean,
@@ -42,11 +45,15 @@ data class Story(
         }
 }
 
+/** A story ready to read, in one language version, plus the other languages it's available in. */
 data class StoryDetail(
     val story: Story,
+    /** Comic pages of this version. */
     val pages: List<StoryPage>,
-    /** The story as text, one per language it's available in. Empty if it has no text version. */
-    val texts: List<StoryText> = emptyList(),
+    /** This version as text; null if it has no text. */
+    val text: StoryText? = null,
+    /** Every language the story is in (this one included), in the server's order. */
+    val languages: List<Language> = emptyList(),
 )
 
 /** One finished comic page: a single image that already contains the panels, captions and speech bubbles. */

@@ -25,6 +25,7 @@
     <string name="format_video">Video</string>
 
     <!-- Reader tabs and text reading -->
+    <string name="cd_story_language">Story language</string>
     <string name="reader_tab_comic">Comic</string>
     <string name="reader_tab_read">Read</string>
     <string name="reader_tab_watch">Watch</string>

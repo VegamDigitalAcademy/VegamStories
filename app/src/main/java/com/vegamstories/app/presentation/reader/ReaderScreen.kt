@@ -63,6 +63,7 @@ import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
+import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.LikeButton
 import com.vegamstories.app.presentation.components.LoadingBox
@@ -105,7 +106,7 @@ fun ReaderScreen(
         onKeepScreenOnChange = viewModel::onKeepScreenOnChange,
         onPageBackgroundChange = viewModel::onPageBackgroundChange,
         onFormatSelected = viewModel::onFormatSelected,
-        onTextLanguageSelected = viewModel::onTextLanguageSelected,
+        onLanguageSelected = viewModel::onLanguageSelected,
         onTextProgress = viewModel::onTextProgress,
         onTextSizeChange = viewModel::onTextSizeChange,
     )
@@ -124,7 +125,7 @@ fun ReaderScreenContent(
     onKeepScreenOnChange: (Boolean) -> Unit = {},
     onPageBackgroundChange: (PageBackground) -> Unit = {},
     onFormatSelected: (StoryFormat) -> Unit = {},
-    onTextLanguageSelected: (languageCode: String) -> Unit = {},
+    onLanguageSelected: (languageCode: String) -> Unit = {},
     onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit = { _, _ -> },
     onTextSizeChange: (ReaderTextSize) -> Unit = {},
 ) {
@@ -157,7 +158,7 @@ fun ReaderScreenContent(
                     onKeepScreenOnChange = onKeepScreenOnChange,
                     onPageBackgroundChange = onPageBackgroundChange,
                     onFormatSelected = onFormatSelected,
-                    onTextLanguageSelected = onTextLanguageSelected,
+                    onLanguageSelected = onLanguageSelected,
                     onTextProgress = onTextProgress,
                     onTextSizeChange = onTextSizeChange,
                 )
@@ -179,7 +180,7 @@ private fun ReaderContent(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onPageBackgroundChange: (PageBackground) -> Unit,
     onFormatSelected: (StoryFormat) -> Unit,
-    onTextLanguageSelected: (languageCode: String) -> Unit,
+    onLanguageSelected: (languageCode: String) -> Unit,
     onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
     onTextSizeChange: (ReaderTextSize) -> Unit,
 ) {
@@ -213,6 +214,14 @@ private fun ReaderContent(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
+        if (state.languages.size > 1) {
+            LanguageChips(
+                languages = state.languages,
+                selectedCode = state.language,
+                onSelect = onLanguageSelected,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            )
+        }
         val readerModifier = Modifier
             .weight(1f)
             .fillMaxWidth()
@@ -232,8 +241,6 @@ private fun ReaderContent(
                 TextReader(
                     story = story,
                     text = text,
-                    texts = state.texts,
-                    onLanguageSelect = onTextLanguageSelected,
                     textSize = state.settings.textSize,
                     startFraction = state.initialTextFraction,
                     onProgress = onTextProgress,
@@ -599,10 +606,8 @@ private fun ReaderTextPreview() = PreviewTheme {
             isLoading = false,
             detail = previewDetail.copy(
                 story = previewDetail.story.copy(hasText = true),
-                texts = listOf(
-                    StoryText("te", "తెలుగు", "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి."),
-                    StoryText("en", "English", "Once upon a time there lived an honest woodcutter.\n\nMoral: Honesty is the best reward."),
-                ),
+                text = StoryText("te", "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి."),
+                languages = listOf(Language("te", "Telugu", "తెలుగు"), Language("en", "English", "English")),
             ),
             selectedFormat = StoryFormat.TEXT,
         ),

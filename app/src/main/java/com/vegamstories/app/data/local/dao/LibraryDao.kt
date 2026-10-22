@@ -11,12 +11,16 @@ import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * The user's library. Story lists show each story in `lang` when it has that version, else in
+ * another language it has (see STORY_WITH_STATE_SELECT): saved stories never disappear.
+ */
 @Dao
 interface LibraryDao {
 
     // ----- Favorites -----
     @Query("$STORY_WITH_STATE_SELECT WHERE f.storyId IS NOT NULL ORDER BY f.addedAt DESC")
-    fun observeFavorites(): Flow<List<StoryWithStateRow>>
+    fun observeFavorites(lang: String): Flow<List<StoryWithStateRow>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE storyId = :storyId)")
     suspend fun isFavorite(storyId: String): Boolean
@@ -68,7 +72,7 @@ interface LibraryDao {
 
     // ----- Downloads -----
     @Query("$STORY_WITH_STATE_SELECT WHERE d.storyId IS NOT NULL ORDER BY d.downloadedAt DESC")
-    fun observeDownloads(): Flow<List<StoryWithStateRow>>
+    fun observeDownloads(lang: String): Flow<List<StoryWithStateRow>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM downloads WHERE storyId = :storyId)")
     suspend fun isDownloaded(storyId: String): Boolean
@@ -81,14 +85,14 @@ interface LibraryDao {
 
     // ----- Reading progress -----
     @Query("$STORY_WITH_STATE_SELECT WHERE p.storyId IS NOT NULL ORDER BY p.updatedAt DESC")
-    fun observeHistory(): Flow<List<StoryWithStateRow>>
+    fun observeHistory(lang: String): Flow<List<StoryWithStateRow>>
 
     @Query(
         "$STORY_WITH_STATE_SELECT WHERE p.storyId IS NOT NULL AND p.isCompleted = 0 " +
             "AND (:categoryId IS NULL OR s.categoryId = :categoryId) " +
             "ORDER BY p.updatedAt DESC LIMIT 1",
     )
-    fun observeContinueReading(categoryId: String?): Flow<StoryWithStateRow?>
+    fun observeContinueReading(categoryId: String?, lang: String): Flow<StoryWithStateRow?>
 
     @Query("SELECT * FROM reading_progress WHERE storyId = :storyId LIMIT 1")
     suspend fun getProgress(storyId: String): ReadingProgressEntity?

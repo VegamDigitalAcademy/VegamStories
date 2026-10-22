@@ -12,7 +12,11 @@ interface StoryRepository {
     /** [categoryId] null = all categories (latest first). */
     fun observeStories(categoryId: String?): Flow<List<Story>>
 
-    fun observeStoryDetail(storyId: String): Flow<StoryDetail?>
+    /**
+     * The story in [language] (null = the app's story language), or in another language it has.
+     * Lists ([observeCategories], [observeStories], [searchStories]) show only the app's story language.
+     */
+    fun observeStoryDetail(storyId: String, language: String? = null): Flow<StoryDetail?>
 
     fun searchStories(query: String): Flow<List<Story>>
 

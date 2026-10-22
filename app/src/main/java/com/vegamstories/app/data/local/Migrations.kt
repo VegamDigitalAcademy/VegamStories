@@ -36,3 +36,49 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+/**
+ * 5 → 6: stories, pages and category names per language. The server content tables are only a
+ * cache, so they are rebuilt empty in the new shape and the next refresh fills them again. The
+ * user's own tables (favorites, pending likes, downloads, reading progress) are not touched.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Children first, so no ON DELETE CASCADE reaches anything else.
+        db.execSQL("DROP TABLE IF EXISTS `story_texts`")
+        db.execSQL("DROP TABLE IF EXISTS `story_pages`")
+        db.execSQL("DROP TABLE IF EXISTS `stories`")
+        db.execSQL("DROP TABLE IF EXISTS `categories`")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `categories` (`id` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `category_names` (`categoryId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, PRIMARY KEY(`categoryId`, `language`), FOREIGN KEY(`categoryId`) " +
+                "REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `stories` (`id` TEXT NOT NULL, `categoryId` TEXT NOT NULL, " +
+                "`episodeNumber` INTEGER NOT NULL, `publishedAt` INTEGER NOT NULL, " +
+                "`likeCount` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_stories_categoryId` ON `stories` (`categoryId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_stories_publishedAt` ON `stories` (`publishedAt`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `story_translations` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, `summary` TEXT NOT NULL, `coverImageUrl` TEXT NOT NULL, " +
+                "`pageCount` INTEGER NOT NULL, `body` TEXT, `videoTitle` TEXT, `videoDescription` TEXT, " +
+                "`videoThumbnailUrl` TEXT, `videoUrl` TEXT, PRIMARY KEY(`storyId`, `language`), " +
+                "FOREIGN KEY(`storyId`) REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_story_translations_language` ON `story_translations` (`language`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `story_pages` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`pageIndex` INTEGER NOT NULL, `imageUrl` TEXT NOT NULL, " +
+                "PRIMARY KEY(`storyId`, `language`, `pageIndex`), FOREIGN KEY(`storyId`) " +
+                "REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+    }
+}

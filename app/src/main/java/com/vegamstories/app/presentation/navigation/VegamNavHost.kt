@@ -46,7 +46,6 @@ fun VegamNavHost(
                 HomeScreen(
                     onStoryClick = openStory,
                     onSearchClick = { navController.navigate(SearchRoute) },
-                    onMenuClick = { navController.navigateToTopLevel(TopLevelDestination.MENU) },
                     onShowMessage = onShowMessage,
                 )
             }

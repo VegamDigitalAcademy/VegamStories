@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vegamstories.app.R
+import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryFormat
@@ -114,9 +115,6 @@ val ReaderTextSize.fontSizeSp: Int
 fun TextReader(
     story: Story,
     text: StoryText,
-    /** All the story's texts, one per language; a chip each when there is more than one. */
-    texts: List<StoryText>,
-    onLanguageSelect: (languageCode: String) -> Unit,
     textSize: ReaderTextSize,
     startFraction: Float,
     onProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
@@ -146,17 +144,11 @@ fun TextReader(
             verticalArrangement = Arrangement.spacedBy(fontSize.value.dp * 0.9f),
         ) {
             item(key = "title") {
-                Column {
-                    Text(
-                        text = story.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    if (texts.size > 1) {
-                        Spacer(Modifier.height(12.dp))
-                        TextLanguageChips(texts = texts, selectedCode = text.languageCode, onSelect = onLanguageSelect)
-                    }
-                }
+                Text(
+                    text = story.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
             }
             itemsIndexed(paragraphs) { _, paragraph ->
                 Text(
@@ -184,26 +176,30 @@ private fun LazyListState.lastParagraphOnScreen(paragraphCount: Int): Int {
     return (lastItem - 1).coerceAtMost(paragraphCount - 1)
 }
 
-/** One chip per language the story's text is in, named in its own script (తెలుగు, English, ଓଡ଼ିଆ…). */
+/**
+ * One chip per language the story is in, named in its own script (తెలుగు, English, ଓଡ଼ିଆ…).
+ * Picking one shows that language's version: title, pages, text and video.
+ */
 @Composable
-private fun TextLanguageChips(
-    texts: List<StoryText>,
-    selectedCode: String,
+fun LanguageChips(
+    languages: List<Language>,
+    selectedCode: String?,
     onSelect: (languageCode: String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        texts.forEach { text ->
-            val selected = text.languageCode == selectedCode
+        languages.forEach { language ->
+            val selected = language.code == selectedCode
             FilterChip(
                 selected = selected,
-                onClick = { onSelect(text.languageCode) },
-                label = { Text(text.languageName) },
+                onClick = { onSelect(language.code) },
+                label = { Text(language.nativeName) },
                 modifier = Modifier.semantics { role = Role.RadioButton },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -246,21 +242,25 @@ private fun FormatTabsPreview() = PreviewTheme {
 
 @ComponentPreviews
 @Composable
+private fun LanguageChipsPreview() = PreviewTheme {
+    LanguageChips(
+        languages = listOf(Language("te", "Telugu", "తెలుగు"), Language("en", "English", "English"), Language("or", "Odia", "ଓଡ଼ିଆ")),
+        selectedCode = "te",
+        onSelect = {},
+        modifier = Modifier.padding(16.dp),
+    )
+}
+
+@ComponentPreviews
+@Composable
 private fun TextReaderPreview() = PreviewTheme {
     TextReader(
         story = PreviewData.story(0),
         text = StoryText(
             "te",
-            "తెలుగు",
             "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\n" +
                 "ఒక రోజు అతని గొడ్డలి నదిలో పడిపోయింది.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి.",
         ),
-        texts = listOf(
-            StoryText("te", "తెలుగు", "కథ"),
-            StoryText("en", "English", "Story"),
-            StoryText("or", "ଓଡ଼ିଆ", "କାହାଣୀ"),
-        ),
-        onLanguageSelect = {},
         textSize = ReaderTextSize.MEDIUM,
         startFraction = 0f,
         onProgress = { _, _ -> },

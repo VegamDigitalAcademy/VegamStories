@@ -25,6 +25,7 @@
     <string name="format_video">వీడియో</string>
 
     <!-- రీడర్ ట్యాబ్‌లు, అక్షర కథ -->
+    <string name="cd_story_language">కథల భాష</string>
     <string name="reader_tab_comic">బొమ్మలు</string>
     <string name="reader_tab_read">చదవండి</string>
     <string name="reader_tab_watch">చూడండి</string>

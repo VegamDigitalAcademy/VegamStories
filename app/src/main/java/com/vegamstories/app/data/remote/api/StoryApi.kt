@@ -1,8 +1,8 @@
 package com.vegamstories.app.data.remote.api
 
-import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.LanguageDto
 import com.vegamstories.app.data.remote.dto.SetStoryLikeRequest
+import com.vegamstories.app.data.remote.dto.SupabaseCategoryRow
 import com.vegamstories.app.data.remote.dto.SupabaseStoryRow
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -16,12 +16,12 @@ import retrofit2.http.Query
  */
 interface StoryApi {
 
-    /** GET /categories?select=id,name,sort_order&order=sort_order.asc */
+    /** Categories with their names in every language, in display order. */
     @GET("categories")
     suspend fun getCategories(
-        @Query("select") select: String = "id,name,sort_order",
+        @Query("select") select: String = "id,sort_order,category_translations(language,name)",
         @Query("order") order: String = "sort_order.asc",
-    ): List<CategoryDto>
+    ): List<SupabaseCategoryRow>
 
     /** GET /languages: the languages story texts can be in, in display order (added in the admin site). */
     @GET("languages")
@@ -30,10 +30,13 @@ interface StoryApi {
         @Query("order") order: String = "sort_order.asc",
     ): List<LanguageDto>
 
-    /** Published stories with their pages and texts embedded, newest first. */
+    /** Published stories with every language version and its pages embedded, newest first. */
     @GET("stories")
     suspend fun getStories(
-        @Query("select") select: String = "*,story_pages(page_index,image_url),story_texts(language,body)",
+        @Query("select") select: String =
+            "id,category_id,episode,published_at,like_count," +
+                "story_translations(language,title,summary,cover_url,body,video_url,video_title,video_description,video_thumbnail_url)," +
+                "story_pages(language,page_index,image_url)",
         @Query("is_published") isPublished: String = "eq.true",
         @Query("order") order: String = "published_at.desc",
         @Query("story_pages.order") pagesOrder: String = "page_index.asc",

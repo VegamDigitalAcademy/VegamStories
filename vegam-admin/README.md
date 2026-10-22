@@ -87,14 +87,17 @@ you, and the admin page opens. The login lasts 24 hours by default.
   name (`01.png`, `02.png`, … or the `p0-0.webp`, `p0-1.webp` files from the YouTube-to-comic prompt).
 - **Captions / speech bubbles:** one bubble per line. The preview on the right shows exactly
   how the page will look in the app.
-- **Story text:** the story as plain text, in any number of languages (the app's Read tab).
-  Pick a language under the text boxes and click **Add text**; leave a blank line between
-  paragraphs. A story needs at least one format: page images, text or a YouTube video. The
-  story list shows each story's formats, e.g. `Comic · Text TE EN OR · Video`.
-- **+ New language:** adds a language for story texts, like a new category: the standard code
-  (`or` Odia, `hi` Hindi, `ta` Tamil, `kn` Kannada), its English name, its name in its own script
-  (shown in the app, e.g. ଓଡ଼ିଆ) and its order (the first is the app's default). The app picks up
-  new languages on its next refresh; no app update needed.
+- **Shared vs per language:** category, episode, story id and publish date are shared. Under
+  **Language versions** each language (తెలుగు | English | ଓଡ଼ିଆ …) has its own title, summary,
+  cover, video, story text and comic pages. **Add language version** adds one; **Remove this
+  version** deletes it on Save. The app shows a story in a language only if it has that version.
+  Every version needs a title, a cover and at least one format (pages, text or a YouTube video).
+- **Story text:** optional, per version. Leave a blank line between paragraphs.
+- **Categories:** **+** adds one, **✎** edits the selected one's names: one name per language.
+- **+ New language:** the standard code (`or` Odia, `hi` Hindi, `ta` Tamil, `kn` Kannada), its
+  English name, its name in its own script (shown in the app, e.g. ଓଡ଼ିଆ) and its order (the first
+  is the app's default). The app picks up new languages on its next refresh; no app update needed.
+- Images of each language go in their own R2 folder: `<story-id>/<language>/…`.
 - **Save** (or ⌘S) stores everything. Replaced or removed images are deleted from R2 automatically.
 - **Published** switch: off = draft (not in the app), on = live. Remember to click Save after switching it.
 - **Delete story** removes it from Supabase and deletes its images from R2.
@@ -104,9 +107,10 @@ cover 480×640, panels 800×600, video thumbnail 960×540.
 
 ## Updating the site later
 
-Before deploying a version that saves story text, run `supabase/migrations/004_story_texts.sql`
-and then `005_languages.sql` once in Supabase → SQL Editor (they create the `story_texts` and
-`languages` tables).
+Before deploying this version, run these once in Supabase → SQL Editor, in order (skip any you
+already ran): `004_story_texts.sql`, `005_languages.sql`, `006_story_translations.sql`. 006 turns
+existing stories and category names into their Telugu version; deploy this site and the new app
+right after it, as older versions read the columns it removes.
 
 Edit files in `public/` (page) or `src/worker.js` (server part), then run `npx wrangler deploy` again.
 

@@ -1,16 +1,22 @@
 package com.vegamstories.app.domain
 
-import com.vegamstories.app.data.mapper.toTextEntities
+import com.vegamstories.app.data.mapper.toNameEntities
+import com.vegamstories.app.data.mapper.toPageEntities
+import com.vegamstories.app.data.mapper.toTranslationEntities
+import com.vegamstories.app.data.remote.dto.CategoryDto
+import com.vegamstories.app.data.remote.dto.PageDto
 import com.vegamstories.app.data.remote.dto.StoryDto
-import com.vegamstories.app.data.remote.dto.TextDto
+import com.vegamstories.app.data.remote.dto.StoryTranslationDto
+import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
-import com.vegamstories.app.domain.model.pick
+import com.vegamstories.app.domain.model.resolveContentLanguage
 import com.vegamstories.app.testutil.testStory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
+/** Stories in several languages: formats, the language the app shows, and how server data is stored. */
 class StoryFormatsTest {
 
     @Test
@@ -25,40 +31,62 @@ class StoryFormatsTest {
     }
 
     @Test
-    fun `the first preferred language the story has is picked`() {
-        val texts = listOf(telugu, english, odia)
-        assertEquals(odia, texts.pick("or", "en"))
-        assertEquals(english, texts.pick(null, "hi", "en"))
-    }
-
-    @Test
-    fun `without a match the first text in server order is used`() {
-        assertEquals(english, listOf(english, odia).pick("te"))
-        assertEquals(telugu, listOf(telugu, english).pick())
-        assertNull(emptyList<StoryText>().pick("en"))
-    }
-
-    @Test
     fun `paragraphs are split on blank lines and trimmed`() {
-        val text = StoryText("en", "English", "  First line\nstill first. \n\n\nSecond.\n   \nThird.\n")
+        val text = StoryText("en", "  First line\nstill first. \n\n\nSecond.\n   \nThird.\n")
         assertEquals(listOf("First line\nstill first.", "Second.", "Third."), text.paragraphs)
     }
 
     @Test
-    fun `any language code is stored, but not empty texts or duplicates`() {
-        val dto = StoryDto(
-            id = "moral-1", categoryId = "moral", episode = 1, title = "T", coverUrl = "c", publishedAt = 0L,
-            texts = listOf(
-                TextDto("te", "కథ"),
-                TextDto("or", "କାହାଣୀ"),
-                TextDto("en", "   "),
-                TextDto("te", "again"),
-            ),
-        )
-        assertEquals(listOf("te" to "కథ", "or" to "କାହାଣୀ"), dto.toTextEntities().map { it.language to it.body })
+    fun `the language the user picked wins while the server still has it`() {
+        assertEquals("or", resolveContentLanguage(saved = "or", deviceCode = "en", available = languages))
+        // Odia removed on the server: back to the phone's language.
+        assertEquals("en", resolveContentLanguage(saved = "or", deviceCode = "en", available = languages.take(2)))
     }
 
-    private val telugu = StoryText("te", "తెలుగు", "కథ")
-    private val english = StoryText("en", "English", "Story")
-    private val odia = StoryText("or", "ଓଡ଼ିଆ", "କାହାଣୀ")
+    @Test
+    fun `without a pick the phone's language is used if stories exist in it, else the first language`() {
+        assertEquals("en", resolveContentLanguage(saved = null, deviceCode = "en", available = languages))
+        assertEquals("te", resolveContentLanguage(saved = null, deviceCode = "hi", available = languages))
+    }
+
+    @Test
+    fun `before the language list loads the pick or the phone's language is used as is`() {
+        assertEquals("or", resolveContentLanguage(saved = "or", deviceCode = "en", available = emptyList()))
+        assertEquals("hi", resolveContentLanguage(saved = null, deviceCode = "hi", available = emptyList()))
+        assertEquals("te", resolveContentLanguage(saved = null, deviceCode = null, available = emptyList()))
+    }
+
+    @Test
+    fun `each language version keeps its own pages and text, blank versions are dropped`() {
+        val dto = StoryDto(
+            id = "moral-1", categoryId = "moral", episode = 1, publishedAt = 0L,
+            translations = listOf(
+                StoryTranslationDto("te", "కథ", coverUrl = "te.webp", pages = listOf(PageDto("te0.webp"), PageDto("te1.webp")), text = "కథ"),
+                StoryTranslationDto("or", "କାହାଣୀ", coverUrl = "or.webp", pages = listOf(PageDto("or0.webp")), text = "  "),
+                StoryTranslationDto("en", "   ", coverUrl = "en.webp", text = "Story"), // no title: dropped
+                StoryTranslationDto("te", "again", coverUrl = "x.webp"), // second Telugu: dropped
+            ),
+        )
+        val translations = dto.toTranslationEntities()
+        assertEquals(listOf("te", "or"), translations.map { it.language })
+        assertEquals(listOf(2, 1), translations.map { it.pageCount })
+        assertEquals("కథ", translations[0].body)
+        assertNull(translations[1].body) // blank text = no text version
+        assertEquals(
+            listOf("te" to "te0.webp", "te" to "te1.webp", "or" to "or0.webp"),
+            dto.toPageEntities().map { it.language to it.imageUrl },
+        )
+    }
+
+    @Test
+    fun `category names are stored per language, blank ones skipped`() {
+        val names = CategoryDto("moral", names = mapOf("te" to "నీతి కథలు", "en" to "Moral Stories", "or" to " ")).toNameEntities()
+        assertEquals(listOf("te" to "నీతి కథలు", "en" to "Moral Stories"), names.map { it.language to it.name })
+    }
+
+    private val languages = listOf(
+        Language("te", "Telugu", "తెలుగు"),
+        Language("en", "English", "English"),
+        Language("or", "Odia", "ଓଡ଼ିଆ"),
+    )
 }
