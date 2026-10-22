@@ -1,6 +1,7 @@
 package com.vegamstories.app.data.remote.api
 
 import com.vegamstories.app.data.remote.dto.CategoryDto
+import com.vegamstories.app.data.remote.dto.LanguageDto
 import com.vegamstories.app.data.remote.dto.SetStoryLikeRequest
 import com.vegamstories.app.data.remote.dto.SupabaseStoryRow
 import retrofit2.http.Body
@@ -21,6 +22,13 @@ interface StoryApi {
         @Query("select") select: String = "id,name,sort_order",
         @Query("order") order: String = "sort_order.asc",
     ): List<CategoryDto>
+
+    /** GET /languages: the languages story texts can be in, in display order (added in the admin site). */
+    @GET("languages")
+    suspend fun getLanguages(
+        @Query("select") select: String = "code,name,native_name,sort_order",
+        @Query("order") order: String = "sort_order.asc",
+    ): List<LanguageDto>
 
     /** Published stories with their pages and texts embedded, newest first. */
     @GET("stories")

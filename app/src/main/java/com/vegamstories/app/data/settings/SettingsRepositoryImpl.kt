@@ -80,6 +80,7 @@ class SettingsRepositoryImpl @Inject constructor(
             pageBackground = this[READER_PAGE_BACKGROUND].toEnumOr(defaults.pageBackground),
             preferredFormat = this[READER_PREFERRED_FORMAT].toEnumOr(defaults.preferredFormat),
             textSize = this[READER_TEXT_SIZE].toEnumOr(defaults.textSize),
+            textLanguage = this[READER_TEXT_LANGUAGE] ?: defaults.textLanguage,
         )
     }
 
@@ -89,6 +90,8 @@ class SettingsRepositoryImpl @Inject constructor(
         this[READER_PAGE_BACKGROUND] = settings.pageBackground.name
         this[READER_PREFERRED_FORMAT] = settings.preferredFormat.name
         this[READER_TEXT_SIZE] = settings.textSize.name
+        val textLanguage = settings.textLanguage
+        if (textLanguage == null) remove(READER_TEXT_LANGUAGE) else this[READER_TEXT_LANGUAGE] = textLanguage
     }
 
     /** Unknown or missing names (e.g. from an older app version) fall back to [default]. */
@@ -102,6 +105,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_PAGE_BACKGROUND = stringPreferencesKey("reader_page_background")
         val READER_PREFERRED_FORMAT = stringPreferencesKey("reader_preferred_format")
         val READER_TEXT_SIZE = stringPreferencesKey("reader_text_size")
+        val READER_TEXT_LANGUAGE = stringPreferencesKey("reader_text_language")
         val NEW_STORY_ALERTS = booleanPreferencesKey("new_story_alerts")
         val LAST_SEEN_STORY_ID = stringPreferencesKey("last_seen_story_id")
         val LAST_SEEN_STORY_PUBLISHED_AT = longPreferencesKey("last_seen_story_published_at")

@@ -1,6 +1,7 @@
 package com.vegamstories.app.data.local.entity
 
 import androidx.room.ColumnInfo
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -55,7 +56,16 @@ data class StoryPageEntity(
     val imageUrl: String,
 )
 
-/** The story as plain text in one language ("te" or "en"). Paragraphs are separated by a blank line. */
+/** A language story texts can be in, as managed in the admin site (e.g. "or", "Odia", "ଓଡ଼ିଆ"). */
+@Entity(tableName = "languages")
+data class LanguageEntity(
+    @PrimaryKey val code: String,
+    val name: String,
+    val nativeName: String,
+    val sortOrder: Int,
+)
+
+/** The story as plain text in one language (a code from [LanguageEntity]). Paragraphs are separated by a blank line. */
 @Entity(
     tableName = "story_texts",
     primaryKeys = ["storyId", "language"],
@@ -105,4 +115,11 @@ data class ReadingProgressEntity(
     val totalPages: Int,
     val isCompleted: Boolean,
     val updatedAt: Long,
+)
+
+/** A story text with its language's names and order; a language the app hasn't loaded yet has nulls. */
+data class StoryTextRow(
+    @Embedded val text: StoryTextEntity,
+    val nativeName: String?,
+    val sortOrder: Int?,
 )

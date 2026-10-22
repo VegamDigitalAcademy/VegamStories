@@ -118,20 +118,14 @@
           <section class="card">
             <div class="card-head">
               <h3>Story text</h3>
-              <span class="muted small">The whole story as plain text, read in the app's Read tab.
-                Leave a blank line between paragraphs. Leave a box empty if there's no text in that language.</span>
+              <span class="muted small">The whole story as plain text, read in the app's Read tab, in as many
+                languages as you like. Leave a blank line between paragraphs.</span>
             </div>
-            <div class="grid">
-              <label class="field wide">
-                <span>Telugu <em class="muted" id="teTextCount"></em></span>
-                <textarea id="teTextInput" class="input te story-text" rows="10"
-                  placeholder="ఒకప్పుడు ఒక చిన్న ఊరిలో…&#10;&#10;(కొత్త పేరా కోసం ఒక ఖాళీ లైన్ వదలండి)"></textarea>
-              </label>
-              <label class="field wide">
-                <span>English <em class="muted" id="enTextCount"></em></span>
-                <textarea id="enTextInput" class="input story-text" rows="10"
-                  placeholder="Once upon a time, in a small village…&#10;&#10;(leave a blank line for a new paragraph)"></textarea>
-              </label>
+            <div id="textsContainer" class="texts"></div>
+            <div class="row add-text">
+              <select id="addTextLanguage" class="input" aria-label="Language for the new text"></select>
+              <button type="button" id="addTextBtn" class="btn ghost">Add text</button>
+              <button type="button" id="addLanguageBtn" class="btn ghost small-btn" title="Add a language">+ New language</button>
             </div>
           </section>
 
@@ -182,6 +176,24 @@
         <label class="field"><span>Id</span><input id="newCatId" class="input mono" placeholder="folk" required /></label>
         <label class="field"><span>Name</span><input id="newCatName" class="input te" placeholder="జానపద కథలు" required /></label>
         <label class="field"><span>Order</span><input id="newCatOrder" class="input" type="number" value="0" /></label>
+        <div class="row end">
+          <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
+          <button value="ok" class="btn primary">Add</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- New language dialog -->
+    <dialog id="languageDialog" class="dialog">
+      <form method="dialog" id="languageForm">
+        <h3>New language</h3>
+        <label class="field"><span>Code <em class="muted">(standard 2-letter code: or = Odia, hi = Hindi, ta = Tamil, kn = Kannada)</em></span>
+          <input id="newLangCode" class="input mono" placeholder="or" pattern="[a-z]{2,3}" required /></label>
+        <label class="field"><span>Name in English</span><input id="newLangName" class="input" placeholder="Odia" required /></label>
+        <label class="field"><span>Name in its own script <em class="muted">(shown in the app)</em></span>
+          <input id="newLangNative" class="input" placeholder="ଓଡ଼ିଆ" required /></label>
+        <label class="field"><span>Order <em class="muted">(the first language is the app's default)</em></span>
+          <input id="newLangOrder" class="input" type="number" value="0" /></label>
         <div class="row end">
           <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
           <button value="ok" class="btn primary">Add</button>

@@ -12,8 +12,6 @@ import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
-import com.vegamstories.app.domain.model.TextLanguage
-import com.vegamstories.app.domain.model.AppLanguage
 import com.vegamstories.app.domain.model.pick
 import com.vegamstories.app.domain.usecase.GetAppLanguageUseCase
 import com.vegamstories.app.domain.usecase.GetNextStoryUseCase
@@ -55,10 +53,10 @@ data class ReaderUiState(
     val settings: ReaderSettings = ReaderSettings(),
     /** The tab the user picked in this reader, if any. */
     val selectedFormat: StoryFormat? = null,
-    /** The text language the user picked in this reader, if any. */
-    val selectedTextLanguage: TextLanguage? = null,
-    /** Text language that matches the app's language; used until the user picks one. */
-    val appTextLanguage: TextLanguage? = null,
+    /** Language code of the text picked in this reader, if any. */
+    val selectedTextLanguage: String? = null,
+    /** Language code of the app (Settings) or the phone, e.g. "te"; used until the user picks a text language. */
+    val appTextLanguage: String? = null,
 ) {
     val hasVideo: Boolean get() = detail?.story?.video != null
     /** The "Did you like this story?" page, right after the last comic page. */
@@ -76,11 +74,14 @@ data class ReaderUiState(
             ?: formats.firstOrNull()
             ?: StoryFormat.COMIC
 
-    /** Languages the story's text is in, Telugu first. */
-    val textLanguages: List<TextLanguage> get() = detail?.texts.orEmpty().map { it.language }.sorted()
+    /** The story's texts, one per language, in the server's language order. */
+    val texts: List<StoryText> get() = detail?.texts.orEmpty()
 
-    /** The text to read: in the language picked here, else the app's language, else Telugu, else any. */
-    val text: StoryText? get() = detail?.texts.orEmpty().pick(selectedTextLanguage ?: appTextLanguage)
+    /**
+     * The text to read: the language picked here, else the one picked last time (any story),
+     * else the app's language, else the first language in the server's order.
+     */
+    val text: StoryText? get() = texts.pick(selectedTextLanguage, settings.textLanguage, appTextLanguage)
 }
 
 sealed interface ReaderEvent {
@@ -113,14 +114,10 @@ class ReaderViewModel @Inject constructor(
     private var initialTextFraction = 0f
 
     private val selectedFormat = MutableStateFlow<StoryFormat?>(null)
-    private val selectedTextLanguage = MutableStateFlow<TextLanguage?>(null)
+    private val selectedTextLanguage = MutableStateFlow<String?>(null)
 
-    /** Text in the app's language: Telugu/English as chosen in Settings, or the phone's language. */
-    private val appTextLanguage: TextLanguage? = when (getAppLanguage()) {
-        AppLanguage.TELUGU -> TextLanguage.TELUGU
-        AppLanguage.ENGLISH -> TextLanguage.ENGLISH
-        AppLanguage.SYSTEM -> TextLanguage.fromCode(Locale.getDefault().language)
-    }
+    /** The app's language from Settings, or the phone's (e.g. "or" on an Odia phone). */
+    private val appTextLanguage: String = getAppLanguage().languageTag ?: Locale.getDefault().language
 
     private val events = Channel<ReaderEvent>(Channel.BUFFERED)
     val eventFlow = events.receiveAsFlow()
@@ -173,8 +170,10 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { updateReaderSettings { it.copy(preferredFormat = format) } }
     }
 
-    fun onTextLanguageSelected(language: TextLanguage) {
-        selectedTextLanguage.value = language
+    /** Switches the text language and remembers it for the next story. */
+    fun onTextLanguageSelected(languageCode: String) {
+        selectedTextLanguage.value = languageCode
+        viewModelScope.launch { updateReaderSettings { it.copy(textLanguage = languageCode) } }
     }
 
     fun onTextSizeChange(size: ReaderTextSize) {

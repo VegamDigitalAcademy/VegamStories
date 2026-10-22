@@ -12,6 +12,7 @@ const SIZES = {
 const state = {
   me: null,
   categories: [],
+  languages: [], // [{ code, name, native_name, sort_order }] — story text languages, from the server
   stories: [],
   current: null, // story being edited (see emptyStory())
   previewPage: 0,
@@ -56,7 +57,7 @@ async function init() {
   try {
     state.me = await api('GET', 'me');
     $('whoami').textContent = state.me.email;
-    await Promise.all([loadCategories(), loadStories()]);
+    await Promise.all([loadCategories(), loadLanguages(), loadStories()]);
   } catch (err) {
     $('storyList').innerHTML = '';
     $('storyList').append(el('p', { class: 'muted small pad' }, err.message));
@@ -67,6 +68,11 @@ async function init() {
 async function loadCategories() {
   state.categories = await api('GET', 'categories');
   renderCategoryOptions();
+}
+
+async function loadLanguages() {
+  state.languages = await api('GET', 'languages');
+  if (state.current) renderTexts();
 }
 
 async function loadStories() {
@@ -150,8 +156,8 @@ function emptyStory() {
     video_url: '',
     video_title: '',
     video_description: '',
-    text_te: '',
-    text_en: '',
+    // One box per language; a new story starts with the first (default) language.
+    texts: state.languages.length ? [{ language: state.languages[0].code, body: '' }] : [],
     cover: emptyImage(),
     thumb: emptyImage(),
     pages: [], // [{ image: {url, blob, preview} }]
@@ -164,7 +170,13 @@ function fromServer(row) {
     .slice()
     .sort((a, b) => a.page_index - b.page_index)
     .map((p) => ({ image: img(p.image_url) }));
-  const text = (language) => (row.story_texts || []).find((t) => t.language === language)?.body || '';
+  const order = (code) => {
+    const i = state.languages.findIndex((l) => l.code === code);
+    return i < 0 ? Infinity : i;
+  };
+  const texts = (row.story_texts || [])
+    .map((t) => ({ language: t.language, body: t.body || '' }))
+    .sort((a, b) => order(a.language) - order(b.language));
   return {
     isNew: false,
     idEdited: true,
@@ -178,8 +190,7 @@ function fromServer(row) {
     video_url: row.video_url || '',
     video_title: row.video_title || '',
     video_description: row.video_description || '',
-    text_te: text('te'),
-    text_en: text('en'),
+    texts,
     cover: img(row.cover_url),
     thumb: img(row.video_thumbnail_url),
     pages,
@@ -248,9 +259,7 @@ function renderEditor() {
   $('videoUrlInput').value = s.video_url;
   $('videoTitleInput').value = s.video_title;
   $('videoDescInput').value = s.video_description;
-  $('teTextInput').value = s.text_te;
-  $('enTextInput').value = s.text_en;
-  updateTextCounts();
+  renderTexts();
   $('publishedInput').checked = s.is_published;
   updatePublishedLabel();
 
@@ -470,8 +479,6 @@ function readForm() {
   s.video_url = $('videoUrlInput').value.trim();
   s.video_title = $('videoTitleInput').value;
   s.video_description = $('videoDescInput').value;
-  s.text_te = $('teTextInput').value;
-  s.text_en = $('enTextInput').value;
   s.is_published = $('publishedInput').checked;
 }
 
@@ -487,9 +494,85 @@ function textCount(text) {
   return `(${paras.length} paragraph${paras.length === 1 ? '' : 's'}, ${words} words)`;
 }
 
-function updateTextCounts() {
-  $('teTextCount').textContent = textCount($('teTextInput').value);
-  $('enTextCount').textContent = textCount($('enTextInput').value);
+function languageLabel(code) {
+  const l = state.languages.find((x) => x.code === code);
+  return l ? `${l.name} · ${l.native_name} (${code})` : `${code} (not in the language list)`;
+}
+
+/** One box per text, then "Add text in…" listing the languages this story has no text in yet. */
+function renderTexts() {
+  const s = state.current;
+  const container = $('textsContainer');
+  container.innerHTML = '';
+  s.texts.forEach((text, i) => {
+    const count = el('em', { class: 'muted' }, textCount(text.body));
+    const area = el('textarea', {
+      class: `input story-text${text.language === 'te' ? ' te' : ''}`,
+      rows: '10',
+      lang: text.language,
+      placeholder: 'Once upon a time…\n\n(leave a blank line for a new paragraph)',
+    });
+    area.value = text.body;
+    area.addEventListener('input', () => {
+      text.body = area.value;
+      count.textContent = textCount(text.body);
+      setDirty(true);
+    });
+    const remove = el('button', { type: 'button', class: 'btn danger-ghost small-btn' }, 'Remove');
+    remove.addEventListener('click', () => {
+      if (text.body.trim() && !confirm(`Remove the ${languageLabel(text.language)} text?`)) return;
+      s.texts.splice(i, 1);
+      setDirty(true);
+      renderTexts();
+    });
+    container.append(
+      el('div', { class: 'field wide' }, el('div', { class: 'text-head' }, el('span', {}, languageLabel(text.language), ' ', count), remove), area),
+    );
+  });
+  if (!s.texts.length) container.append(el('p', { class: 'muted small' }, 'No text yet. Pick a language below and click Add text.'));
+
+  const select = $('addTextLanguage');
+  select.innerHTML = '';
+  const unused = state.languages.filter((l) => !s.texts.some((t) => t.language === l.code));
+  unused.forEach((l) => select.append(el('option', { value: l.code }, `${l.name} · ${l.native_name}`)));
+  if (!unused.length) select.append(el('option', { value: '' }, state.languages.length ? 'All languages added' : 'No languages yet'));
+  select.disabled = !unused.length;
+  $('addTextBtn').disabled = !unused.length;
+}
+
+function addText() {
+  const code = $('addTextLanguage').value;
+  if (!code) return;
+  state.current.texts.push({ language: code, body: '' });
+  setDirty(true);
+  renderTexts();
+  $('textsContainer').querySelector('.field:last-child textarea')?.focus();
+}
+
+function addLanguage() {
+  $('newLangCode').value = '';
+  $('newLangName').value = '';
+  $('newLangNative').value = '';
+  $('newLangOrder').value = state.languages.length;
+  $('languageDialog').showModal();
+}
+
+async function onLanguageDialogClose() {
+  if ($('languageDialog').returnValue !== 'ok') return;
+  try {
+    const language = {
+      code: $('newLangCode').value.trim().toLowerCase(),
+      name: $('newLangName').value.trim(),
+      native_name: $('newLangNative').value.trim(),
+      sort_order: Number($('newLangOrder').value) || 0,
+    };
+    await api('POST', 'languages', language);
+    await loadLanguages();
+    if (state.current) $('addTextLanguage').value = language.code;
+    toast(`Language “${language.name}” added. It shows in the app once a story has text in it.`);
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 function validate(s) {
@@ -501,7 +584,7 @@ function validate(s) {
   if (!s.cover.url && !s.cover.blob) return 'Add a cover image';
   if (s.video_url && !/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(s.video_url)) return 'The video link must be a YouTube link';
   if (s.video_url && !s.thumb.url && !s.thumb.blob) return 'Add a video thumbnail (or remove the video link)';
-  if (!s.pages.length && !s.text_te.trim() && !s.text_en.trim() && !s.video_url) {
+  if (!s.pages.length && !s.texts.some((t) => t.body.trim()) && !s.video_url) {
     return 'Add at least one format: page images, story text or a YouTube video';
   }
   for (const [pi, page] of s.pages.entries()) {
@@ -551,10 +634,7 @@ async function save() {
         video_thumbnail_url: s.video_url ? s.thumb.url : null,
       },
       pages: s.pages.map((p) => ({ image_url: p.image.url })),
-      texts: [
-        { language: 'te', body: s.text_te },
-        { language: 'en', body: s.text_en },
-      ],
+      texts: s.texts.map((t) => ({ language: t.language, body: t.body })),
     };
     const result = await api('PUT', `stories/${s.id}`, payload);
     s.isNew = false;
@@ -630,6 +710,9 @@ function bindStaticEvents() {
   $('deleteBtn').addEventListener('click', deleteStory);
   $('addCategoryBtn').addEventListener('click', addCategory);
   $('categoryDialog').addEventListener('close', onCategoryDialogClose);
+  $('addTextBtn').addEventListener('click', addText);
+  $('addLanguageBtn').addEventListener('click', addLanguage);
+  $('languageDialog').addEventListener('close', onLanguageDialogClose);
   $('searchInput').addEventListener('input', renderStoryList);
   $('prevPageBtn').addEventListener('click', () => {
     state.previewPage--;
@@ -651,11 +734,10 @@ function bindStaticEvents() {
     state.current.idEdited = true;
     setDirty(true);
   });
-  ['titleInput', 'summaryInput', 'videoUrlInput', 'videoTitleInput', 'videoDescInput', 'publishedAtInput', 'teTextInput', 'enTextInput'].forEach((id) =>
+  ['titleInput', 'summaryInput', 'videoUrlInput', 'videoTitleInput', 'videoDescInput', 'publishedAtInput'].forEach((id) =>
     $(id).addEventListener('input', () => {
       setDirty(true);
       if (id === 'titleInput') renderPreview();
-      if (id === 'teTextInput' || id === 'enTextInput') updateTextCounts();
     }),
   );
   $('storyForm').addEventListener('submit', (e) => e.preventDefault());

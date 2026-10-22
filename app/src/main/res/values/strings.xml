@@ -28,8 +28,6 @@
     <string name="reader_tab_comic">Comic</string>
     <string name="reader_tab_read">Read</string>
     <string name="reader_tab_watch">Watch</string>
-    <string name="text_language_telugu">తెలుగు</string>
-    <string name="text_language_english">English</string>
     <string name="reader_text_size">Text size</string>
     <string name="reader_text_size_small">Small text</string>
     <string name="reader_text_size_medium">Medium text</string>

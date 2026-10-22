@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.vegamstories.app.data.local.entity.LanguageEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
 import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.local.entity.StoryTextEntity
@@ -22,7 +23,7 @@ import org.junit.runner.RunWith
  * Upgrading the app must keep the user's favorites, downloads and reading progress.
  *
  * Old databases are created here by hand, exactly as Room created them: version 2 was never
- * exported (exportSchema was off), version 3 matches app/schemas/.../3.json.
+ * exported (exportSchema was off), versions 3 and 4 match app/schemas/.../3.json and 4.json.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -103,7 +104,36 @@ class MigrationTest {
             val text = StoryTextEntity("moral-1", language = "te", body = "ఒకప్పుడు…")
             stories.upsertTexts(listOf(text))
             assertTrue(stories.observeStory("moral-1").first()!!.hasText)
-            assertEquals(listOf(text), stories.observeTexts("moral-1").first())
+            assertEquals(listOf(text), stories.observeTexts("moral-1").first().map { it.text })
+        }
+    }
+
+    @Test
+    fun upgradeFrom4_keepsTextsAndAddsLanguages() {
+        createDatabase(
+            version = 4,
+            schema = VERSION_4_SCHEMA,
+            "INSERT INTO categories (id, name, sortOrder) VALUES ('moral', 'Moral', 0)",
+            insertStory("moral-1", episode = 1, likeCount = 5),
+            "INSERT INTO favorites (storyId, addedAt) VALUES ('moral-1', 1700000000000)",
+            "INSERT INTO story_texts (storyId, language, body) VALUES ('moral-1', 'te', 'కథ')",
+            "INSERT INTO story_texts (storyId, language, body) VALUES ('moral-1', 'or', 'କାହାଣୀ')",
+        )
+
+        withMigratedDatabase { db ->
+            val library = db.libraryDao()
+            val stories = db.storyDao()
+
+            assertTrue(library.isFavorite("moral-1"))
+            assertEquals(5, stories.getStory("moral-1")?.likeCount)
+            // No languages saved yet (the next refresh brings them): texts still load, by code.
+            assertEquals(setOf("te", "or"), stories.observeTexts("moral-1").first().map { it.text.language }.toSet())
+            stories.upsertLanguages(
+                listOf(LanguageEntity("or", "Odia", "ଓଡ଼ିଆ", sortOrder = 0), LanguageEntity("te", "Telugu", "తెలుగు", sortOrder = 1)),
+            )
+            val texts = stories.observeTexts("moral-1").first()
+            assertEquals(listOf("or", "te"), texts.map { it.text.language }) // server order
+            assertEquals("ଓଡ଼ିଆ", texts.first().nativeName)
         }
     }
 
@@ -125,7 +155,7 @@ class MigrationTest {
      */
     private fun withMigratedDatabase(block: suspend (VegamDatabase) -> Unit) {
         val db = Room.databaseBuilder(context, VegamDatabase::class.java, TEST_DB)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
         try {
             runBlocking { block(db) }
@@ -179,6 +209,13 @@ class MigrationTest {
             "CREATE TABLE IF NOT EXISTS `stories` ($STORY_COLUMNS, `likeCount` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
         ) + STORY_INDICES + USER_TABLES + listOf(
             "CREATE TABLE IF NOT EXISTS `pending_likes` (`storyId` TEXT NOT NULL, `liked` INTEGER NOT NULL, PRIMARY KEY(`storyId`))",
+        )
+
+        /** Room's CREATE statements from app/schemas/.../4.json. */
+        val VERSION_4_SCHEMA = VERSION_3_SCHEMA + listOf(
+            "CREATE TABLE IF NOT EXISTS `story_texts` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`body` TEXT NOT NULL, PRIMARY KEY(`storyId`, `language`), FOREIGN KEY(`storyId`) " +
+                "REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         )
     }
 }

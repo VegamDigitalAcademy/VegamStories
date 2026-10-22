@@ -63,7 +63,6 @@ import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
-import com.vegamstories.app.domain.model.TextLanguage
 import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.LikeButton
 import com.vegamstories.app.presentation.components.LoadingBox
@@ -125,7 +124,7 @@ fun ReaderScreenContent(
     onKeepScreenOnChange: (Boolean) -> Unit = {},
     onPageBackgroundChange: (PageBackground) -> Unit = {},
     onFormatSelected: (StoryFormat) -> Unit = {},
-    onTextLanguageSelected: (TextLanguage) -> Unit = {},
+    onTextLanguageSelected: (languageCode: String) -> Unit = {},
     onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit = { _, _ -> },
     onTextSizeChange: (ReaderTextSize) -> Unit = {},
 ) {
@@ -180,7 +179,7 @@ private fun ReaderContent(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onPageBackgroundChange: (PageBackground) -> Unit,
     onFormatSelected: (StoryFormat) -> Unit,
-    onTextLanguageSelected: (TextLanguage) -> Unit,
+    onTextLanguageSelected: (languageCode: String) -> Unit,
     onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
     onTextSizeChange: (ReaderTextSize) -> Unit,
 ) {
@@ -233,7 +232,7 @@ private fun ReaderContent(
                 TextReader(
                     story = story,
                     text = text,
-                    languages = state.textLanguages,
+                    texts = state.texts,
                     onLanguageSelect = onTextLanguageSelected,
                     textSize = state.settings.textSize,
                     startFraction = state.initialTextFraction,
@@ -601,8 +600,8 @@ private fun ReaderTextPreview() = PreviewTheme {
             detail = previewDetail.copy(
                 story = previewDetail.story.copy(hasText = true),
                 texts = listOf(
-                    StoryText(TextLanguage.TELUGU, "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి."),
-                    StoryText(TextLanguage.ENGLISH, "Once upon a time there lived an honest woodcutter.\n\nMoral: Honesty is the best reward."),
+                    StoryText("te", "తెలుగు", "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి."),
+                    StoryText("en", "English", "Once upon a time there lived an honest woodcutter.\n\nMoral: Honesty is the best reward."),
                 ),
             ),
             selectedFormat = StoryFormat.TEXT,

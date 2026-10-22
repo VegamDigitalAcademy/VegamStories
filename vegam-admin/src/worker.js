@@ -13,7 +13,7 @@ const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\.(webp|jpg|png)$/;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const TEXT_LANGUAGES = ['te', 'en'];
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}$/;
 const MAX_TEXT_CHARS = 50000;
 
 export default {
@@ -66,6 +66,27 @@ async function route(request, env, url, email) {
         sort_order: Number.isInteger(body.sort_order) ? body.sort_order : 0,
       };
       return json(await db.upsert('categories', [category]), 201);
+    }
+  }
+
+  // /api/languages   (story text languages: Telugu, English, Odia, …)
+  if (parts[0] === 'languages' && parts.length === 1) {
+    if (method === 'GET') {
+      return json(await db.get('languages?select=code,name,native_name,sort_order&order=sort_order.asc,code.asc'));
+    }
+    if (method === 'POST') {
+      const body = await readJson(request);
+      const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
+      if (!LANGUAGE_CODE_PATTERN.test(code)) {
+        throw new HttpError(400, 'Language code: 2–3 lowercase letters, the standard ISO code (e.g. or for Odia, hi for Hindi)');
+      }
+      const language = {
+        code,
+        name: requireText(body.name, 'Language name'),
+        native_name: requireText(body.native_name, 'Name in its own script'),
+        sort_order: Number.isInteger(body.sort_order) ? body.sort_order : 0,
+      };
+      return json(await db.upsert('languages', [language]), 201);
     }
   }
 
@@ -139,7 +160,7 @@ async function route(request, env, url, email) {
  * Body: { story: {category_id, episode, title, summary, cover_url, published_at, is_published,
  *                 video_title, video_description, video_thumbnail_url, video_url},
  *         pages: [{ image_url }],    — one finished comic image per page, in reading order
- *         texts: [{ language, body }] } — the story as plain text, 'te' and/or 'en'
+ *         texts: [{ language, body }] } — the story as plain text, one per language (codes from /api/languages)
  * A story needs at least one format: comic pages, text or a video.
  * Writes the story row, replaces its pages and texts, then deletes images in R2 that are no longer used.
  */
@@ -170,7 +191,8 @@ async function saveStory(db, env, id, body) {
     page_index: pageIndex,
     image_url: requireMediaUrl(page && page.image_url, env, id, `Page ${pageIndex + 1} image`),
   }));
-  const texts = readTexts(body.texts, id);
+  const knownLanguages = new Set((await db.get('languages?select=code')).map((l) => l.code));
+  const texts = readTexts(body.texts, id, knownLanguages);
   if (!pages.length && !texts.length && !story.video_url) {
     throw new HttpError(400, 'Add at least one format: comic pages, story text or a YouTube video');
   }
@@ -196,16 +218,16 @@ async function saveStory(db, env, id, body) {
  * The story's texts as rows for story_texts. Empty ones are left out (= no text in that language).
  * Line breaks are normalised; paragraphs are separated by a blank line.
  */
-function readTexts(value, storyId) {
+function readTexts(value, storyId, knownLanguages) {
   const texts = [];
   for (const t of Array.isArray(value) ? value : []) {
     const language = t && t.language;
-    if (!TEXT_LANGUAGES.includes(language)) throw new HttpError(400, `Unknown text language: ${language}`);
+    if (!knownLanguages.has(language)) throw new HttpError(400, `Unknown text language: ${language} (add it first)`);
     if (texts.some((x) => x.language === language)) throw new HttpError(400, `Two texts in ${language}`);
     const body = typeof t.body === 'string' ? t.body.replace(/\r\n?/g, '\n').trim() : '';
     if (!body) continue;
     if (body.length > MAX_TEXT_CHARS) {
-      throw new HttpError(413, `The ${language === 'te' ? 'Telugu' : 'English'} text is longer than ${MAX_TEXT_CHARS} characters`);
+      throw new HttpError(413, `The ${language} text is longer than ${MAX_TEXT_CHARS} characters`);
     }
     texts.push({ story_id: storyId, language, body, updated_at: new Date().toISOString() });
   }

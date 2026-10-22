@@ -5,9 +5,11 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import com.vegamstories.app.data.local.entity.CategoryEntity
+import com.vegamstories.app.data.local.entity.LanguageEntity
 import com.vegamstories.app.data.local.entity.StoryEntity
 import com.vegamstories.app.data.local.entity.StoryPageEntity
 import com.vegamstories.app.data.local.entity.StoryTextEntity
+import com.vegamstories.app.data.local.entity.StoryTextRow
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
 import kotlinx.coroutines.flow.Flow
 
@@ -57,8 +59,13 @@ interface StoryDao {
     @Query("SELECT * FROM story_pages WHERE storyId = :storyId ORDER BY pageIndex ASC")
     suspend fun getPages(storyId: String): List<StoryPageEntity>
 
-    @Query("SELECT * FROM story_texts WHERE storyId = :storyId")
-    fun observeTexts(storyId: String): Flow<List<StoryTextEntity>>
+    /** The story's texts in the server's language order; languages not loaded yet go last. */
+    @Query(
+        "SELECT t.*, l.nativeName AS nativeName, l.sortOrder AS sortOrder FROM story_texts t " +
+            "LEFT JOIN languages l ON l.code = t.language WHERE t.storyId = :storyId " +
+            "ORDER BY l.sortOrder IS NULL, l.sortOrder, t.language",
+    )
+    fun observeTexts(storyId: String): Flow<List<StoryTextRow>>
 
     @Query("SELECT * FROM stories WHERE id = :storyId LIMIT 1")
     suspend fun getStory(storyId: String): StoryEntity?
@@ -84,6 +91,12 @@ interface StoryDao {
     @Upsert
     suspend fun upsertTexts(texts: List<StoryTextEntity>)
 
+    @Upsert
+    suspend fun upsertLanguages(languages: List<LanguageEntity>)
+
+    @Query("DELETE FROM languages WHERE code NOT IN (:keepCodes)")
+    suspend fun deleteLanguagesExcept(keepCodes: List<String>)
+
     @Query("DELETE FROM story_texts WHERE storyId IN (:storyIds)")
     suspend fun deleteTextsFor(storyIds: List<String>)
 
@@ -104,6 +117,8 @@ interface StoryDao {
         stories: List<StoryEntity>,
         pages: List<StoryPageEntity>,
         texts: List<StoryTextEntity>,
+        /** Empty when the server didn't send them: then the saved list is kept. */
+        languages: List<LanguageEntity>,
     ) {
         deleteStoriesExcept(stories.map { it.id })
         deleteCategoriesExcept(categories.map { it.id })
@@ -113,5 +128,9 @@ interface StoryDao {
         upsertPages(pages)
         deleteTextsFor(stories.map { it.id })
         upsertTexts(texts)
+        if (languages.isNotEmpty()) {
+            deleteLanguagesExcept(languages.map { it.code })
+            upsertLanguages(languages)
+        }
     }
 }

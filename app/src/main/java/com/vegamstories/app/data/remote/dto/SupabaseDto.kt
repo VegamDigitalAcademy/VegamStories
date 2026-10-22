@@ -39,7 +39,7 @@ data class SupabasePageRow(
 /** The whole story as plain text in one language. Paragraphs are separated by a blank line. */
 @Serializable
 data class SupabaseTextRow(
-    /** "te" or "en". */
+    /** A code from the languages table, e.g. "te", "en", "or". */
     @SerialName("language") val language: String,
     @SerialName("body") val body: String,
 )

@@ -4,7 +4,6 @@ import com.vegamstories.app.domain.model.ReaderSettings
 import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
-import com.vegamstories.app.domain.model.TextLanguage
 import com.vegamstories.app.domain.model.StoryPage
 import com.vegamstories.app.presentation.reader.ReaderUiState
 import com.vegamstories.app.testutil.testStory
@@ -67,12 +66,17 @@ class ReaderUiStateTest {
     }
 
     @Test
-    fun `text follows the picked language, else the app language`() {
-        val texts = listOf(StoryText(TextLanguage.TELUGU, "కథ"), StoryText(TextLanguage.ENGLISH, "Story"))
+    fun `text follows the language picked here, then the one picked last time, then the app language`() {
+        val texts = listOf(StoryText("te", "తెలుగు", "కథ"), StoryText("en", "English", "Story"), StoryText("or", "ଓଡ଼ିଆ", "କାହାଣୀ"))
         val detail = detail(pages = 0, withVideo = false).copy(texts = texts)
-        val english = ReaderUiState(isLoading = false, detail = detail, appTextLanguage = TextLanguage.ENGLISH)
-        assertEquals(TextLanguage.ENGLISH, english.text?.language)
-        assertEquals(listOf(TextLanguage.TELUGU, TextLanguage.ENGLISH), english.textLanguages)
-        assertEquals(TextLanguage.TELUGU, english.copy(selectedTextLanguage = TextLanguage.TELUGU).text?.language)
+        val state = ReaderUiState(isLoading = false, detail = detail, appTextLanguage = "en")
+        assertEquals("en", state.text?.languageCode)
+        assertEquals("or", state.copy(settings = ReaderSettings(textLanguage = "or")).text?.languageCode)
+        assertEquals(
+            "te",
+            state.copy(settings = ReaderSettings(textLanguage = "or"), selectedTextLanguage = "te").text?.languageCode,
+        )
+        // An app language the story doesn't have (Hindi): the first language in server order.
+        assertEquals("te", state.copy(appTextLanguage = "hi").text?.languageCode)
     }
 }

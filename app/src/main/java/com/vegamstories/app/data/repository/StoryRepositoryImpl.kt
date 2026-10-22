@@ -52,7 +52,7 @@ class StoryRepositoryImpl @Inject constructor(
                 StoryDetail(
                     story = it.toDomain(),
                     pages = pages.map { page -> page.toDomain() },
-                    texts = texts.mapNotNull { text -> text.toDomain() },
+                    texts = texts.map { text -> text.toDomain() },
                 )
             }
         }
@@ -69,6 +69,7 @@ class StoryRepositoryImpl @Inject constructor(
             stories = feed.stories.map { it.toEntity() },
             pages = feed.stories.flatMap { it.toPageEntities() },
             texts = feed.stories.flatMap { it.toTextEntities() },
+            languages = feed.languages.map { it.toEntity() },
         )
         Timber.i("Refreshed: %d categories, %d stories", feed.categories.size, feed.stories.size)
         Result.success(Unit)

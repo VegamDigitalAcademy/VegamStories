@@ -16,8 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -35,6 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,7 +50,6 @@ import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
-import com.vegamstories.app.domain.model.TextLanguage
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
@@ -108,8 +114,9 @@ val ReaderTextSize.fontSizeSp: Int
 fun TextReader(
     story: Story,
     text: StoryText,
-    languages: List<TextLanguage>,
-    onLanguageSelect: (TextLanguage) -> Unit,
+    /** All the story's texts, one per language; a chip each when there is more than one. */
+    texts: List<StoryText>,
+    onLanguageSelect: (languageCode: String) -> Unit,
     textSize: ReaderTextSize,
     startFraction: Float,
     onProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
@@ -121,7 +128,7 @@ fun TextReader(
     val currentOnProgress by rememberUpdatedState(onProgress)
 
     // A fresh scroll position per language: the two texts don't line up paragraph by paragraph.
-    key(text.language) {
+    key(text.languageCode) {
         val start = (startFraction * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex.coerceAtLeast(0))
         // Item 0 is the title, so paragraph i is item i + 1.
         val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (start > 0) start + 1 else 0)
@@ -145,9 +152,9 @@ fun TextReader(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    if (languages.size > 1) {
+                    if (texts.size > 1) {
                         Spacer(Modifier.height(12.dp))
-                        TextLanguageToggle(languages = languages, selected = text.language, onSelect = onLanguageSelect)
+                        TextLanguageChips(texts = texts, selectedCode = text.languageCode, onSelect = onLanguageSelect)
                     }
                 }
             }
@@ -177,33 +184,32 @@ private fun LazyListState.lastParagraphOnScreen(paragraphCount: Int): Int {
     return (lastItem - 1).coerceAtMost(paragraphCount - 1)
 }
 
+/** One chip per language the story's text is in, named in its own script (తెలుగు, English, ଓଡ଼ିଆ…). */
 @Composable
-private fun TextLanguageToggle(
-    languages: List<TextLanguage>,
-    selected: TextLanguage,
-    onSelect: (TextLanguage) -> Unit,
+private fun TextLanguageChips(
+    texts: List<StoryText>,
+    selectedCode: String,
+    onSelect: (languageCode: String) -> Unit,
 ) {
-    SingleChoiceSegmentedButtonRow {
-        languages.forEachIndexed { i, language ->
-            SegmentedButton(
-                selected = language == selected,
-                onClick = { onSelect(language) },
-                shape = SegmentedButtonDefaults.itemShape(index = i, count = languages.size),
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        texts.forEach { text ->
+            val selected = text.languageCode == selectedCode
+            FilterChip(
+                selected = selected,
+                onClick = { onSelect(text.languageCode) },
+                label = { Text(text.languageName) },
+                modifier = Modifier.semantics { role = Role.RadioButton },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
-                icon = {},
-            ) {
-                Text(
-                    text = stringResource(
-                        when (language) {
-                            TextLanguage.TELUGU -> R.string.text_language_telugu
-                            TextLanguage.ENGLISH -> R.string.text_language_english
-                        },
-                    ),
-                )
-            }
+            )
         }
     }
 }
@@ -244,11 +250,16 @@ private fun TextReaderPreview() = PreviewTheme {
     TextReader(
         story = PreviewData.story(0),
         text = StoryText(
-            TextLanguage.TELUGU,
+            "te",
+            "తెలుగు",
             "ఒకప్పుడు ఒక చిన్న ఊరిలో ఒక నిజాయితీ గల కట్టెలు కొట్టేవాడు ఉండేవాడు.\n\n" +
                 "ఒక రోజు అతని గొడ్డలి నదిలో పడిపోయింది.\n\nనీతి: నిజాయితీయే గొప్ప బహుమతి.",
         ),
-        languages = listOf(TextLanguage.TELUGU, TextLanguage.ENGLISH),
+        texts = listOf(
+            StoryText("te", "తెలుగు", "కథ"),
+            StoryText("en", "English", "Story"),
+            StoryText("or", "ଓଡ଼ିଆ", "କାହାଣୀ"),
+        ),
         onLanguageSelect = {},
         textSize = ReaderTextSize.MEDIUM,
         startFraction = 0f,

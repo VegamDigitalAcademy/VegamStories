@@ -2,6 +2,7 @@ package com.vegamstories.app.data.remote.datasource
 
 import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.FeedResponseDto
+import com.vegamstories.app.data.remote.dto.LanguageDto
 import com.vegamstories.app.data.remote.dto.PageDto
 import com.vegamstories.app.data.remote.dto.StoryDto
 import com.vegamstories.app.data.remote.dto.TextDto
@@ -23,7 +24,7 @@ class FakeStoryRemoteDataSource @Inject constructor(
 
     override suspend fun fetchFeed(): FeedResponseDto = withContext(ioDispatcher) {
         delay(NETWORK_DELAY_MS) // simulate network latency so loading states are visible
-        FeedResponseDto(categories = categories, stories = buildStories())
+        FeedResponseDto(categories = categories, stories = buildStories(), languages = languages)
     }
 
     private suspend fun buildStories(): List<StoryDto> {
@@ -55,11 +56,11 @@ class FakeStoryRemoteDataSource @Inject constructor(
     }
 
     /**
-     * The story as text, to try every format combination: episodes 1, 4, 7… in Telugu and English,
-     * 2, 5, 8… in Telugu only, 3, 6, 9… without text.
+     * The story as text, to try every format combination: episodes 1, 4, 7… in Telugu, English
+     * and Odia, 2, 5, 8… in Telugu only, 3, 6, 9… without text.
      */
     private fun buildTexts(title: String, episode: Int): List<TextDto> = when (episode % 3) {
-        1 -> listOf(teluguText(title), englishText(title))
+        1 -> listOf(teluguText(title), englishText(title), odiaText(title))
         2 -> listOf(teluguText(title))
         else -> emptyList()
     }
@@ -76,6 +77,13 @@ class FakeStoryRemoteDataSource @Inject constructor(
         body = "Once upon a time, in a small village, the story of \"$title\" began. Everyone there lived together happily.\n\n" +
             "One day a small problem came up. The children and the elders thought about it together and found a way out.\n\n" +
             "Moral: Together, any difficulty becomes easy.",
+    )
+
+    private fun odiaText(title: String) = TextDto(
+        language = "or",
+        body = "ଏକଦା ଏକ ଛୋଟ ଗାଁରେ \"$title\" କାହାଣୀ ଆରମ୍ଭ ହେଲା। ସେଠାରେ ସମସ୍ତେ ମିଳିମିଶି ରହୁଥିଲେ।\n\n" +
+            "ଦିନେ ଏକ ଛୋଟ ସମସ୍ୟା ଆସିଲା। ପିଲା ଓ ବଡ଼ମାନେ ମିଶି ଭାବିଲେ ଏବଂ ସମାଧାନ ପାଇଲେ।\n\n" +
+            "ନୀତି: ମିଳିମିଶି ରହିଲେ ସବୁ କଷ୍ଟ ସହଜ ହୁଏ।",
     )
 
     /** 3–4 finished page images per story (portrait, like a real comic page). */
@@ -105,6 +113,13 @@ class FakeStoryRemoteDataSource @Inject constructor(
             CategoryDto(id = "tenali", name = "తెనాలి రామకృష్ణ కథలు", sortOrder = 1),
             CategoryDto(id = "panchatantra", name = "పంచతంత్ర కథలు", sortOrder = 2),
             CategoryDto(id = "folk", name = "జానపద కథలు", sortOrder = 3),
+        )
+
+        // Like the server's languages table (supabase/migrations/005_languages.sql) plus Odia.
+        val languages = listOf(
+            LanguageDto(code = "te", name = "Telugu", nativeName = "తెలుగు", sortOrder = 0),
+            LanguageDto(code = "en", name = "English", nativeName = "English", sortOrder = 1),
+            LanguageDto(code = "or", name = "Odia", nativeName = "ଓଡ଼ିଆ", sortOrder = 2),
         )
 
         val titlesByCategory = mapOf(

@@ -28,8 +28,6 @@
     <string name="reader_tab_comic">బొమ్మలు</string>
     <string name="reader_tab_read">చదవండి</string>
     <string name="reader_tab_watch">చూడండి</string>
-    <string name="text_language_telugu">తెలుగు</string>
-    <string name="text_language_english">English</string>
     <string name="reader_text_size">అక్షరాల పరిమాణం</string>
     <string name="reader_text_size_small">చిన్న అక్షరాలు</string>
     <string name="reader_text_size_medium">మధ్యస్థ అక్షరాలు</string>

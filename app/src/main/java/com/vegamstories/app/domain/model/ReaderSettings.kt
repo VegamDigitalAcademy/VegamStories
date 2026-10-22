@@ -10,6 +10,8 @@ data class ReaderSettings(
     val preferredFormat: StoryFormat = StoryFormat.COMIC,
     /** Size of the story text in the Read tab. */
     val textSize: ReaderTextSize = ReaderTextSize.MEDIUM,
+    /** Language code of the text the user last picked in the Read tab, e.g. "or"; null = not picked yet. */
+    val textLanguage: String? = null,
 )
 
 /** [PAGED] flips one page at a time sideways; [VERTICAL] scrolls all pages in one long strip. */

@@ -11,6 +11,17 @@ import kotlinx.serialization.Serializable
 data class FeedResponseDto(
     @SerialName("categories") val categories: List<CategoryDto>,
     @SerialName("stories") val stories: List<StoryDto>,
+    /** Languages story texts can be in. Empty if the server couldn't send them (texts still show). */
+    @SerialName("languages") val languages: List<LanguageDto> = emptyList(),
+)
+
+/** A story text language, managed in the admin site: e.g. code "or", name "Odia", native name "ଓଡ଼ିଆ". */
+@Serializable
+data class LanguageDto(
+    @SerialName("code") val code: String,
+    @SerialName("name") val name: String,
+    @SerialName("native_name") val nativeName: String,
+    @SerialName("sort_order") val sortOrder: Int = 0,
 )
 
 @Serializable
@@ -36,7 +47,7 @@ data class StoryDto(
     @SerialName("texts") val texts: List<TextDto> = emptyList(),
 )
 
-/** The whole story as plain text in one language ("te" or "en"). */
+/** The whole story as plain text in one language ([language] is a code from the languages list). */
 @Serializable
 data class TextDto(
     @SerialName("language") val language: String,

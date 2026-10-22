@@ -3,20 +3,14 @@ package com.vegamstories.app.domain.model
 /** The ways one story can be enjoyed. A story has one or more of them (see [Story.formats]). */
 enum class StoryFormat { COMIC, TEXT, VIDEO }
 
-/** Languages a story's text can be in. [code] is what the server uses ("te", "en"). */
-enum class TextLanguage(val code: String) {
-    TELUGU("te"),
-    ENGLISH("en"),
-    ;
-
-    companion object {
-        fun fromCode(code: String): TextLanguage? = entries.firstOrNull { it.code == code }
-    }
-}
-
-/** The whole story as plain text in one language. */
+/**
+ * The whole story as plain text in one language. Languages are managed on the server (admin
+ * site), so nothing here is fixed: [languageCode] is e.g. "te", "en" or "or", and
+ * [languageName] its own-script name from the server ("తెలుగు", "English", "ଓଡ଼ିଆ").
+ */
 data class StoryText(
-    val language: TextLanguage,
+    val languageCode: String,
+    val languageName: String,
     val body: String,
 ) {
     /** Paragraphs, split on blank lines. */
@@ -28,8 +22,10 @@ data class StoryText(
     }
 }
 
-/** The text to show: in [preferred] (e.g. the app language) if there is one, else Telugu, else any. */
-fun List<StoryText>.pick(preferred: TextLanguage?): StoryText? =
-    firstOrNull { it.language == preferred }
-        ?: firstOrNull { it.language == TextLanguage.TELUGU }
+/**
+ * The text to show: the first of [preferredCodes] the story has (null entries are skipped),
+ * else the first text, which is in the server's language order.
+ */
+fun List<StoryText>.pick(vararg preferredCodes: String?): StoryText? =
+    preferredCodes.firstNotNullOfOrNull { code -> code?.let { c -> firstOrNull { it.languageCode == c } } }
         ?: firstOrNull()

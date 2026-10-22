@@ -181,3 +181,7 @@ body:has(.preview:not(.hidden)) .actions { right: 360px; }
 /* Story text boxes: comfortable to write long text in. */
 textarea.story-text { min-height: 180px; line-height: 1.6; font-size: 14px; }
 .formats { letter-spacing: 1px; }
+.texts { display: flex; flex-direction: column; gap: 14px; }
+.text-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.add-text { margin-top: 12px; gap: 8px; flex-wrap: wrap; }
+.add-text select { max-width: 260px; }
