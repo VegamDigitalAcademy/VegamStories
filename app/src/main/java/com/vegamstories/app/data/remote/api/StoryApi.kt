@@ -22,10 +22,10 @@ interface StoryApi {
         @Query("order") order: String = "sort_order.asc",
     ): List<CategoryDto>
 
-    /** Published stories with their pages embedded, newest first. */
+    /** Published stories with their pages and texts embedded, newest first. */
     @GET("stories")
     suspend fun getStories(
-        @Query("select") select: String = "*,story_pages(page_index,image_url)",
+        @Query("select") select: String = "*,story_pages(page_index,image_url),story_texts(language,body)",
         @Query("is_published") isPublished: String = "eq.true",
         @Query("order") order: String = "published_at.desc",
         @Query("story_pages.order") pagesOrder: String = "page_index.asc",

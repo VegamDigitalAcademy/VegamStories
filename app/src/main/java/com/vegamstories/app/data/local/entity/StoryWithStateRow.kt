@@ -6,6 +6,8 @@ import androidx.room.Embedded
 data class StoryWithStateRow(
     @Embedded val story: StoryEntity,
     val categoryName: String?,
+    /** The story has a text version in at least one language. */
+    val hasText: Boolean,
     val isFavorite: Boolean,
     val isDownloaded: Boolean,
     val progressLastPageIndex: Int?,

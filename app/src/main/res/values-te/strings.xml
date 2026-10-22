@@ -18,6 +18,11 @@
     <string name="episode_short">భాగం %1$d</string>
     <string name="episode_category">భాగం %1$d · %2$s</string>
     <string name="read_badge">చదివారు</string>
+
+    <!-- కథ రూపాలు (కథ కార్డులపై గుర్తులు) -->
+    <string name="format_comic">బొమ్మల కథ</string>
+    <string name="format_text">చదివే కథ</string>
+    <string name="format_video">వీడియో</string>
     <string name="added_to_favorites">ఇష్టమైనవాటికి జోడించబడింది</string>
     <string name="removed_from_favorites">ఇష్టమైనవాటి నుండి తీసివేయబడింది</string>
     <string name="refresh_failed">కథలను రిఫ్రెష్ చేయలేకపోయాం. సేవ్ చేసిన కథలను చూపిస్తున్నాం.</string>

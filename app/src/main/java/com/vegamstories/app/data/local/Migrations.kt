@@ -15,3 +15,14 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("INSERT OR REPLACE INTO `pending_likes` (`storyId`, `liked`) SELECT `storyId`, 1 FROM `favorites`")
     }
 }
+
+/** 3 → 4: stories can also be read as text. A new cache table; nothing existing changes. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `story_texts` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`body` TEXT NOT NULL, PRIMARY KEY(`storyId`, `language`), FOREIGN KEY(`storyId`) " +
+                "REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+    }
+}

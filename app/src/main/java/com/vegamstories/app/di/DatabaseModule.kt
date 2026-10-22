@@ -3,6 +3,7 @@ package com.vegamstories.app.di
 import android.content.Context
 import androidx.room.Room
 import com.vegamstories.app.data.local.MIGRATION_2_3
+import com.vegamstories.app.data.local.MIGRATION_3_4
 import com.vegamstories.app.data.local.VegamDatabase
 import com.vegamstories.app.data.local.dao.LibraryDao
 import com.vegamstories.app.data.local.dao.StoryDao
@@ -21,10 +22,10 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): VegamDatabase =
         Room.databaseBuilder(context, VegamDatabase::class.java, VegamDatabase.NAME)
-            // Keeps favorites/likes, downloads and progress when updating from version 2.
+            // Keeps favorites/likes, downloads and progress when updating from version 2 or 3.
             // Every version bump needs a Migration here: an upgrade without one crashes on
             // purpose instead of wiping the user's favorites, likes, downloads and progress.
-            .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             // Version 1 never shipped and has no migration; only dev installs can have it.
             .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1)
             // Installing an older build over a newer one has no way back, so start fresh.

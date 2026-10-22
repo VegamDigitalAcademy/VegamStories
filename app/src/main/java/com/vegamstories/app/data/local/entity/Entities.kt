@@ -55,6 +55,25 @@ data class StoryPageEntity(
     val imageUrl: String,
 )
 
+/** The story as plain text in one language ("te" or "en"). Paragraphs are separated by a blank line. */
+@Entity(
+    tableName = "story_texts",
+    primaryKeys = ["storyId", "language"],
+    foreignKeys = [
+        ForeignKey(
+            entity = StoryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["storyId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class StoryTextEntity(
+    val storyId: String,
+    val language: String,
+    val body: String,
+)
+
 // ---------- User state (kept separate so a server refresh never wipes it) ----------
 
 @Entity(tableName = "favorites")

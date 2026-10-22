@@ -3,6 +3,7 @@ package com.vegamstories.app.data.mapper
 import com.vegamstories.app.data.local.entity.CategoryEntity
 import com.vegamstories.app.data.local.entity.StoryEntity
 import com.vegamstories.app.data.local.entity.StoryPageEntity
+import com.vegamstories.app.data.local.entity.StoryTextEntity
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
 import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.StoryDto
@@ -10,7 +11,9 @@ import com.vegamstories.app.domain.model.Category
 import com.vegamstories.app.domain.model.ReadingProgress
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryPage
+import com.vegamstories.app.domain.model.StoryText
 import com.vegamstories.app.domain.model.StoryVideo
+import com.vegamstories.app.domain.model.TextLanguage
 
 // ---------- Remote (DTO) -> Local (Entity) ----------
 
@@ -39,6 +42,12 @@ fun StoryDto.toPageEntities(): List<StoryPageEntity> = pages.mapIndexed { index,
         imageUrl = page.imageUrl,
     )
 }
+
+/** Texts in a language the app doesn't know, or empty ones, are skipped. */
+fun StoryDto.toTextEntities(): List<StoryTextEntity> = texts
+    .filter { TextLanguage.fromCode(it.language) != null && it.body.isNotBlank() }
+    .distinctBy { it.language }
+    .map { StoryTextEntity(storyId = id, language = it.language, body = it.body) }
 
 // ---------- Local (Entity) -> Domain ----------
 
@@ -77,6 +86,7 @@ fun StoryWithStateRow.toDomain(): Story {
         pageCount = story.pageCount,
         publishedAt = story.publishedAt,
         video = video,
+        hasText = hasText,
         isFavorite = isFavorite,
         likeCount = story.likeCount,
         isDownloaded = isDownloaded,
@@ -85,3 +95,6 @@ fun StoryWithStateRow.toDomain(): Story {
 }
 
 fun StoryPageEntity.toDomain() = StoryPage(index = pageIndex, imageUrl = imageUrl)
+
+fun StoryTextEntity.toDomain(): StoryText? =
+    TextLanguage.fromCode(language)?.let { StoryText(language = it, body = body) }

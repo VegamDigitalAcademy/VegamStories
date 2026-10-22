@@ -32,6 +32,15 @@ data class StoryDto(
     @SerialName("pages") val pages: List<PageDto> = emptyList(),
     @SerialName("video") val video: VideoDto? = null,
     @SerialName("like_count") val likeCount: Int = 0,
+    /** The story as text, one entry per language. Empty if it has no text version. */
+    @SerialName("texts") val texts: List<TextDto> = emptyList(),
+)
+
+/** The whole story as plain text in one language ("te" or "en"). */
+@Serializable
+data class TextDto(
+    @SerialName("language") val language: String,
+    @SerialName("body") val body: String,
 )
 
 /** One finished comic page image. */

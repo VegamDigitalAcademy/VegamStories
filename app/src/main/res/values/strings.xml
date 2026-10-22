@@ -18,6 +18,11 @@
     <string name="episode_short">Ep %1$d</string>
     <string name="episode_category">Ep %1$d · %2$s</string>
     <string name="read_badge">Read</string>
+
+    <!-- Story formats (icons on story cards) -->
+    <string name="format_comic">Comic</string>
+    <string name="format_text">Text</string>
+    <string name="format_video">Video</string>
     <string name="added_to_favorites">Added to favorites</string>
     <string name="removed_from_favorites">Removed from favorites</string>
     <string name="refresh_failed">Couldn\'t refresh stories. Showing saved stories.</string>

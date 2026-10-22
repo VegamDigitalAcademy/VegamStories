@@ -15,6 +15,8 @@ fun testStory(
     publishedAt: Long = 0L,
     opened: Boolean = false,
     withVideo: Boolean = false,
+    pageCount: Int = 3,
+    hasText: Boolean = false,
 ) = Story(
     id = id,
     categoryId = "moral",
@@ -23,13 +25,14 @@ fun testStory(
     title = "Title $id",
     summary = "",
     coverImageUrl = "https://example.com/$id.webp",
-    pageCount = 3,
+    pageCount = pageCount,
     publishedAt = publishedAt,
     video = if (withVideo) {
         StoryVideo(title = "Video", description = "", thumbnailUrl = "https://example.com/v.webp", videoUrl = "https://youtu.be/x")
     } else {
         null
     },
+    hasText = hasText,
     isFavorite = false,
     likeCount = 0,
     isDownloaded = false,

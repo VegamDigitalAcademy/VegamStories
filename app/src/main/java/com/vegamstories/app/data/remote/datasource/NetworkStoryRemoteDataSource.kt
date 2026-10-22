@@ -5,6 +5,7 @@ import com.vegamstories.app.data.remote.dto.FeedResponseDto
 import com.vegamstories.app.data.remote.dto.PageDto
 import com.vegamstories.app.data.remote.dto.StoryDto
 import com.vegamstories.app.data.remote.dto.SupabaseStoryRow
+import com.vegamstories.app.data.remote.dto.TextDto
 import com.vegamstories.app.data.remote.dto.VideoDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -47,6 +48,7 @@ class NetworkStoryRemoteDataSource @Inject constructor(
             null
         },
         likeCount = likeCount,
+        texts = texts.map { TextDto(language = it.language, body = it.body) },
     )
 }
 

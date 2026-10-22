@@ -7,6 +7,7 @@ import androidx.room.Upsert
 import com.vegamstories.app.data.local.entity.CategoryEntity
 import com.vegamstories.app.data.local.entity.StoryEntity
 import com.vegamstories.app.data.local.entity.StoryPageEntity
+import com.vegamstories.app.data.local.entity.StoryTextEntity
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
 import kotlinx.coroutines.flow.Flow
 
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 internal const val STORY_WITH_STATE_SELECT = """
     SELECT s.*,
         c.name AS categoryName,
+        EXISTS(SELECT 1 FROM story_texts t WHERE t.storyId = s.id) AS hasText,
         (f.storyId IS NOT NULL) AS isFavorite,
         (d.storyId IS NOT NULL) AS isDownloaded,
         p.lastPageIndex AS progressLastPageIndex,
@@ -55,6 +57,9 @@ interface StoryDao {
     @Query("SELECT * FROM story_pages WHERE storyId = :storyId ORDER BY pageIndex ASC")
     suspend fun getPages(storyId: String): List<StoryPageEntity>
 
+    @Query("SELECT * FROM story_texts WHERE storyId = :storyId")
+    fun observeTexts(storyId: String): Flow<List<StoryTextEntity>>
+
     @Query("SELECT * FROM stories WHERE id = :storyId LIMIT 1")
     suspend fun getStory(storyId: String): StoryEntity?
 
@@ -76,7 +81,13 @@ interface StoryDao {
     @Query("DELETE FROM story_pages WHERE storyId IN (:storyIds)")
     suspend fun deletePagesFor(storyIds: List<String>)
 
-    /** Pages go too (ON DELETE CASCADE). Favorites/progress rows stay but are never shown. */
+    @Upsert
+    suspend fun upsertTexts(texts: List<StoryTextEntity>)
+
+    @Query("DELETE FROM story_texts WHERE storyId IN (:storyIds)")
+    suspend fun deleteTextsFor(storyIds: List<String>)
+
+    /** Pages and texts go too (ON DELETE CASCADE). Favorites/progress rows stay but are never shown. */
     @Query("DELETE FROM stories WHERE id NOT IN (:keepIds)")
     suspend fun deleteStoriesExcept(keepIds: List<String>)
 
@@ -92,6 +103,7 @@ interface StoryDao {
         categories: List<CategoryEntity>,
         stories: List<StoryEntity>,
         pages: List<StoryPageEntity>,
+        texts: List<StoryTextEntity>,
     ) {
         deleteStoriesExcept(stories.map { it.id })
         deleteCategoriesExcept(categories.map { it.id })
@@ -99,5 +111,7 @@ interface StoryDao {
         upsertStories(stories)
         deletePagesFor(stories.map { it.id })
         upsertPages(pages)
+        deleteTextsFor(stories.map { it.id })
+        upsertTexts(texts)
     }
 }

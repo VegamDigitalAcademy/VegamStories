@@ -4,6 +4,7 @@ import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.FeedResponseDto
 import com.vegamstories.app.data.remote.dto.PageDto
 import com.vegamstories.app.data.remote.dto.StoryDto
+import com.vegamstories.app.data.remote.dto.TextDto
 import com.vegamstories.app.data.remote.dto.VideoDto
 import com.vegamstories.app.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,12 +46,37 @@ class FakeStoryRemoteDataSource @Inject constructor(
                     pages = buildPages(id, seed = globalIndex),
                     video = if (episode % 2 == 1) buildVideo(id, title) else null,
                     likeCount = likes.countFor(id),
+                    texts = buildTexts(title, episode),
                 )
                 globalIndex++
             }
         }
         return stories
     }
+
+    /**
+     * The story as text, to try every format combination: episodes 1, 4, 7… in Telugu and English,
+     * 2, 5, 8… in Telugu only, 3, 6, 9… without text.
+     */
+    private fun buildTexts(title: String, episode: Int): List<TextDto> = when (episode % 3) {
+        1 -> listOf(teluguText(title), englishText(title))
+        2 -> listOf(teluguText(title))
+        else -> emptyList()
+    }
+
+    private fun teluguText(title: String) = TextDto(
+        language = "te",
+        body = "ఒకప్పుడు ఒక చిన్న ఊరిలో \"$title\" కథ మొదలైంది. ఆ ఊరిలో అందరూ కలిసిమెలిసి ఉండేవారు.\n\n" +
+            "ఒక రోజు ఒక చిన్న సమస్య వచ్చింది. పిల్లలు, పెద్దలు కలిసి ఆలోచించి దానికి పరిష్కారం కనుగొన్నారు.\n\n" +
+            "నీతి: కలిసి ఉంటే ఏ కష్టమైనా సులభమే.",
+    )
+
+    private fun englishText(title: String) = TextDto(
+        language = "en",
+        body = "Once upon a time, in a small village, the story of \"$title\" began. Everyone there lived together happily.\n\n" +
+            "One day a small problem came up. The children and the elders thought about it together and found a way out.\n\n" +
+            "Moral: Together, any difficulty becomes easy.",
+    )
 
     /** 3–4 finished page images per story (portrait, like a real comic page). */
     private fun buildPages(storyId: String, seed: Int): List<PageDto> {

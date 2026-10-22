@@ -25,6 +25,8 @@ data class SupabaseStoryRow(
     @SerialName("like_count") val likeCount: Int = 0,
     /** Embedded from the story_pages table via select=*,story_pages(...). */
     @SerialName("story_pages") val pages: List<SupabasePageRow> = emptyList(),
+    /** Embedded from the story_texts table: the story as text, per language (supabase/migrations/004). */
+    @SerialName("story_texts") val texts: List<SupabaseTextRow> = emptyList(),
 )
 
 @Serializable
@@ -32,6 +34,14 @@ data class SupabasePageRow(
     @SerialName("page_index") val pageIndex: Int,
     /** The whole page as one image, e.g. https://media.vegamstories.com/moral-1/page-0-ab12cd.webp */
     @SerialName("image_url") val imageUrl: String,
+)
+
+/** The whole story as plain text in one language. Paragraphs are separated by a blank line. */
+@Serializable
+data class SupabaseTextRow(
+    /** "te" or "en". */
+    @SerialName("language") val language: String,
+    @SerialName("body") val body: String,
 )
 
 /** Arguments of the set_story_like() function, called as POST /rpc/set_story_like. */
