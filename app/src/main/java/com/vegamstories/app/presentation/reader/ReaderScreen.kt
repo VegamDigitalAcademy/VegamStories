@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -573,20 +572,33 @@ private fun EndOfStory(onContinue: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Page dots with the count beside them ("3 / 10"), on one line so the comic gets more room.
+ * Long stories show a window of [MAX_PAGE_DOTS] dots that follows the current page; a smaller
+ * dot at either end means there are more pages that way.
+ */
 @Composable
 private fun PageIndicator(currentPage: Int, pageCount: Int) {
-    Column(
+    val first = (currentPage - MAX_PAGE_DOTS / 2).coerceIn(0, (pageCount - MAX_PAGE_DOTS).coerceAtLeast(0))
+    val last = minOf(pageCount, first + MAX_PAGE_DOTS) - 1
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(pageCount) { i ->
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (i in first..last) {
                 val selected = i == currentPage
+                val moreBeyond = (i == first && first > 0) || (i == last && last < pageCount - 1)
+                val dot = if (moreBeyond) 4.dp else 6.dp
                 Box(
                     Modifier
-                        .size(width = if (selected) 18.dp else 6.dp, height = 6.dp)
+                        .size(width = if (selected) 18.dp else dot, height = dot)
                         .clip(CircleShape)
                         .background(
                             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
@@ -594,7 +606,7 @@ private fun PageIndicator(currentPage: Int, pageCount: Int) {
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.page_of, currentPage + 1, pageCount),
             style = MaterialTheme.typography.labelSmall,
@@ -602,6 +614,9 @@ private fun PageIndicator(currentPage: Int, pageCount: Int) {
         )
     }
 }
+
+/** Most page dots shown at once; longer stories show a window around the current page. */
+private const val MAX_PAGE_DOTS = 9
 
 // ---------------- Previews ----------------
 
