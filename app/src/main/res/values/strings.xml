@@ -143,6 +143,12 @@
     <string name="all_episodes_read">You\'ve reached the latest episode in this series.</string>
     <string name="cd_like">Like</string>
 
+    <!-- Settings: reading -->
+    <string name="settings_reading_section">READING</string>
+    <string name="settings_auto_turn">Auto-turn comic pages</string>
+    <string name="settings_auto_turn_desc">Comic pages turn to the next one by themselves after a few seconds</string>
+    <string name="settings_auto_turn_seconds">%1$d s</string>
+
     <!-- New-story notifications -->
     <string name="settings_notifications_section">NOTIFICATIONS</string>
     <string name="settings_new_story_alerts">New story alerts</string>

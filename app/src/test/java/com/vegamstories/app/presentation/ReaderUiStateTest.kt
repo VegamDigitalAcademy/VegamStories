@@ -10,6 +10,7 @@ import com.vegamstories.app.presentation.reader.ReaderUiState
 import com.vegamstories.app.testutil.testStory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -79,5 +80,12 @@ class ReaderUiStateTest {
         assertEquals("କାହାଣୀ", state.text?.body)
         assertEquals(languages, state.languages)
         assertEquals(setOf(StoryFormat.TEXT), state.formats)
+    }
+
+    @Test
+    fun `comic pages auto-turn after the time chosen in Settings, or not at all`() {
+        assertEquals(10_000L, ReaderSettings().autoTurnMillis) // on, 10 s by default
+        assertEquals(5_000L, ReaderSettings(autoTurnSeconds = 5).autoTurnMillis)
+        assertNull(ReaderSettings(autoTurnPages = false, autoTurnSeconds = 15).autoTurnMillis)
     }
 }

@@ -34,6 +34,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -270,6 +276,7 @@ private fun ReaderContent(
         when (state.settings.scrollMode) {
             ReaderScrollMode.PAGED -> PagedReader(
                 startPage = currentPage,
+                autoTurnMillis = state.settings.autoTurnMillis,
                 pageCount = state.totalPagerPages,
                 comicPageCount = detail.pages.size,
                 likePageIndex = state.likePageIndex,
@@ -279,6 +286,7 @@ private fun ReaderContent(
             )
             ReaderScrollMode.VERTICAL -> VerticalReader(
                 startPage = currentPage,
+                autoTurnMillis = state.settings.autoTurnMillis,
                 pageCount = state.totalPagerPages,
                 likePageIndex = state.likePageIndex,
                 onPageSettled = onPageSettled,
@@ -310,6 +318,8 @@ private fun ReaderContent(
 @Composable
 private fun PagedReader(
     startPage: Int,
+    /** Auto-turn time per comic page; null = off. */
+    autoTurnMillis: Long?,
     pageCount: Int,
     comicPageCount: Int,
     likePageIndex: Int,
@@ -324,6 +334,15 @@ private fun PagedReader(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { currentOnPageSettled(it) }
     }
+
+    // Auto-advance (Settings → Reading): each comic page turns to the next after autoTurnMillis.
+    // Swiping restarts the wait; it stops at the like page.
+    AutoAdvance(
+        delayMillis = autoTurnMillis,
+        page = pagerState.settledPage,
+        userIsScrolling = pagerState.isScrollInProgress,
+        lastAutoPage = likePageIndex,
+    ) { pagerState.animateScrollToPage(pagerState.settledPage + 1) }
 
     HorizontalPager(
         state = pagerState,
@@ -352,6 +371,8 @@ private fun PagedReader(
 @Composable
 private fun VerticalReader(
     startPage: Int,
+    /** Auto-turn time per comic page; null = off. */
+    autoTurnMillis: Long?,
     pageCount: Int,
     likePageIndex: Int,
     onPageSettled: (Int) -> Unit,
@@ -368,6 +389,14 @@ private fun VerticalReader(
             .collect { currentOnPageSettled(it) }
     }
 
+    val pageOnScreen by remember(listState) { derivedStateOf { listState.pageAtCenter() } }
+    AutoAdvance(
+        delayMillis = autoTurnMillis,
+        page = pageOnScreen,
+        userIsScrolling = listState.isScrollInProgress,
+        lastAutoPage = likePageIndex,
+    ) { listState.animateScrollToItem(pageOnScreen + 1) }
+
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -378,6 +407,36 @@ private fun VerticalReader(
             Column(Modifier.fillMaxWidth()) {
                 page(index) { scope.launch { listState.animateScrollToItem(likePageIndex) } }
             }
+        }
+    }
+}
+
+/**
+ * Turns the page by itself: after [delayMillis] on comic [page] (any page before
+ * [lastAutoPage], the like page), [advance] is called. The wait starts again whenever the page
+ * changes or the user lets go of a swipe, and pauses while the app isn't on screen.
+ * [delayMillis] null = auto-turn switched off in Settings.
+ */
+@Composable
+private fun AutoAdvance(
+    delayMillis: Long?,
+    page: Int,
+    userIsScrolling: Boolean,
+    lastAutoPage: Int,
+    advance: suspend () -> Unit,
+) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val currentAdvance by rememberUpdatedState(advance)
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(page, userIsScrolling, lastAutoPage, delayMillis) {
+        if (delayMillis == null || userIsScrolling || page >= lastAutoPage) return@LaunchedEffect
+        // Only counts while the reader is visible; coming back starts a fresh wait.
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            delay(delayMillis)
+            // Turn the page outside this effect: the turn itself makes userIsScrolling true,
+            // which restarts this effect, and would cancel the animation after its first frame.
+            // A swipe still interrupts it (the pager gives user input priority).
+            scope.launch { currentAdvance() }
         }
     }
 }

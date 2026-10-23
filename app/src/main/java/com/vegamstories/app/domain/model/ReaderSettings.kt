@@ -10,7 +10,17 @@ data class ReaderSettings(
     val preferredFormat: StoryFormat = StoryFormat.COMIC,
     /** Size of the story text in the Read tab. */
     val textSize: ReaderTextSize = ReaderTextSize.MEDIUM,
-)
+    /** Comic pages turn by themselves after [autoTurnSeconds] (Settings → Reading). */
+    val autoTurnPages: Boolean = true,
+    /** One of [AUTO_TURN_SECONDS_OPTIONS]. */
+    val autoTurnSeconds: Int = 10,
+) {
+    /** How long a comic page stays before turning by itself; null = auto-turn off. */
+    val autoTurnMillis: Long? get() = if (autoTurnPages) autoTurnSeconds * 1_000L else null
+}
+
+/** The page times offered in Settings, in seconds. */
+val AUTO_TURN_SECONDS_OPTIONS = listOf(5, 10, 15)
 
 /** [PAGED] flips one page at a time sideways; [VERTICAL] scrolls all pages in one long strip. */
 enum class ReaderScrollMode { PAGED, VERTICAL }

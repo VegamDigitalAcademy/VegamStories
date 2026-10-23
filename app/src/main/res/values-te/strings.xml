@@ -139,6 +139,12 @@
     <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
     <string name="cd_like">లైక్</string>
 
+    <!-- సెట్టింగ్‌లు: చదవడం -->
+    <string name="settings_reading_section">చదవడం</string>
+    <string name="settings_auto_turn">బొమ్మల పేజీలు ఆటోగా మారాలి</string>
+    <string name="settings_auto_turn_desc">కొన్ని సెకన్ల తర్వాత బొమ్మల కథ పేజీ దానంతట అదే తదుపరి పేజీకి మారుతుంది</string>
+    <string name="settings_auto_turn_seconds">%1$d సె</string>
+
     <!-- కొత్త కథల నోటిఫికేషన్లు -->
     <string name="settings_notifications_section">నోటిఫికేషన్లు</string>
     <string name="settings_new_story_alerts">కొత్త కథల అలర్ట్‌లు</string>
