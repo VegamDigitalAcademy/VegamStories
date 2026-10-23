@@ -1,5 +1,21 @@
 package com.vegamstories.app.presentation.reader
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +38,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -38,7 +53,6 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -199,6 +213,8 @@ private fun ReaderContent(
     }
 
     KeepScreenOn(enabled = state.settings.keepScreenOn)
+    // The auto-turn countdown: run by the reader below, shown filling the page's bar in PageIndicator.
+    val pageTimer = remember { PageTimer() }
 
     Column(Modifier.fillMaxSize()) Column@{
         ReaderTopBar(
@@ -276,6 +292,7 @@ private fun ReaderContent(
             ReaderScrollMode.PAGED -> PagedReader(
                 startPage = currentPage,
                 autoTurnMillis = state.settings.autoTurnMillis,
+                timer = pageTimer,
                 pageCount = state.totalPagerPages,
                 comicPageCount = detail.pages.size,
                 likePageIndex = state.likePageIndex,
@@ -286,6 +303,7 @@ private fun ReaderContent(
             ReaderScrollMode.VERTICAL -> VerticalReader(
                 startPage = currentPage,
                 autoTurnMillis = state.settings.autoTurnMillis,
+                timer = pageTimer,
                 pageCount = state.totalPagerPages,
                 likePageIndex = state.likePageIndex,
                 onPageSettled = onPageSettled,
@@ -293,7 +311,13 @@ private fun ReaderContent(
                 modifier = readerModifier,
             )
         }
-        PageIndicator(currentPage = currentPage, pageCount = state.totalPagerPages)
+        PageIndicator(
+            currentPage = currentPage,
+            pageCount = state.totalPagerPages,
+            timer = pageTimer,
+            autoTurn = state.settings.autoTurnMillis != null,
+            lastAutoPage = state.likePageIndex,
+        )
     }
 
     if (showOptions) {
@@ -310,15 +334,16 @@ private fun ReaderContent(
 }
 
 /**
- * One page at a time, flipped sideways. Comic pages run edge to edge (no side padding) and sit
- * in the middle of the screen when they are shorter than it, as on a tall phone; taller pages
- * scroll vertically within their page. The like and video pages keep their normal padding.
+ * One page at a time, turned like a book page (see [bookPageTurn]). Comic pages run edge to edge
+ * (no side padding) and sit in the middle of the screen when they are shorter than it, as on a
+ * tall phone; taller pages scroll vertically within their page. The like page keeps its padding.
  */
 @Composable
 private fun PagedReader(
     startPage: Int,
     /** Auto-turn time per comic page; null = off. */
     autoTurnMillis: Long?,
+    timer: PageTimer,
     pageCount: Int,
     comicPageCount: Int,
     likePageIndex: Int,
@@ -338,18 +363,39 @@ private fun PagedReader(
     // Swiping restarts the wait; it stops at the like page.
     AutoAdvance(
         delayMillis = autoTurnMillis,
+        timer = timer,
         page = pagerState.settledPage,
         userIsScrolling = pagerState.isScrollInProgress,
         lastAutoPage = likePageIndex,
-    ) { pagerState.animateScrollToPage(pagerState.settledPage + 1) }
+    ) { pagerState.animateScrollToPage(pagerState.settledPage + 1, animationSpec = pageTurnSpec) }
+
+    // Which way a turning page's fold leans: after the finger, else the app's own lean.
+    val lean = remember { PageLean() }
+    LaunchedEffect(pagerState, lean) { lean.follow(pagerState) }
+    val paper = MaterialTheme.colorScheme.background
 
     HorizontalPager(
         state = pagerState,
-        modifier = modifier,
+        // The curl's shadows stay inside the reader area.
+        modifier = modifier
+            .clipToBounds()
+            .leanWithFinger(lean, pagerState),
         beyondViewportPageCount = 1,
+        flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapAnimationSpec = pageSettleSpec),
     ) { index ->
         val isComic = index < comicPageCount
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+        // Which page lies on top changes only a few times per turn: recompose just then.
+        val layer by remember(pagerState, index) {
+            derivedStateOf { turnLayer(turnPosition(index, pagerState.currentPage, pagerState.currentPageOffsetFraction)) }
+        }
+        BoxWithConstraints(
+            Modifier
+                .zIndex(layer)
+                .fillMaxSize()
+                .bookPageTurn(pagerState, index, lean, paper)
+                // Opaque, so the page underneath shows only where the turning page has lifted.
+                .background(paper),
+        ) {
             val viewportHeight = maxHeight
             Column(
                 modifier = Modifier
@@ -360,10 +406,58 @@ private fun PagedReader(
                     .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = 8.dp),
                 verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
             ) {
-                page(index) { scope.launch { pagerState.animateScrollToPage(likePageIndex) } }
+                page(index) { scope.launch { pagerState.animateScrollToPage(likePageIndex, animationSpec = pageTurnSpec) } }
             }
         }
     }
+}
+
+/**
+ * A page turn started by the app (auto-turn, Continue), unhurried so the curl can be watched: the
+ * corner lifts gently, the page sweeps across, then settles.
+ */
+private val pageTurnSpec = tween<Float>(durationMillis = 1100, easing = EaseInOut)
+
+/**
+ * A page let go of mid-turn finishes turning (or falls back) at the same pace, slowing to a stop,
+ * however fast the swipe was.
+ */
+private val pageSettleSpec = tween<Float>(durationMillis = 900, easing = EaseOut)
+
+/**
+ * Turns pages like a book instead of sliding them. Pages stay in one spot, stacked; turning forward
+ * curls the open page away from its right edge (see [pageCurl]), following the finger, uncovering
+ * the next page underneath. Turning back, the previous page uncurls back down over the open one.
+ * Everything is read while drawing, so a turn redraws the pages without recomposing them.
+ */
+private fun Modifier.bookPageTurn(pagerState: PagerState, page: Int, lean: PageLean, paper: Color): Modifier {
+    val position = { turnPosition(page, pagerState.currentPage, pagerState.currentPageOffsetFraction) }
+    return this
+        .graphicsLayer {
+            translationX = -position() * size.width // cancel the pager's slide
+            alpha = if (turnVisible(position())) 1f else 0f
+        }
+        .pageCurl(progress = { -position() }, lean = { lean.current.value }, paper = paper)
+}
+
+/**
+ * Where [page] is in a turn: 0 = lying open on screen, toward -1 = being turned away (forward),
+ * toward +1 = the next page, still underneath. Continuous through the whole turn.
+ */
+internal fun turnPosition(page: Int, currentPage: Int, offsetFraction: Float): Float =
+    page - currentPage - offsetFraction
+
+/** A page is seen from lying open until fully turned away; pages further away are hidden. */
+internal fun turnVisible(position: Float): Boolean = position > -1f && position < 1f
+
+/**
+ * Drawing order: the page being turned lies over the one it uncovers; pages out of view go to the
+ * bottom, so an invisible page never catches a tap.
+ */
+internal fun turnLayer(position: Float): Float = when {
+    !turnVisible(position) -> -1f
+    position <= 0f -> 1f
+    else -> 0f
 }
 
 /** Every page in one continuous strip (webtoon style), followed by the like and video pages. */
@@ -372,6 +466,7 @@ private fun VerticalReader(
     startPage: Int,
     /** Auto-turn time per comic page; null = off. */
     autoTurnMillis: Long?,
+    timer: PageTimer,
     pageCount: Int,
     likePageIndex: Int,
     onPageSettled: (Int) -> Unit,
@@ -391,6 +486,7 @@ private fun VerticalReader(
     val pageOnScreen by remember(listState) { derivedStateOf { listState.pageAtCenter() } }
     AutoAdvance(
         delayMillis = autoTurnMillis,
+        timer = timer,
         page = pageOnScreen,
         userIsScrolling = listState.isScrollInProgress,
         lastAutoPage = likePageIndex,
@@ -411,14 +507,25 @@ private fun VerticalReader(
 }
 
 /**
- * Turns the page by itself: after [delayMillis] on comic [page] (any page before
- * [lastAutoPage], the like page), [advance] is called. The wait starts again whenever the page
- * changes or the user lets go of a swipe, and pauses while the app isn't on screen.
- * [delayMillis] null = auto-turn switched off in Settings.
+ * The auto-turn countdown of one page. [progress] runs 0 → 1 while [page] waits to turn; the
+ * page indicator draws it as that page's bar filling up (like status updates in WhatsApp).
+ */
+@Stable
+private class PageTimer {
+    val progress = Animatable(0f)
+    var page by mutableIntStateOf(-1)
+}
+
+/**
+ * Turns the page by itself: comic [page] (any page before [lastAutoPage], the like page) waits
+ * [delayMillis] while [timer] fills, then [advance] is called. Holding or swiping the pages freezes
+ * the timer; letting go, or a new page, starts it again from empty. While the app isn't on screen
+ * it pauses, and carries on from where it was on return. [delayMillis] null = auto-turn off.
  */
 @Composable
 private fun AutoAdvance(
     delayMillis: Long?,
+    timer: PageTimer,
     page: Int,
     userIsScrolling: Boolean,
     lastAutoPage: Int,
@@ -428,10 +535,16 @@ private fun AutoAdvance(
     val currentAdvance by rememberUpdatedState(advance)
     val scope = rememberCoroutineScope()
     LaunchedEffect(page, userIsScrolling, lastAutoPage, delayMillis) {
-        if (delayMillis == null || userIsScrolling || page >= lastAutoPage) return@LaunchedEffect
-        // Only counts while the reader is visible; coming back starts a fresh wait.
+        // While pages move (a swipe, or the auto-turn itself) the bar stays as it is.
+        if (userIsScrolling) return@LaunchedEffect
+        timer.page = page
+        timer.progress.snapTo(0f)
+        if (delayMillis == null || page >= lastAutoPage) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            delay(delayMillis)
+            if (timer.progress.value >= 1f) return@repeatOnLifecycle // already turning
+            // Back from the background: only the time that was left.
+            val remaining = ((1f - timer.progress.value) * delayMillis).toInt()
+            timer.progress.animateTo(1f, tween(durationMillis = remaining, easing = LinearEasing))
             // Turn the page outside this effect: the turn itself makes userIsScrolling true,
             // which restarts this effect, and would cancel the animation after its first frame.
             // A swipe still interrupts it (the pager gives user input priority).
@@ -573,37 +686,44 @@ private fun EndOfStory(onContinue: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * Page dots with the count beside them ("3 / 10"), on one line so the comic gets more room.
- * Long stories show a window of [MAX_PAGE_DOTS] dots that follows the current page; a smaller
- * dot at either end means there are more pages that way.
+ * One bar per page across the screen, with the count beside it ("3 / 10"), like WhatsApp status:
+ * earlier pages are full, the current page's bar fills as its auto-turn timer runs, later ones are
+ * empty. With auto-turn off (Settings), or on the like page, the current bar is simply full.
  */
 @Composable
-private fun PageIndicator(currentPage: Int, pageCount: Int) {
-    val first = (currentPage - MAX_PAGE_DOTS / 2).coerceIn(0, (pageCount - MAX_PAGE_DOTS).coerceAtLeast(0))
-    val last = minOf(pageCount, first + MAX_PAGE_DOTS) - 1
+private fun PageIndicator(
+    currentPage: Int,
+    pageCount: Int,
+    timer: PageTimer,
+    autoTurn: Boolean,
+    lastAutoPage: Int,
+) {
+    val fillColor = MaterialTheme.colorScheme.primary
+    val trackColor = MaterialTheme.colorScheme.outline
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.Center,
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Canvas(
+            Modifier
+                .weight(1f)
+                .height(4.dp),
         ) {
-            for (i in first..last) {
-                val selected = i == currentPage
-                val moreBeyond = (i == first && first > 0) || (i == last && last < pageCount - 1)
-                val dot = if (moreBeyond) 4.dp else 6.dp
-                Box(
-                    Modifier
-                        .size(width = if (selected) 18.dp else dot, height = dot)
-                        .clip(CircleShape)
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        ),
-                )
+            if (pageCount <= 0) return@Canvas
+            val gap = (if (pageCount > 30) 1.dp else 3.dp).toPx()
+            val barWidth = ((size.width - gap * (pageCount - 1)) / pageCount).coerceAtLeast(1f)
+            val corner = CornerRadius(size.height / 2)
+            // The timer is read here, while drawing: only this bar redraws each frame.
+            val timerFill = pageBarFill(currentPage, currentPage, timer.page, timer.progress.value, autoTurn, lastAutoPage)
+            for (i in 0 until pageCount) {
+                val left = i * (barWidth + gap)
+                drawRoundRect(trackColor, topLeft = Offset(left, 0f), size = Size(barWidth, size.height), cornerRadius = corner)
+                val fill = if (i == currentPage) timerFill else pageBarFill(i, currentPage, timer.page, 0f, autoTurn, lastAutoPage)
+                if (fill > 0f) {
+                    drawRoundRect(fillColor, topLeft = Offset(left, 0f), size = Size(barWidth * fill, size.height), cornerRadius = corner)
+                }
             }
         }
         Spacer(Modifier.width(10.dp))
@@ -615,8 +735,25 @@ private fun PageIndicator(currentPage: Int, pageCount: Int) {
     }
 }
 
-/** Most page dots shown at once; longer stories show a window around the current page. */
-private const val MAX_PAGE_DOTS = 9
+/**
+ * How full page [index]'s bar is, 0..1: earlier pages full, later ones empty; the current page
+ * follows its auto-turn timer, but only once the timer belongs to it ([timerPage]); mid-turn it
+ * still belongs to the page being left, so the new page's bar starts empty instead of flashing full.
+ */
+internal fun pageBarFill(
+    index: Int,
+    currentPage: Int,
+    timerPage: Int,
+    timerProgress: Float,
+    autoTurn: Boolean,
+    lastAutoPage: Int,
+): Float = when {
+    index < currentPage -> 1f
+    index > currentPage -> 0f
+    !autoTurn || currentPage >= lastAutoPage -> 1f
+    timerPage == currentPage -> timerProgress.coerceIn(0f, 1f)
+    else -> 0f
+}
 
 // ---------------- Previews ----------------
 
