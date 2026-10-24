@@ -23,6 +23,7 @@ datastore = "1.2.1"
 youtubePlayer = "13.0.0"
 appcompat = "1.7.1"
 timber = "5.0.1"
+splashscreen = "1.2.0"
 
 glance = "1.1.1"
 work = "2.10.1"
@@ -69,6 +70,9 @@ youtube-player-core = { group = "com.pierfrancescosoffritti.androidyoutubeplayer
 # Per-app language (AppCompatDelegate.setApplicationLocales)
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
+# Splash screen with the logo (same look on Android 7–16)
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+
 # Logging (debug builds only)
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 
@@ -96,3 +100,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+room = { id = "androidx.room", version.ref = "room" }

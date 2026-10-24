@@ -1,6 +1,7 @@
 package com.vegamstories.app.presentation.home
 
 import com.vegamstories.app.domain.model.Category
+import com.vegamstories.app.domain.model.ContentLanguages
 import com.vegamstories.app.domain.model.Story
 
 data class HomeUiState(
@@ -12,6 +13,8 @@ data class HomeUiState(
     val isRefreshing: Boolean = false,
     /** True until the database has emitted at least once. */
     val isLoading: Boolean = true,
+    /** Languages stories are available in, and the one Home shows (the language button). */
+    val contentLanguages: ContentLanguages? = null,
 ) {
     val selectedCategory: Category? get() = categories.firstOrNull { it.id == selectedCategoryId }
 }

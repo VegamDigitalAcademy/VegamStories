@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.room)
 }
 
 // Supabase keys are read from local.properties (never committed to git):
@@ -47,9 +48,12 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            // R8: shrinks, optimizes and obfuscates the code and removes unused resources.
+            // App keep rules live in src/main/keepRules/; libraries bring their own.
+            // (optimization { enable = true } is AGP 9's experimental "gradual R8", so not used.)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
     compileOptions {
@@ -60,6 +64,11 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+// Room writes each DB version's schema here (commit it). Needed to review and test migrations.
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
@@ -95,6 +104,9 @@ dependencies {
 
     // Video: YouTube player inside the reader
     implementation(libs.youtube.player.core)
+
+    // Splash screen with the logo
+    implementation(libs.androidx.core.splashscreen)
 
     // In-app language switch (English / Telugu)
     implementation(libs.androidx.appcompat)

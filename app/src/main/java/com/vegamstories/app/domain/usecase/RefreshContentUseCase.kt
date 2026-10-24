@@ -6,5 +6,6 @@ import javax.inject.Inject
 class RefreshContentUseCase @Inject constructor(
     private val repository: StoryRepository,
 ) {
-    suspend operator fun invoke(): Result<Unit> = repository.refresh()
+    /** See [StoryRepository.refresh]: on its own the app downloads at most once a day. */
+    suspend operator fun invoke(force: Boolean = false): Result<Boolean> = repository.refresh(force)
 }

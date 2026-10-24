@@ -37,13 +37,13 @@ class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     }
 
     // Not used by these tests.
-    override fun observeFavorites(): Flow<List<StoryWithStateRow>> = emptyFlow()
-    override fun observeDownloads(): Flow<List<StoryWithStateRow>> = emptyFlow()
+    override fun observeFavorites(lang: String): Flow<List<StoryWithStateRow>> = emptyFlow()
+    override fun observeDownloads(lang: String): Flow<List<StoryWithStateRow>> = emptyFlow()
     override suspend fun isDownloaded(storyId: String) = false
     override suspend fun upsertDownload(entity: DownloadEntity) = Unit
     override suspend fun deleteDownload(storyId: String) = Unit
-    override fun observeHistory(): Flow<List<StoryWithStateRow>> = emptyFlow()
-    override fun observeContinueReading(categoryId: String?): Flow<StoryWithStateRow?> = emptyFlow()
+    override fun observeHistory(lang: String): Flow<List<StoryWithStateRow>> = emptyFlow()
+    override fun observeContinueReading(categoryId: String?, lang: String): Flow<StoryWithStateRow?> = emptyFlow()
     override suspend fun getProgress(storyId: String): ReadingProgressEntity? = null
     override suspend fun upsertProgress(entity: ReadingProgressEntity) = Unit
     override suspend fun clearProgress() = Unit

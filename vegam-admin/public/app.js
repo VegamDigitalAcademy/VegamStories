@@ -12,6 +12,7 @@ const SIZES = {
 const state = {
   me: null,
   categories: [],
+  languages: [], // [{ code, name, native_name, sort_order }] — story text languages, from the server
   stories: [],
   current: null, // story being edited (see emptyStory())
   previewPage: 0,
@@ -56,7 +57,7 @@ async function init() {
   try {
     state.me = await api('GET', 'me');
     $('whoami').textContent = state.me.email;
-    await Promise.all([loadCategories(), loadStories()]);
+    await Promise.all([loadCategories(), loadLanguages(), loadStories()]);
   } catch (err) {
     $('storyList').innerHTML = '';
     $('storyList').append(el('p', { class: 'muted small pad' }, err.message));
@@ -69,6 +70,11 @@ async function loadCategories() {
   renderCategoryOptions();
 }
 
+async function loadLanguages() {
+  state.languages = await api('GET', 'languages');
+  if (state.current) renderVersionTabs();
+}
+
 async function loadStories() {
   state.stories = await api('GET', 'stories');
   renderStoryList();
@@ -78,12 +84,33 @@ async function loadStories() {
 // Story list
 // -------------------------------------------------------------------------------------------
 
+/** e.g. "Comic · Text TE EN · Video", from the list row (page count, text languages, video link). */
+/** e.g. "TE · EN · OR": the story's language versions, from the list row. */
+function formatsLabel(s) {
+  const languages = (s.story_translations || [])
+    .map((t) => t.language)
+    .sort((a, b) => languageOrder(a) - languageOrder(b))
+    .map((code) => code.toUpperCase());
+  return languages.join(' · ') || 'No language versions';
+}
+
+function storyTitle(s) {
+  return firstByLanguage(s.story_translations, 'title') || s.id;
+}
+
+function storyCover(s) {
+  return firstByLanguage(s.story_translations, 'cover_url');
+}
+
 function renderStoryList() {
   const list = $('storyList');
   const query = $('searchInput').value.trim().toLowerCase();
   list.innerHTML = '';
   const matches = state.stories.filter(
-    (s) => !query || s.title.toLowerCase().includes(query) || s.id.includes(query),
+    (s) =>
+      !query ||
+      s.id.includes(query) ||
+      (s.story_translations || []).some((t) => (t.title || '').toLowerCase().includes(query)),
   );
   if (!matches.length) {
     list.append(el('p', { class: 'muted small pad' }, state.stories.length ? 'No matches.' : 'No stories yet.'));
@@ -96,17 +123,20 @@ function renderStoryList() {
   });
   for (const [categoryId, stories] of byCategory) {
     const cat = state.categories.find((c) => c.id === categoryId);
-    list.append(el('div', { class: 'group-title te' }, cat ? cat.name : categoryId));
+    list.append(el('div', { class: 'group-title te' }, cat ? categoryName(cat) : categoryId));
     stories.forEach((s) => {
       const item = el(
         'div',
         { class: `story-item${state.current && state.current.id === s.id && !state.current.isNew ? ' active' : ''}` },
-        s.cover_url ? el('img', { src: s.cover_url, alt: '', loading: 'lazy' }) : el('div', { class: 'noimg' }),
+        storyCover(s)
+          ? el('img', { src: storyCover(s), alt: '', loading: 'lazy' })
+          : el('div', { class: 'noimg', title: 'No cover: the app shows the first comic page or a title card' }, storyTitle(s).slice(0, 1)),
         el(
           'div',
           { class: 'meta' },
-          el('div', { class: 'title ellipsis' }, s.title),
+          el('div', { class: 'title ellipsis' }, storyTitle(s)),
           el('div', { class: 'muted small' }, `Ep ${s.episode} · ${s.id} · ♥ ${s.like_count ?? 0}`),
+          el('div', { class: 'muted small formats', title: 'Language versions' }, formatsLabel(s)),
         ),
         el('span', { class: `badge ${s.is_published ? 'live' : 'draft'}` }, s.is_published ? 'LIVE' : 'DRAFT'),
       );
@@ -122,52 +152,92 @@ function renderStoryList() {
 
 const emptyImage = () => ({ url: null, blob: null, preview: null });
 
+function emptyVersion(language) {
+  return {
+    language,
+    title: '',
+    summary: '',
+    cover: emptyImage(),
+    thumb: emptyImage(),
+    video_url: '',
+    video_title: '',
+    video_description: '',
+    body: '',
+    pages: [], // [{ image: {url, blob, preview} }]
+  };
+}
+
 function emptyStory() {
   const firstCategory = state.categories[0]?.id || '';
   const nextEpisode =
     Math.max(0, ...state.stories.filter((s) => s.category_id === firstCategory).map((s) => s.episode)) + 1;
+  const firstLanguage = state.languages[0]?.code || 'te';
   return {
     isNew: true,
     idEdited: false,
     id: firstCategory ? `${firstCategory}-${nextEpisode}` : '',
     category_id: firstCategory,
     episode: nextEpisode,
-    title: '',
-    summary: '',
     published_at: toLocalInput(new Date()),
     is_published: false,
-    video_url: '',
-    video_title: '',
-    video_description: '',
-    cover: emptyImage(),
-    thumb: emptyImage(),
-    pages: [], // [{ image: {url, blob, preview} }]
+    // One version per language; a new story starts with the first (default) language.
+    versions: [emptyVersion(firstLanguage)],
+    active: firstLanguage,
   };
 }
 
 function fromServer(row) {
   const img = (url) => ({ url: url || null, blob: null, preview: null });
-  const pages = (row.story_pages || [])
-    .slice()
-    .sort((a, b) => a.page_index - b.page_index)
-    .map((p) => ({ image: img(p.image_url) }));
+  const versions = (row.story_translations || [])
+    .map((t) => ({
+      language: t.language,
+      title: t.title || '',
+      summary: t.summary || '',
+      cover: img(t.cover_url),
+      thumb: img(t.video_thumbnail_url),
+      video_url: t.video_url || '',
+      video_title: t.video_title || '',
+      video_description: t.video_description || '',
+      body: t.body || '',
+      pages: (row.story_pages || [])
+        .filter((p) => p.language === t.language)
+        .sort((a, b) => a.page_index - b.page_index)
+        .map((p) => ({ image: img(p.image_url) })),
+    }))
+    .sort((a, b) => languageOrder(a.language) - languageOrder(b.language));
   return {
     isNew: false,
     idEdited: true,
     id: row.id,
     category_id: row.category_id,
     episode: row.episode,
-    title: row.title || '',
-    summary: row.summary || '',
     published_at: row.published_at ? toLocalInput(new Date(row.published_at)) : '',
     is_published: !!row.is_published,
-    video_url: row.video_url || '',
-    video_title: row.video_title || '',
-    video_description: row.video_description || '',
-    cover: img(row.cover_url),
-    thumb: img(row.video_thumbnail_url),
-    pages,
+    versions,
+    active: versions[0]?.language || state.languages[0]?.code || 'te',
   };
+}
+
+/** Position of a language in the server's order (unknown languages last). */
+function languageOrder(code) {
+  const i = state.languages.findIndex((l) => l.code === code);
+  return i < 0 ? Infinity : i;
+}
+
+/** The language version being edited. */
+function activeVersion() {
+  const s = state.current;
+  return s.versions.find((v) => v.language === s.active) || s.versions[0];
+}
+
+/** A name in the first language that has one, in the server's order: for story titles and category names in lists. */
+function firstByLanguage(items, key) {
+  const sorted = [...(items || [])].sort((a, b) => languageOrder(a.language) - languageOrder(b.language));
+  return sorted[0]?.[key] || '';
+}
+
+function categoryName(category) {
+  return firstByLanguage(category?.category_translations, 'name') || category?.id || '';
 }
 
 function newStory() {
@@ -221,31 +291,122 @@ function renderEditor() {
   $('previewPane').classList.remove('hidden');
   $('deleteBtn').classList.toggle('hidden', s.isNew);
 
-  $('editorTitle').textContent = s.isNew ? 'New story' : s.title || s.id;
   $('categoryInput').value = s.category_id;
   $('episodeInput').value = s.episode;
   $('idInput').value = s.id;
   $('idInput').disabled = !s.isNew;
   $('publishedAtInput').value = s.published_at;
-  $('titleInput').value = s.title;
-  $('summaryInput').value = s.summary;
-  $('videoUrlInput').value = s.video_url;
-  $('videoTitleInput').value = s.video_title;
-  $('videoDescInput').value = s.video_description;
   $('publishedInput').checked = s.is_published;
   updatePublishedLabel();
+  renderVersion();
+}
 
-  renderDrop($('coverDrop'), s.cover, 'cover', 'Drop cover image\nor click');
-  renderDrop($('thumbDrop'), s.thumb, 'thumb', 'Drop video thumbnail\nor click');
+/** Tabs + every per-language card, for the selected language version. */
+function renderVersion() {
+  const s = state.current;
+  const v = activeVersion();
+  $('editorTitle').textContent = s.isNew ? 'New story' : v?.title || s.id;
+  renderVersionTabs();
+  if (!v) return;
+
+  const label = `— ${languageLabel(v.language)}`;
+  ['versionLabel1', 'versionLabel2', 'versionLabel3', 'versionLabel4'].forEach((id) => ($(id).textContent = label));
+  for (const id of ['titleInput', 'summaryInput', 'videoTitleInput', 'videoDescInput', 'bodyInput']) {
+    $(id).setAttribute('lang', v.language);
+    $(id).classList.toggle('te', v.language === 'te');
+  }
+  $('titleInput').value = v.title;
+  $('summaryInput').value = v.summary;
+  $('videoUrlInput').value = v.video_url;
+  $('videoTitleInput').value = v.video_title;
+  $('videoDescInput').value = v.video_description;
+  $('bodyInput').value = v.body;
+  $('bodyCount').textContent = textCount(v.body);
+
+  renderCoverDrop(v);
+  renderDrop($('thumbDrop'), v.thumb, 'thumb', 'Drop video thumbnail\nor click');
   renderPages();
   renderPreview();
+}
+
+/**
+ * The cover box of a language version, with "Remove": the version then has no cover (the app
+ * shows its first comic page or a title card). The image is deleted from Supabase and R2 on Save.
+ */
+function renderCoverDrop(v) {
+  renderDrop($('coverDrop'), v.cover, 'cover', 'Drop cover image\nor click\n(optional)', () => {
+    if (!confirm(`Remove the ${languageLabel(v.language)} cover?\n\nThe app then shows the first comic page or a title card. The image is deleted when you click Save.`)) return;
+    if (v.cover.preview) URL.revokeObjectURL(v.cover.preview);
+    v.cover = emptyImage();
+    setDirty(true);
+    renderCoverDrop(v);
+    toast('Cover removed. Click Save to delete it.');
+  });
+}
+
+function renderVersionTabs() {
+  const s = state.current;
+  const tabs = $('versionTabs');
+  tabs.innerHTML = '';
+  s.versions.forEach((v) => {
+    const l = state.languages.find((x) => x.code === v.language);
+    const tab = el(
+      'button',
+      { type: 'button', role: 'tab', class: `lang-tab${v.language === s.active ? ' active' : ''}`, 'aria-selected': String(v.language === s.active) },
+      l ? l.native_name : v.language,
+      el('span', { class: 'muted' }, v.language.toUpperCase()),
+    );
+    tab.addEventListener('click', () => switchVersion(v.language));
+    tabs.append(tab);
+  });
+
+  const select = $('addVersionLanguage');
+  select.innerHTML = '';
+  const unused = state.languages.filter((l) => !s.versions.some((v) => v.language === l.code));
+  unused.forEach((l) => select.append(el('option', { value: l.code }, `${l.name} · ${l.native_name}`)));
+  if (!unused.length) select.append(el('option', { value: '' }, state.languages.length ? 'All languages added' : 'No languages yet'));
+  select.disabled = !unused.length;
+  $('addVersionBtn').disabled = !unused.length;
+  $('removeVersionBtn').disabled = s.versions.length < 2;
+}
+
+function switchVersion(language) {
+  readVersion();
+  state.current.active = language;
+  state.previewPage = 0;
+  renderVersion();
+}
+
+function addVersion() {
+  const code = $('addVersionLanguage').value;
+  if (!code) return;
+  readVersion();
+  state.current.versions.push(emptyVersion(code));
+  state.current.versions.sort((a, b) => languageOrder(a.language) - languageOrder(b.language));
+  state.current.active = code;
+  state.previewPage = 0;
+  setDirty(true);
+  renderVersion();
+  $('titleInput').focus();
+}
+
+function removeVersion() {
+  const s = state.current;
+  const v = activeVersion();
+  if (!v || s.versions.length < 2) return;
+  if (!confirm(`Remove the ${languageLabel(v.language)} version of this story (title, cover, video, text and pages)?\n\nIt's deleted when you click Save.`)) return;
+  s.versions = s.versions.filter((x) => x !== v);
+  s.active = s.versions[0].language;
+  state.previewPage = 0;
+  setDirty(true);
+  renderVersion();
 }
 
 function renderCategoryOptions() {
   const select = $('categoryInput');
   const current = select.value;
   select.innerHTML = '';
-  state.categories.forEach((c) => select.append(el('option', { value: c.id }, `${c.name} (${c.id})`)));
+  state.categories.forEach((c) => select.append(el('option', { value: c.id }, `${categoryName(c)} (${c.id})`)));
   if (current) select.value = current;
 }
 
@@ -258,7 +419,7 @@ function updatePublishedLabel() {
  * Replaces [container] with a fresh copy each time (so old click/drop handlers don't pile up)
  * and returns the new element.
  */
-function renderDrop(container, image, kind, emptyText) {
+function renderDrop(container, image, kind, emptyText, onRemove = null) {
   const node = container.cloneNode(false);
   container.replaceWith(node); // no-op if container isn't in the page yet
   const src = image.preview || image.url;
@@ -266,6 +427,14 @@ function renderDrop(container, image, kind, emptyText) {
   if (src) {
     node.append(el('img', { src, alt: '' }));
     if (image.blob) node.append(el('span', { class: 'new-dot' }, 'NEW'));
+    if (onRemove) {
+      const remove = el('button', { type: 'button', class: 'drop-remove', title: 'Remove' }, '✕ Remove');
+      remove.addEventListener('click', (e) => {
+        e.stopPropagation(); // the box itself opens the file picker
+        onRemove();
+      });
+      node.append(remove);
+    }
   } else {
     node.append(el('span', { style: 'white-space:pre-line' }, emptyText));
   }
@@ -273,7 +442,7 @@ function renderDrop(container, image, kind, emptyText) {
     try {
       await setImage(image, file, SIZES[kind]);
       setDirty(true);
-      renderDrop(node, image, kind, emptyText);
+      renderDrop(node, image, kind, emptyText, onRemove);
       renderPreview();
     } catch (err) {
       toast(err.message, true);
@@ -285,7 +454,7 @@ function renderDrop(container, image, kind, emptyText) {
 function renderPages() {
   const wrap = $('pagesContainer');
   wrap.innerHTML = '';
-  const pages = state.current.pages;
+  const pages = activeVersion().pages;
   pages.forEach((page, pi) => {
     const drop = renderDrop(el('div', { class: 'drop page-drop' }), page.image, 'page', 'Drop page image\nor click');
     const card = el(
@@ -338,7 +507,7 @@ function renderPages() {
 }
 
 function movePage(index, delta) {
-  const pages = state.current.pages;
+  const pages = activeVersion().pages;
   [pages[index], pages[index + delta]] = [pages[index + delta], pages[index]];
   state.previewPage = index + delta;
   setDirty(true);
@@ -348,8 +517,9 @@ function movePage(index, delta) {
 
 function deletePage(index) {
   if (!confirm(`Delete page ${index + 1}?`)) return;
-  state.current.pages.splice(index, 1);
-  state.previewPage = Math.max(0, Math.min(state.previewPage, state.current.pages.length - 1));
+  const pages = activeVersion().pages;
+  pages.splice(index, 1);
+  state.previewPage = Math.max(0, Math.min(state.previewPage, pages.length - 1));
   setDirty(true);
   renderPages();
   renderPreview();
@@ -362,7 +532,7 @@ function deletePage(index) {
 function renderPreview() {
   const s = state.current;
   if (!s) return;
-  const pages = s.pages;
+  const pages = activeVersion()?.pages || [];
   state.previewPage = Math.max(0, Math.min(state.previewPage, pages.length - 1));
   $('previewTitle').textContent = $('titleInput').value || 'Story title';
   $('previewPageLabel').textContent = pages.length ? `${state.previewPage + 1} / ${pages.length}` : '0 / 0';
@@ -446,12 +616,72 @@ function readForm() {
   s.episode = Number($('episodeInput').value);
   if (s.isNew) s.id = $('idInput').value.trim();
   s.published_at = $('publishedAtInput').value;
-  s.title = $('titleInput').value;
-  s.summary = $('summaryInput').value;
-  s.video_url = $('videoUrlInput').value.trim();
-  s.video_title = $('videoTitleInput').value;
-  s.video_description = $('videoDescInput').value;
   s.is_published = $('publishedInput').checked;
+  readVersion();
+}
+
+/** Copies the per-language fields from the page into the selected version. */
+function readVersion() {
+  const v = state.current && activeVersion();
+  if (!v) return;
+  v.title = $('titleInput').value;
+  v.summary = $('summaryInput').value;
+  v.video_url = $('videoUrlInput').value.trim();
+  v.video_title = $('videoTitleInput').value;
+  v.video_description = $('videoDescInput').value;
+  v.body = $('bodyInput').value;
+}
+
+/** Paragraphs are separated by a blank line, as the app splits them. */
+function paragraphs(text) {
+  return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+}
+
+function textCount(text) {
+  const paras = paragraphs(text);
+  if (!paras.length) return '(empty: no text version)';
+  const words = text.trim().split(/\s+/).length;
+  return `(${paras.length} paragraph${paras.length === 1 ? '' : 's'}, ${words} words)`;
+}
+
+function languageLabel(code) {
+  const l = state.languages.find((x) => x.code === code);
+  return l ? `${l.name} · ${l.native_name} (${code})` : `${code} (not in the language list)`;
+}
+
+/** One box per text, then "Add text in…" listing the languages this story has no text in yet. */
+
+
+
+
+function addLanguage() {
+  $('newLangCode').value = '';
+  $('newLangName').value = '';
+  $('newLangNative').value = '';
+  $('newLangOrder').value = state.languages.length;
+  $('languageDialog').showModal();
+}
+
+async function onLanguageDialogClose() {
+  if ($('languageDialog').returnValue !== 'ok') return;
+  try {
+    const language = {
+      code: $('newLangCode').value.trim().toLowerCase(),
+      name: $('newLangName').value.trim(),
+      native_name: $('newLangNative').value.trim(),
+      sort_order: Number($('newLangOrder').value) || 0,
+    };
+    await api('POST', 'languages', language);
+    await loadLanguages();
+    renderCategoryOptions();
+    if (state.current) {
+      renderVersionTabs();
+      $('addVersionLanguage').value = language.code;
+    }
+    toast(`Language “${language.name}” added. Add it to stories (and category names) to show it in the app.`);
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 function validate(s) {
@@ -459,13 +689,18 @@ function validate(s) {
   if (s.isNew && state.stories.some((x) => x.id === s.id)) return `A story with id “${s.id}” already exists`;
   if (!s.category_id) return 'Choose a category';
   if (!Number.isInteger(s.episode) || s.episode < 1) return 'Episode must be 1 or more';
-  if (!s.title.trim()) return 'Add a title';
-  if (!s.cover.url && !s.cover.blob) return 'Add a cover image';
-  if (s.video_url && !/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(s.video_url)) return 'The video link must be a YouTube link';
-  if (s.video_url && !s.thumb.url && !s.thumb.blob) return 'Add a video thumbnail (or remove the video link)';
-  if (!s.pages.length) return 'Add at least one page image';
-  for (const [pi, page] of s.pages.entries()) {
-    if (!page.image.url && !page.image.blob) return `Page ${pi + 1} has no image`;
+  if (!s.versions.length) return 'Add at least one language version';
+  for (const v of s.versions) {
+    const where = `${languageLabel(v.language)}:`;
+    if (!v.title.trim()) return `${where} add a title`;
+    if (v.video_url && !/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(v.video_url)) return `${where} the video link must be a YouTube link`;
+    if (v.video_url && !v.thumb.url && !v.thumb.blob) return `${where} add a video thumbnail (or remove the video link)`;
+    if (!v.pages.length && !v.body.trim() && !v.video_url) {
+      return `${where} add at least one format: page images, story text or a YouTube video`;
+    }
+    for (const [pi, page] of v.pages.entries()) {
+      if (!page.image.url && !page.image.blob) return `${where} page ${pi + 1} has no image`;
+    }
   }
   return null;
 }
@@ -475,15 +710,23 @@ async function save() {
   readForm();
   const s = state.current;
   const problem = validate(s);
-  if (problem) return toast(problem, true);
+  if (problem) {
+    // Show the version with the problem.
+    const bad = s.versions.find((v) => problem.startsWith(`${languageLabel(v.language)}:`));
+    if (bad && bad.language !== s.active) switchVersion(bad.language);
+    return toast(problem, true);
+  }
 
   setBusy(true);
   try {
     // 1) Upload new images. Each upload gets a fresh name, so phones never show a cached old picture.
+    // Each language's images go in their own folder: <story-id>/<language>/…
     const uploads = [];
-    if (s.cover.blob) uploads.push([s.cover, 'cover']);
-    if (s.thumb.blob) uploads.push([s.thumb, 'video-thumb']);
-    s.pages.forEach((p, pi) => p.image.blob && uploads.push([p.image, `page-${pi}`]));
+    for (const v of s.versions) {
+      if (v.cover.blob) uploads.push([v.cover, `${v.language}/cover`]);
+      if (v.video_url && v.thumb.blob) uploads.push([v.thumb, `${v.language}/video-thumb`]);
+      v.pages.forEach((p, pi) => p.image.blob && uploads.push([p.image, `${v.language}/page-${pi}`]));
+    }
     let done = 0;
     for (const [image, name] of uploads) {
       setStatus(`Uploading images ${++done}/${uploads.length}…`);
@@ -500,17 +743,21 @@ async function save() {
       story: {
         category_id: s.category_id,
         episode: s.episode,
-        title: s.title,
-        summary: s.summary,
-        cover_url: s.cover.url,
         published_at: s.published_at ? new Date(s.published_at).toISOString() : undefined,
         is_published: s.is_published,
-        video_url: s.video_url,
-        video_title: s.video_title,
-        video_description: s.video_description,
-        video_thumbnail_url: s.video_url ? s.thumb.url : null,
       },
-      pages: s.pages.map((p) => ({ image_url: p.image.url })),
+      translations: s.versions.map((v) => ({
+        language: v.language,
+        title: v.title,
+        summary: v.summary,
+        cover_url: v.cover.url || null,
+        body: v.body,
+        video_url: v.video_url,
+        video_title: v.video_title,
+        video_description: v.video_description,
+        video_thumbnail_url: v.video_url ? v.thumb.url : null,
+        pages: v.pages.map((p) => ({ image_url: p.image.url })),
+      })),
     };
     const result = await api('PUT', `stories/${s.id}`, payload);
     s.isNew = false;
@@ -518,7 +765,7 @@ async function save() {
     await loadStories();
     renderEditor();
     toast(
-      `Saved “${s.title}”${s.is_published ? ' — live in the app' : ' as draft'}` +
+      `Saved “${activeVersion().title}” (${s.versions.map((v) => v.language.toUpperCase()).join(', ')})${s.is_published ? ' — live in the app' : ' as draft'}` +
         (result.imagesRemoved ? ` · ${result.imagesRemoved} old image(s) removed` : ''),
     );
   } catch (err) {
@@ -532,7 +779,7 @@ async function save() {
 async function deleteStory() {
   const s = state.current;
   if (!s || s.isNew) return;
-  if (!confirm(`Delete “${s.title}” (${s.id})?\n\nIt disappears from the app and its images are removed from R2. This can't be undone.`)) return;
+  if (!confirm(`Delete “${activeVersion()?.title || s.id}” (${s.id}) in every language?\n\nIt disappears from the app and its images are removed from R2. This can't be undone.`)) return;
   setBusy(true);
   try {
     await api('DELETE', `stories/${s.id}`);
@@ -551,26 +798,49 @@ async function deleteStory() {
   }
 }
 
-async function addCategory() {
-  $('newCatId').value = '';
-  $('newCatName').value = '';
-  $('newCatOrder').value = state.categories.length;
+/** New category, or (with [category]) edit an existing one's names and order. */
+function addCategory(category = null) {
+  const editing = !!category;
+  state.editingCategory = category;
+  $('categoryDialogTitle').textContent = editing ? `Edit category “${category.id}”` : 'New category';
+  $('categoryDialogOk').textContent = editing ? 'Save' : 'Add';
+  $('newCatId').value = editing ? category.id : '';
+  $('newCatId').disabled = editing;
+  $('newCatOrder').value = editing ? category.sort_order : state.categories.length;
+  const names = $('newCatNames');
+  names.innerHTML = '';
+  state.languages.forEach((l) => {
+    const current = (category?.category_translations || []).find((t) => t.language === l.code)?.name || '';
+    const input = el('input', { class: `input${l.code === 'te' ? ' te' : ''}`, lang: l.code, 'data-language': l.code, value: current });
+    names.append(el('label', { class: 'field' }, el('span', {}, `Name in ${l.name} · ${l.native_name}`), input));
+  });
+  names.append(el('p', { class: 'muted small' }, 'Fill in the languages you have; the app shows the name in the reader\'s language.'));
   $('categoryDialog').showModal();
+}
+
+function editCategory() {
+  const category = state.categories.find((c) => c.id === $('categoryInput').value);
+  if (category) addCategory(category);
 }
 
 async function onCategoryDialogClose() {
   if ($('categoryDialog').returnValue !== 'ok') return;
   try {
+    const names = {};
+    $('newCatNames').querySelectorAll('input[data-language]').forEach((input) => {
+      if (input.value.trim()) names[input.dataset.language] = input.value.trim();
+    });
     const category = {
-      id: $('newCatId').value.trim(),
-      name: $('newCatName').value.trim(),
+      id: state.editingCategory ? state.editingCategory.id : $('newCatId').value.trim(),
       sort_order: Number($('newCatOrder').value) || 0,
+      names,
     };
     await api('POST', 'categories', category);
     await loadCategories();
     $('categoryInput').value = category.id;
-    onCategoryOrEpisodeChange();
-    toast(`Category “${category.name}” added`);
+    if (!state.editingCategory) onCategoryOrEpisodeChange();
+    renderStoryList();
+    toast(`Category “${Object.values(names)[0] || category.id}” ${state.editingCategory ? 'saved' : 'added'}`);
   } catch (err) {
     toast(err.message, true);
   }
@@ -584,8 +854,13 @@ function bindStaticEvents() {
   $('newStoryBtn').addEventListener('click', newStory);
   $('saveBtn').addEventListener('click', save);
   $('deleteBtn').addEventListener('click', deleteStory);
-  $('addCategoryBtn').addEventListener('click', addCategory);
+  $('addCategoryBtn').addEventListener('click', () => addCategory());
+  $('editCategoryBtn').addEventListener('click', editCategory);
   $('categoryDialog').addEventListener('close', onCategoryDialogClose);
+  $('addVersionBtn').addEventListener('click', addVersion);
+  $('removeVersionBtn').addEventListener('click', removeVersion);
+  $('addLanguageBtn').addEventListener('click', addLanguage);
+  $('languageDialog').addEventListener('close', onLanguageDialogClose);
   $('searchInput').addEventListener('input', renderStoryList);
   $('prevPageBtn').addEventListener('click', () => {
     state.previewPage--;
@@ -607,10 +882,11 @@ function bindStaticEvents() {
     state.current.idEdited = true;
     setDirty(true);
   });
-  ['titleInput', 'summaryInput', 'videoUrlInput', 'videoTitleInput', 'videoDescInput', 'publishedAtInput'].forEach((id) =>
+  ['titleInput', 'summaryInput', 'videoUrlInput', 'videoTitleInput', 'videoDescInput', 'publishedAtInput', 'bodyInput'].forEach((id) =>
     $(id).addEventListener('input', () => {
       setDirty(true);
       if (id === 'titleInput') renderPreview();
+      if (id === 'bodyInput') $('bodyCount').textContent = textCount($('bodyInput').value);
     }),
   );
   $('storyForm').addEventListener('submit', (e) => e.preventDefault());

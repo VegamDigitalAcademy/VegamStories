@@ -52,6 +52,7 @@ import com.vegamstories.app.R
 import com.vegamstories.app.core.util.toCompactCount
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.presentation.components.RollingCount
+import com.vegamstories.app.presentation.components.StoryCover
 import com.vegamstories.app.presentation.components.StoryImage
 import com.vegamstories.app.presentation.components.likeIcon
 import com.vegamstories.app.presentation.components.pop
@@ -95,10 +96,9 @@ fun LikeStoryPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        StoryImage(
-            model = story.coverImageUrl,
+        StoryCover(
+            story = story,
             contentDescription = story.title,
-            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(width = 120.dp, height = 160.dp)
                 .clip(RoundedCornerShape(12.dp))
@@ -205,10 +205,9 @@ private fun NextEpisodeCard(story: Story, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            StoryImage(
-                model = story.coverImageUrl,
+            StoryCover(
+                story = story,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(width = 60.dp, height = 80.dp)
                     .clip(RoundedCornerShape(8.dp))

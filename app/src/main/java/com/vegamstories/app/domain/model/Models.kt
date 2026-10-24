@@ -11,17 +11,23 @@ data class Category(
     val sortOrder: Int,
 )
 
+/** A story in one language version ([language]): the title, cover, pages, text and video are that version's. */
 data class Story(
     val id: String,
+    /** Language code of this version, e.g. "te". */
+    val language: String = "te",
     val categoryId: String,
     val categoryName: String,
     val episodeNumber: Int,
     val title: String,
     val summary: String,
-    val coverImageUrl: String,
+    /** The cover, or else the first comic page; null = no picture, a title card is shown (StoryCover). */
+    val coverImageUrl: String?,
     val pageCount: Int,
     val publishedAt: Long,
     val video: StoryVideo?,
+    /** This version can also be read as text. */
+    val hasText: Boolean = false,
     /** The heart: [isFavorite] is this device's like, [likeCount] is everyone's. */
     val isFavorite: Boolean,
     val likeCount: Int,
@@ -30,11 +36,25 @@ data class Story(
 ) {
     val isRead: Boolean get() = progress?.isCompleted == true
     val isInProgress: Boolean get() = progress != null && !progress.isCompleted
+
+    /** The formats this story comes in, always in the order comic, text, video. */
+    val formats: Set<StoryFormat>
+        get() = buildSet {
+            if (pageCount > 0) add(StoryFormat.COMIC)
+            if (hasText) add(StoryFormat.TEXT)
+            if (video != null) add(StoryFormat.VIDEO)
+        }
 }
 
+/** A story ready to read, in one language version, plus the other languages it's available in. */
 data class StoryDetail(
     val story: Story,
+    /** Comic pages of this version. */
     val pages: List<StoryPage>,
+    /** This version as text; null if it has no text. */
+    val text: StoryText? = null,
+    /** Every language the story is in (this one included), in the server's order. */
+    val languages: List<Language> = emptyList(),
 )
 
 /** One finished comic page: a single image that already contains the panels, captions and speech bubbles. */

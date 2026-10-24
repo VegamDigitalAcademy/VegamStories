@@ -18,6 +18,27 @@
     <string name="episode_short">భాగం %1$d</string>
     <string name="episode_category">భాగం %1$d · %2$s</string>
     <string name="read_badge">చదివారు</string>
+
+    <!-- కథ రూపాలు (కథ కార్డులపై గుర్తులు) -->
+    <string name="format_comic">బొమ్మల కథ</string>
+    <string name="format_text">చదివే కథ</string>
+    <string name="format_video">వీడియో</string>
+
+    <!-- రీడర్ ట్యాబ్‌లు, అక్షర కథ -->
+    <!-- మొదటిసారి: కథల భాష -->
+    <string name="story_language_title">మీ కథల భాషను ఎంచుకోండి</string>
+    <string name="story_language_subtitle">కథలు ఈ భాషలో కనిపిస్తాయి. హోమ్‌లోని భాష బటన్‌తో ఎప్పుడైనా మార్చుకోవచ్చు.</string>
+    <string name="story_language_go">ప్రారంభిద్దాం</string>
+    <string name="story_language_load_failed">భాషలు లోడ్ కాలేదు. ఇంటర్నెట్ కనెక్షన్ చూసి మళ్ళీ ప్రయత్నించండి.</string>
+    <string name="cd_story_language">కథల భాష</string>
+    <string name="reader_tab_comic">బొమ్మలు</string>
+    <string name="reader_tab_read">చదవండి</string>
+    <string name="reader_tab_watch">చూడండి</string>
+    <string name="reader_text_size">అక్షరాల పరిమాణం</string>
+    <string name="reader_text_size_small">చిన్న అక్షరాలు</string>
+    <string name="reader_text_size_medium">మధ్యస్థ అక్షరాలు</string>
+    <string name="reader_text_size_large">పెద్ద అక్షరాలు</string>
+    <string name="reader_text_size_extra_large">చాలా పెద్ద అక్షరాలు</string>
     <string name="added_to_favorites">ఇష్టమైనవాటికి జోడించబడింది</string>
     <string name="removed_from_favorites">ఇష్టమైనవాటి నుండి తీసివేయబడింది</string>
     <string name="refresh_failed">కథలను రిఫ్రెష్ చేయలేకపోయాం. సేవ్ చేసిన కథలను చూపిస్తున్నాం.</string>
@@ -117,6 +138,12 @@
     <string name="skip_to_next_story">తదుపరి కథకు వెళ్ళండి</string>
     <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
     <string name="cd_like">లైక్</string>
+
+    <!-- సెట్టింగ్‌లు: చదవడం -->
+    <string name="settings_reading_section">చదవడం</string>
+    <string name="settings_auto_turn">బొమ్మల పేజీలు ఆటోగా మారాలి</string>
+    <string name="settings_auto_turn_desc">కొన్ని సెకన్ల తర్వాత బొమ్మల కథ పేజీ దానంతట అదే తదుపరి పేజీకి మారుతుంది</string>
+    <string name="settings_auto_turn_seconds">%1$d సె</string>
 
     <!-- కొత్త కథల నోటిఫికేషన్లు -->
     <string name="settings_notifications_section">నోటిఫికేషన్లు</string>

@@ -2,9 +2,26 @@ package com.vegamstories.app.data.local.entity
 
 import androidx.room.Embedded
 
-/** Result of joining a story with its category and the user's state for it. */
+/**
+ * A story in one language version, joined with its category name and the user's state for it.
+ * See STORY_WITH_STATE_SELECT for how the language is chosen.
+ */
 data class StoryWithStateRow(
     @Embedded val story: StoryEntity,
+    /** The language of the version below. */
+    val language: String,
+    val title: String,
+    val summary: String,
+    val coverImageUrl: String?,
+    /** First comic page of this version, the cover's stand-in. */
+    val firstPageUrl: String?,
+    val pageCount: Int,
+    /** This version has the story as text. */
+    val hasText: Boolean,
+    val videoTitle: String?,
+    val videoDescription: String?,
+    val videoThumbnailUrl: String?,
+    val videoUrl: String?,
     val categoryName: String?,
     val isFavorite: Boolean,
     val isDownloaded: Boolean,

@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.vegamstories.app.domain.usecase.CheckForNewStoryUseCase
 import com.vegamstories.app.domain.usecase.GetCategoriesUseCase
+import com.vegamstories.app.domain.usecase.GetContentLanguagesUseCase
 import com.vegamstories.app.domain.usecase.GetContinueReadingUseCase
 import com.vegamstories.app.domain.usecase.GetStoriesUseCase
 import com.vegamstories.app.domain.usecase.RefreshContentUseCase
+import com.vegamstories.app.domain.usecase.SetContentLanguageUseCase
 import com.vegamstories.app.presentation.navigation.HomeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +34,8 @@ class HomeViewModel @Inject constructor(
     private val getContinueReading: GetContinueReadingUseCase,
     private val refreshContent: RefreshContentUseCase,
     private val checkForNewStory: CheckForNewStoryUseCase,
+    getContentLanguages: GetContentLanguagesUseCase,
+    private val setContentLanguage: SetContentLanguageUseCase,
 ) : ViewModel() {
 
     // Opened from an app-icon shortcut → start on that category's tab.
@@ -49,8 +53,8 @@ class HomeViewModel @Inject constructor(
         selectedCategoryId,
         storiesFlow,
         continueReadingFlow,
-        isRefreshing,
-    ) { categories, selectedId, stories, continueReading, refreshing ->
+        combine(isRefreshing, getContentLanguages(), ::Pair),
+    ) { categories, selectedId, stories, continueReading, (refreshing, languages) ->
         HomeUiState(
             categories = categories,
             selectedCategoryId = selectedId,
@@ -58,6 +62,7 @@ class HomeViewModel @Inject constructor(
             continueReading = continueReading,
             isRefreshing = refreshing,
             isLoading = false,
+            contentLanguages = languages,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -66,20 +71,31 @@ class HomeViewModel @Inject constructor(
     )
 
     init {
-        refresh()
+        // Opening the app downloads only when a day has passed, or nothing is saved yet.
+        runRefresh(force = false)
     }
 
     fun onCategorySelected(categoryId: String?) {
         selectedCategoryId.value = categoryId
     }
 
-    fun refresh() {
+    /** Shows Home (and Search, the reader, the widget…) in another language. Categories differ, so back to ALL. */
+    fun onLanguageSelected(code: String) {
+        selectedCategoryId.value = null
+        viewModelScope.launch { setContentLanguage(code) }
+    }
+
+    /** Pull to refresh, or Retry: always downloads. */
+    fun refresh() = runRefresh(force = true)
+
+    private fun runRefresh(force: Boolean) {
         if (isRefreshing.value) return
         viewModelScope.launch {
-            isRefreshing.value = true
-            refreshContent()
+            // The spinner only for a refresh the reader asked for; the daily one updates the list quietly.
+            if (force) isRefreshing.value = true
+            refreshContent(force)
                 // New stories are on screen now, so the background check won't announce them later.
-                .onSuccess { checkForNewStory(userIsInApp = true) }
+                .onSuccess { downloaded -> if (downloaded) checkForNewStory(userIsInApp = true) }
                 .onFailure { events.send(HomeEvent.RefreshFailed) }
             isRefreshing.value = false
         }

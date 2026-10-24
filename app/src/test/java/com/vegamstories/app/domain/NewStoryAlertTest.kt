@@ -124,9 +124,9 @@ class NewStoryAlertTest {
         private val list = stories.toList()
         override fun observeCategories(): Flow<List<Category>> = emptyFlow()
         override fun observeStories(categoryId: String?): Flow<List<Story>> = flowOf(list)
-        override fun observeStoryDetail(storyId: String): Flow<StoryDetail?> = emptyFlow()
+        override fun observeStoryDetail(storyId: String, language: String?): Flow<StoryDetail?> = emptyFlow()
         override fun searchStories(query: String): Flow<List<Story>> = emptyFlow()
-        override suspend fun refresh(): Result<Unit> = Result.success(Unit)
+        override suspend fun refresh(force: Boolean): Result<Boolean> = Result.success(true)
         override suspend fun getNextStoryId(storyId: String): String? = null
     }
 

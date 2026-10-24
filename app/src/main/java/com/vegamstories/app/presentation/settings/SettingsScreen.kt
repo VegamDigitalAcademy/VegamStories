@@ -31,6 +31,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,6 +56,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegamstories.app.R
+import com.vegamstories.app.domain.model.AUTO_TURN_SECONDS_OPTIONS
 import com.vegamstories.app.domain.model.AppLanguage
 import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.components.BackTopBar
@@ -70,6 +74,7 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val language by viewModel.language.collectAsStateWithLifecycle()
     val newStoryAlerts by viewModel.newStoryAlerts.collectAsStateWithLifecycle()
+    val readerSettings by viewModel.readerSettings.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Whether the system lets the app post notifications at all. Re-checked on every resume,
@@ -107,6 +112,10 @@ fun SettingsScreen(
             }
         },
         onOpenNotificationSettings = { context.openAppNotificationSettings() },
+        autoTurnPages = readerSettings.autoTurnPages,
+        autoTurnSeconds = readerSettings.autoTurnSeconds,
+        onAutoTurnChange = viewModel::onAutoTurnChange,
+        onAutoTurnSecondsChange = viewModel::onAutoTurnSecondsChange,
         onBack = onBack,
     )
 }
@@ -137,6 +146,10 @@ fun SettingsContent(
     onNewStoryAlertsChange: (Boolean) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onBack: () -> Unit,
+    autoTurnPages: Boolean = true,
+    autoTurnSeconds: Int = 10,
+    onAutoTurnChange: (Boolean) -> Unit = {},
+    onAutoTurnSecondsChange: (Int) -> Unit = {},
 ) {
     Scaffold(
         topBar = { BackTopBar(title = stringResource(R.string.menu_settings), onBack = onBack) },
@@ -176,6 +189,36 @@ fun SettingsContent(
                         selected = option.mode == themeMode,
                         onClick = { onThemeModeSelected(option.mode) },
                     )
+                }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+
+            // ---- Reading ----
+            SectionLabel(stringResource(R.string.settings_reading_section))
+            SwitchRow(
+                title = stringResource(R.string.settings_auto_turn),
+                subtitle = stringResource(R.string.settings_auto_turn_desc),
+                checked = autoTurnPages,
+                onCheckedChange = onAutoTurnChange,
+            )
+            if (autoTurnPages) {
+                SingleChoiceSegmentedButtonRow(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                ) {
+                    AUTO_TURN_SECONDS_OPTIONS.forEachIndexed { i, seconds ->
+                        SegmentedButton(
+                            selected = seconds == autoTurnSeconds,
+                            onClick = { onAutoTurnSecondsChange(seconds) },
+                            shape = SegmentedButtonDefaults.itemShape(index = i, count = AUTO_TURN_SECONDS_OPTIONS.size),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        ) { Text(stringResource(R.string.settings_auto_turn_seconds, seconds)) }
+                    }
                 }
             }
 

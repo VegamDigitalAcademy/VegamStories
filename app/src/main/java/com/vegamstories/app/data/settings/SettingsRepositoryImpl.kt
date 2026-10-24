@@ -6,8 +6,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.vegamstories.app.domain.model.AUTO_TURN_SECONDS_OPTIONS
 import com.vegamstories.app.domain.model.PageBackground
 import com.vegamstories.app.domain.model.ReaderScrollMode
 import com.vegamstories.app.domain.model.ReaderSettings
@@ -78,6 +80,11 @@ class SettingsRepositoryImpl @Inject constructor(
             scrollMode = this[READER_SCROLL_MODE].toEnumOr(defaults.scrollMode),
             keepScreenOn = this[READER_KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
             pageBackground = this[READER_PAGE_BACKGROUND].toEnumOr(defaults.pageBackground),
+            preferredFormat = this[READER_PREFERRED_FORMAT].toEnumOr(defaults.preferredFormat),
+            textSize = this[READER_TEXT_SIZE].toEnumOr(defaults.textSize),
+            autoTurnPages = this[READER_AUTO_TURN] ?: defaults.autoTurnPages,
+            autoTurnSeconds = this[READER_AUTO_TURN_SECONDS]?.takeIf { it in AUTO_TURN_SECONDS_OPTIONS }
+                ?: defaults.autoTurnSeconds,
         )
     }
 
@@ -85,6 +92,10 @@ class SettingsRepositoryImpl @Inject constructor(
         this[READER_SCROLL_MODE] = settings.scrollMode.name
         this[READER_KEEP_SCREEN_ON] = settings.keepScreenOn
         this[READER_PAGE_BACKGROUND] = settings.pageBackground.name
+        this[READER_PREFERRED_FORMAT] = settings.preferredFormat.name
+        this[READER_TEXT_SIZE] = settings.textSize.name
+        this[READER_AUTO_TURN] = settings.autoTurnPages
+        this[READER_AUTO_TURN_SECONDS] = settings.autoTurnSeconds
     }
 
     /** Unknown or missing names (e.g. from an older app version) fall back to [default]. */
@@ -96,6 +107,10 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_SCROLL_MODE = stringPreferencesKey("reader_scroll_mode")
         val READER_KEEP_SCREEN_ON = booleanPreferencesKey("reader_keep_screen_on")
         val READER_PAGE_BACKGROUND = stringPreferencesKey("reader_page_background")
+        val READER_PREFERRED_FORMAT = stringPreferencesKey("reader_preferred_format")
+        val READER_TEXT_SIZE = stringPreferencesKey("reader_text_size")
+        val READER_AUTO_TURN = booleanPreferencesKey("reader_auto_turn")
+        val READER_AUTO_TURN_SECONDS = intPreferencesKey("reader_auto_turn_seconds")
         val NEW_STORY_ALERTS = booleanPreferencesKey("new_story_alerts")
         val LAST_SEEN_STORY_ID = stringPreferencesKey("last_seen_story_id")
         val LAST_SEEN_STORY_PUBLISHED_AT = longPreferencesKey("last_seen_story_published_at")

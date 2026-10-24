@@ -3,4 +3,13 @@
     <!-- AppCompat theme (needed for the in-app language switch). DayNight gives a dark window
          background on dark-mode phones while the app starts; Compose draws everything else. -->
     <style name="Theme.MyApplication" parent="Theme.AppCompat.DayNight.NoActionBar" />
+
+    <!-- Launch theme: the Vegam logo on its navy while the app starts (core-splashscreen, so it
+         looks the same on Android 7–16). MainActivity switches to Theme.MyApplication after. -->
+    <style name="Theme.Vegam.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/vegam_navy</item>
+        <!-- The app icon's logo layer: already fitted inside the round area the splash keeps. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.MyApplication</item>
+    </style>
 </resources>

@@ -1,18 +1,23 @@
 package com.vegamstories.app.data.remote.datasource
 
 import com.vegamstories.app.data.remote.api.StoryApi
+import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.FeedResponseDto
+import com.vegamstories.app.data.remote.dto.LanguageDto
 import com.vegamstories.app.data.remote.dto.PageDto
 import com.vegamstories.app.data.remote.dto.StoryDto
 import com.vegamstories.app.data.remote.dto.SupabaseStoryRow
+import com.vegamstories.app.data.remote.dto.StoryTranslationDto
 import com.vegamstories.app.data.remote.dto.VideoDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
 
-/** Loads categories + stories from Supabase and shapes them into the app's feed format. */
+/** Loads categories, stories and languages from Supabase and shapes them into the app's feed format. */
 class NetworkStoryRemoteDataSource @Inject constructor(
     private val api: StoryApi,
 ) : StoryRemoteDataSource {
@@ -21,32 +26,52 @@ class NetworkStoryRemoteDataSource @Inject constructor(
         // Both requests run in parallel.
         val categories = async { api.getCategories() }
         val stories = async { api.getStories() }
+        val languages = async { fetchLanguages() }
         FeedResponseDto(
-            categories = categories.await(),
+            categories = categories.await().map { row ->
+                CategoryDto(id = row.id, names = row.names.associate { it.language to it.name }, sortOrder = row.sortOrder)
+            },
             stories = stories.await().map { it.toStoryDto() },
+            languages = languages.await(),
         )
+    }
+
+    /** Only names and order hang on this, so stories still load if it fails (e.g. 005 not run yet). */
+    private suspend fun fetchLanguages(): List<LanguageDto> = try {
+        api.getLanguages()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Timber.w(e, "Languages not loaded; keeping the saved list")
+        emptyList()
     }
 
     private fun SupabaseStoryRow.toStoryDto() = StoryDto(
         id = id,
         categoryId = categoryId,
         episode = episode,
-        title = title,
-        summary = summary,
-        coverUrl = coverUrl,
         publishedAt = parseSupabaseTimestamp(publishedAt),
-        pages = pages.sortedBy { it.pageIndex }.map { PageDto(imageUrl = it.imageUrl) },
-        video = if (videoUrl != null && videoThumbnailUrl != null) {
-            VideoDto(
-                title = videoTitle.orEmpty(),
-                description = videoDescription.orEmpty(),
-                thumbnailUrl = videoThumbnailUrl,
-                url = videoUrl,
-            )
-        } else {
-            null
-        },
         likeCount = likeCount,
+        translations = translations.map { t ->
+            StoryTranslationDto(
+                language = t.language,
+                title = t.title,
+                summary = t.summary,
+                coverUrl = t.coverUrl,
+                pages = pages.filter { it.language == t.language }.sortedBy { it.pageIndex }.map { PageDto(imageUrl = it.imageUrl) },
+                text = t.body,
+                video = if (t.videoUrl != null && t.videoThumbnailUrl != null) {
+                    VideoDto(
+                        title = t.videoTitle.orEmpty(),
+                        description = t.videoDescription.orEmpty(),
+                        thumbnailUrl = t.videoThumbnailUrl,
+                        url = t.videoUrl,
+                    )
+                } else {
+                    null
+                },
+            )
+        },
     )
 }
 

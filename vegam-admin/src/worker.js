@@ -9,10 +9,14 @@
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 
-// Story ids look like "moral-12"; image keys like "moral-12/p0-1-k3x9qa.webp".
+// Story ids look like "moral-12"; image keys like "moral-12/or/page-0-k3x9qa.webp" (a folder per
+// language) or, for images saved before languages, "moral-12/page-0-k3x9qa.webp".
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\.(webp|jpg|png)$/;
+const KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\/(?:[a-z]{2,3}\/)?[a-z0-9]+(?:-[a-z0-9]+)*\.(webp|jpg|png)$/;
+const YOUTUBE_PATTERN = /^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}$/;
+const MAX_TEXT_CHARS = 50000;
 
 export default {
   async fetch(request, env) {
@@ -54,16 +58,50 @@ async function route(request, env, url, email) {
   // /api/categories
   if (parts[0] === 'categories' && parts.length === 1) {
     if (method === 'GET') {
-      return json(await db.get('categories?select=id,name,sort_order&order=sort_order.asc'));
+      return json(
+        await db.get('categories?select=id,sort_order,category_translations(language,name)&order=sort_order.asc'),
+      );
     }
+    // Body: { id, sort_order, names: { te: "నీతి కథలు", en: "Moral stories", … } } — creates or edits.
     if (method === 'POST') {
       const body = await readJson(request);
       const category = {
         id: requireId(body.id, 'Category id'),
-        name: requireText(body.name, 'Category name'),
         sort_order: Number.isInteger(body.sort_order) ? body.sort_order : 0,
       };
-      return json(await db.upsert('categories', [category]), 201);
+      const knownLanguages = await languageCodes(db);
+      const names = Object.entries(body.names || {})
+        .map(([language, name]) => ({ category_id: category.id, language, name: typeof name === 'string' ? name.trim() : '' }))
+        .filter((n) => n.name);
+      for (const n of names) {
+        if (!knownLanguages.has(n.language)) throw new HttpError(400, `Unknown language: ${n.language}`);
+      }
+      if (!names.length) throw new HttpError(400, 'Give the category a name in at least one language');
+      await db.upsert('categories', [category]);
+      await db.delete(`category_translations?category_id=eq.${category.id}`);
+      await db.insert('category_translations', names);
+      return json({ ...category, category_translations: names }, 201);
+    }
+  }
+
+  // /api/languages   (story text languages: Telugu, English, Odia, …)
+  if (parts[0] === 'languages' && parts.length === 1) {
+    if (method === 'GET') {
+      return json(await db.get('languages?select=code,name,native_name,sort_order&order=sort_order.asc,code.asc'));
+    }
+    if (method === 'POST') {
+      const body = await readJson(request);
+      const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
+      if (!LANGUAGE_CODE_PATTERN.test(code)) {
+        throw new HttpError(400, 'Language code: 2–3 lowercase letters, the standard ISO code (e.g. or for Odia, hi for Hindi)');
+      }
+      const language = {
+        code,
+        name: requireText(body.name, 'Language name'),
+        native_name: requireText(body.native_name, 'Name in its own script'),
+        sort_order: Number.isInteger(body.sort_order) ? body.sort_order : 0,
+      };
+      return json(await db.upsert('languages', [language]), 201);
     }
   }
 
@@ -72,8 +110,8 @@ async function route(request, env, url, email) {
     if (parts.length === 1 && method === 'GET') {
       return json(
         await db.get(
-          'stories?select=id,category_id,episode,title,cover_url,is_published,published_at,like_count' +
-            '&order=category_id.asc,episode.asc',
+          'stories?select=id,category_id,episode,is_published,published_at,like_count,' +
+            'story_translations(language,title,cover_url,video_url)&order=category_id.asc,episode.asc',
         ),
       );
     }
@@ -82,7 +120,8 @@ async function route(request, env, url, email) {
 
     if (parts.length === 2 && method === 'GET') {
       const rows = await db.get(
-        `stories?id=eq.${id}&select=*,story_pages(page_index,image_url)&story_pages.order=page_index.asc`,
+        `stories?id=eq.${id}&select=*,story_translations(*),story_pages(language,page_index,image_url)` +
+          '&story_pages.order=page_index.asc',
       );
       if (!rows.length) throw new HttpError(404, 'Story not found');
       return json(rows[0]);
@@ -93,7 +132,7 @@ async function route(request, env, url, email) {
     }
 
     if (parts.length === 2 && method === 'DELETE') {
-      await db.delete(`stories?id=eq.${id}`); // pages go too (ON DELETE CASCADE)
+      await db.delete(`stories?id=eq.${id}`); // translations and pages go too (ON DELETE CASCADE)
       const removed = await deleteImages(env, `${id}/`, new Set());
       return json({ deleted: id, imagesRemoved: removed });
     }
@@ -133,53 +172,96 @@ async function route(request, env, url, email) {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Body: { story: {category_id, episode, title, summary, cover_url, published_at, is_published,
- *                 video_title, video_description, video_thumbnail_url, video_url},
- *         pages: [{ image_url }] }   — one finished comic image per page, in reading order
- * Writes the story row, replaces its pages, then deletes images in R2 that are no longer used.
+ * Body: { story: { category_id, episode, published_at, is_published },   — shared by all languages
+ *         translations: [{ language, title, summary, cover_url, body,
+ *                          video_url, video_title, video_description, video_thumbnail_url,
+ *                          pages: [{ image_url }] }] }                     — one per language
+ * Every language version needs a title and at least one format (pages, text or video); the cover is optional.
+ * Writes the story row, replaces its translations and pages, then deletes unused images in R2.
  */
 async function saveStory(db, env, id, body) {
   const s = body.story || {};
-  const optional = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-
   const story = {
     id,
     category_id: requireId(s.category_id, 'Category'),
     episode: requirePositiveInt(s.episode, 'Episode'),
-    title: requireText(s.title, 'Title'),
-    summary: typeof s.summary === 'string' ? s.summary.trim() : '',
-    cover_url: requireMediaUrl(s.cover_url, env, id, 'Cover image'),
     is_published: s.is_published === true,
-    video_title: optional(s.video_title),
-    video_description: optional(s.video_description),
-    video_thumbnail_url: s.video_thumbnail_url ? requireMediaUrl(s.video_thumbnail_url, env, id, 'Video thumbnail') : null,
-    video_url: optional(s.video_url),
   };
   if (s.published_at) story.published_at = s.published_at;
-  if (story.video_url && !/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(story.video_url)) {
-    throw new HttpError(400, 'Video link must be a YouTube link');
-  }
 
-  const pages = (Array.isArray(body.pages) ? body.pages : []).map((page, pageIndex) => ({
-    story_id: id,
-    page_index: pageIndex,
-    image_url: requireMediaUrl(page && page.image_url, env, id, `Page ${pageIndex + 1} image`),
-  }));
-  if (!pages.length) throw new HttpError(400, 'Add at least one page');
+  const knownLanguages = await languageCodes(db);
+  const translations = [];
+  const pages = [];
+  for (const t of Array.isArray(body.translations) ? body.translations : []) {
+    const { translation, pages: translationPages } = readTranslation(t, env, id, knownLanguages);
+    if (translations.some((x) => x.language === translation.language)) {
+      throw new HttpError(400, `Two versions in ${translation.language}`);
+    }
+    translations.push(translation);
+    pages.push(...translationPages);
+  }
+  if (!translations.length) throw new HttpError(400, 'Add the story in at least one language');
 
   const [saved] = await db.upsert('stories', [story]);
   await db.delete(`story_pages?story_id=eq.${id}`);
-  await db.insert('story_pages', pages);
+  await db.delete(`story_translations?story_id=eq.${id}`);
+  await db.insert('story_translations', translations);
+  if (pages.length) await db.insert('story_pages', pages);
 
   // Images that were replaced or removed in this edit are no longer referenced → delete them.
   const used = new Set(
-    [story.cover_url, story.video_thumbnail_url, ...pages.map((p) => p.image_url)]
+    [...translations.flatMap((t) => [t.cover_url, t.video_thumbnail_url]), ...pages.map((p) => p.image_url)]
       .filter(Boolean)
       .map((u) => u.slice(env.MEDIA_BASE_URL.length + 1)),
   );
   const imagesRemoved = await deleteImages(env, `${id}/`, used);
 
-  return { story: saved, pages: pages.length, imagesRemoved };
+  return { story: saved, languages: translations.map((t) => t.language), pages: pages.length, imagesRemoved };
+}
+
+/** One language version → a story_translations row and its story_pages rows. Throws on anything missing. */
+function readTranslation(t, env, storyId, knownLanguages) {
+  const language = t && t.language;
+  if (!knownLanguages.has(language)) throw new HttpError(400, `Unknown language: ${language} (add it first)`);
+  const label = `${language.toUpperCase()} version`;
+  const optional = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+  const body = typeof t.body === 'string' ? t.body.replace(/\r\n?/g, '\n').trim() : '';
+  if (body.length > MAX_TEXT_CHARS) throw new HttpError(413, `${label}: the text is longer than ${MAX_TEXT_CHARS} characters`);
+
+  const translation = {
+    story_id: storyId,
+    language,
+    title: requireText(t.title, `${label}: title`),
+    summary: typeof t.summary === 'string' ? t.summary.trim() : '',
+    // Optional: without one the app shows the first comic page, or a title card.
+    cover_url: t.cover_url ? requireMediaUrl(t.cover_url, env, storyId, `${label}: cover image`) : null,
+    body: body || null,
+    video_url: optional(t.video_url),
+    video_title: optional(t.video_title),
+    video_description: optional(t.video_description),
+    video_thumbnail_url: t.video_thumbnail_url ? requireMediaUrl(t.video_thumbnail_url, env, storyId, `${label}: video thumbnail`) : null,
+    updated_at: new Date().toISOString(),
+  };
+  if (translation.video_url && !YOUTUBE_PATTERN.test(translation.video_url)) {
+    throw new HttpError(400, `${label}: the video link must be a YouTube link`);
+  }
+  if (!translation.video_url) translation.video_thumbnail_url = null;
+
+  const pages = (Array.isArray(t.pages) ? t.pages : []).map((page, pageIndex) => ({
+    story_id: storyId,
+    language,
+    page_index: pageIndex,
+    image_url: requireMediaUrl(page && page.image_url, env, storyId, `${label}: page ${pageIndex + 1} image`),
+  }));
+  if (!pages.length && !translation.body && !translation.video_url) {
+    throw new HttpError(400, `${label}: add at least one format (comic pages, story text or a YouTube video)`);
+  }
+  return { translation, pages };
+}
+
+async function languageCodes(db) {
+  return new Set((await db.get('languages?select=code')).map((l) => l.code));
 }
 
 /** Deletes every object under [prefix] whose key is not in [keep]. Returns how many were removed. */

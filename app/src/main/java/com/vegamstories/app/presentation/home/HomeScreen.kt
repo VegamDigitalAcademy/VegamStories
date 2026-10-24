@@ -1,5 +1,15 @@
 package com.vegamstories.app.presentation.home
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.vegamstories.app.domain.model.ContentLanguages
+import com.vegamstories.app.domain.model.Language
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -47,6 +57,7 @@ import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.SectionHeader
 import com.vegamstories.app.presentation.components.StoryGrid
 import com.vegamstories.app.presentation.components.StoryGridSkeleton
+import com.vegamstories.app.presentation.components.StoryCover
 import com.vegamstories.app.presentation.components.StoryImage
 import com.vegamstories.app.presentation.components.VegamLogoMark
 import com.vegamstories.app.presentation.components.fullWidthItem
@@ -60,7 +71,6 @@ import com.vegamstories.app.presentation.preview.TeluguPreview
 fun HomeScreen(
     onStoryClick: (String) -> Unit,
     onSearchClick: () -> Unit,
-    onMenuClick: () -> Unit,
     onShowMessage: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -81,7 +91,7 @@ fun HomeScreen(
         onRefresh = viewModel::refresh,
         onStoryClick = onStoryClick,
         onSearchClick = onSearchClick,
-        onMenuClick = onMenuClick,
+        onLanguageSelected = viewModel::onLanguageSelected,
     )
 }
 
@@ -93,14 +103,18 @@ fun HomeContent(
     onRefresh: () -> Unit,
     onStoryClick: (String) -> Unit,
     onSearchClick: () -> Unit,
-    onMenuClick: () -> Unit,
+    onLanguageSelected: (String) -> Unit,
 ) {
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding(),
     ) {
-        HomeTopBar(onSearchClick = onSearchClick, onMenuClick = onMenuClick)
+        HomeTopBar(
+            languages = state.contentLanguages,
+            onSearchClick = onSearchClick,
+            onLanguageSelected = onLanguageSelected,
+        )
         CategoryTabs(
             categories = state.categories,
             selectedCategoryId = state.selectedCategoryId,
@@ -146,7 +160,11 @@ fun HomeContent(
 }
 
 @Composable
-private fun HomeTopBar(onSearchClick: () -> Unit, onMenuClick: () -> Unit) {
+private fun HomeTopBar(
+    languages: ContentLanguages?,
+    onSearchClick: () -> Unit,
+    onLanguageSelected: (String) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -165,8 +183,61 @@ private fun HomeTopBar(onSearchClick: () -> Unit, onMenuClick: () -> Unit) {
         IconButton(onClick = onSearchClick) {
             Icon(painterResource(R.drawable.ic_search), contentDescription = stringResource(R.string.cd_search))
         }
-        IconButton(onClick = onMenuClick) {
-            Icon(painterResource(R.drawable.ic_menu), contentDescription = stringResource(R.string.cd_menu))
+        // Only when stories exist in more than one language.
+        if (languages != null && languages.all.size > 1) {
+            LanguageButton(languages = languages, onLanguageSelected = onLanguageSelected)
+        }
+    }
+}
+
+/**
+ * The story language: "తెలుగు ▾". Opens the server's languages, each in its own script; Home,
+ * Search, the reader and the widget then show stories in the chosen one.
+ */
+@Composable
+private fun LanguageButton(languages: ContentLanguages, onLanguageSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.cd_story_language)
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            modifier = Modifier.semantics { contentDescription = "$label: ${languages.selectedLanguage?.nativeName.orEmpty()}" },
+        ) {
+            Icon(painterResource(R.drawable.ic_language), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = languages.selectedLanguage?.nativeName ?: languages.selected.uppercase(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            languages.all.forEach { language ->
+                val selected = language.code == languages.selected
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = language.nativeName,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    },
+                    trailingIcon = {
+                        if (selected) {
+                            Icon(
+                                painterResource(R.drawable.ic_check_circle),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    },
+                    onClick = {
+                        expanded = false
+                        if (!selected) onLanguageSelected(language.code)
+                    },
+                )
+            }
         }
     }
 }
@@ -229,10 +300,9 @@ private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
-            StoryImage(
-                model = story.coverImageUrl,
+            StoryCover(
+                story = story,
                 contentDescription = story.title,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(width = 64.dp, height = 80.dp)
                     .clip(RoundedCornerShape(10.dp)),
@@ -288,9 +358,13 @@ private fun HomeAllPreview() = PreviewTheme {
             stories = PreviewData.stories,
             continueReading = PreviewData.continueReading,
             isLoading = false,
+            contentLanguages = ContentLanguages(
+                all = listOf(Language("te", "Telugu", "తెలుగు"), Language("en", "English", "English"), Language("or", "Odia", "ଓଡ଼ିଆ")),
+                selected = "te",
+            ),
         ),
         onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
-        onSearchClick = {}, onMenuClick = {},
+        onSearchClick = {}, onLanguageSelected = {},
     )
 }
 
@@ -305,7 +379,7 @@ private fun HomeCategoryPreview() = PreviewTheme {
             isLoading = false,
         ),
         onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
-        onSearchClick = {}, onMenuClick = {},
+        onSearchClick = {}, onLanguageSelected = {},
     )
 }
 
@@ -315,7 +389,7 @@ private fun HomeLoadingPreview() = PreviewTheme {
     HomeContent(
         state = HomeUiState(isLoading = true),
         onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
-        onSearchClick = {}, onMenuClick = {},
+        onSearchClick = {}, onLanguageSelected = {},
     )
 }
 
@@ -325,6 +399,6 @@ private fun HomeEmptyPreview() = PreviewTheme {
     HomeContent(
         state = HomeUiState(categories = PreviewData.categories, isLoading = false),
         onCategorySelected = {}, onRefresh = {}, onStoryClick = {},
-        onSearchClick = {}, onMenuClick = {},
+        onSearchClick = {}, onLanguageSelected = {},
     )
 }

@@ -18,6 +18,27 @@
     <string name="episode_short">Ep %1$d</string>
     <string name="episode_category">Ep %1$d · %2$s</string>
     <string name="read_badge">Read</string>
+
+    <!-- Story formats (icons on story cards) -->
+    <string name="format_comic">Comic</string>
+    <string name="format_text">Text</string>
+    <string name="format_video">Video</string>
+
+    <!-- Reader tabs and text reading -->
+    <!-- First launch: story language -->
+    <string name="story_language_title">Choose your story language</string>
+    <string name="story_language_subtitle">Stories will be shown in this language. You can change it anytime with the language button on Home.</string>
+    <string name="story_language_go">Let\'s go</string>
+    <string name="story_language_load_failed">Couldn\'t load the languages. Check your internet connection and try again.</string>
+    <string name="cd_story_language">Story language</string>
+    <string name="reader_tab_comic">Comic</string>
+    <string name="reader_tab_read">Read</string>
+    <string name="reader_tab_watch">Watch</string>
+    <string name="reader_text_size">Text size</string>
+    <string name="reader_text_size_small">Small text</string>
+    <string name="reader_text_size_medium">Medium text</string>
+    <string name="reader_text_size_large">Large text</string>
+    <string name="reader_text_size_extra_large">Extra large text</string>
     <string name="added_to_favorites">Added to favorites</string>
     <string name="removed_from_favorites">Removed from favorites</string>
     <string name="refresh_failed">Couldn\'t refresh stories. Showing saved stories.</string>
@@ -121,6 +142,12 @@
     <string name="skip_to_next_story">Skip to the next story</string>
     <string name="all_episodes_read">You\'ve reached the latest episode in this series.</string>
     <string name="cd_like">Like</string>
+
+    <!-- Settings: reading -->
+    <string name="settings_reading_section">READING</string>
+    <string name="settings_auto_turn">Auto-turn comic pages</string>
+    <string name="settings_auto_turn_desc">Comic pages turn to the next one by themselves after a few seconds</string>
+    <string name="settings_auto_turn_seconds">%1$d s</string>
 
     <!-- New-story notifications -->
     <string name="settings_notifications_section">NOTIFICATIONS</string>
