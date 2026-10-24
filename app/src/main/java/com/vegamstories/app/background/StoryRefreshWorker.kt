@@ -16,7 +16,8 @@ import timber.log.Timber
 
 /**
  * Runs every few hours in the background (StoryRefreshScheduler):
- *  1. refreshes stories from the server (this also sends any queued likes),
+ *  1. refreshes stories from the server when they are a day old (else it downloads nothing; queued
+ *     likes still go out),
  *  2. redraws the home screen widget so "Today's new story" is current,
  *  3. posts a "New story" notification if one was published and alerts are on.
  */

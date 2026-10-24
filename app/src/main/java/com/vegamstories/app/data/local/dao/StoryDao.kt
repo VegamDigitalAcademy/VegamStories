@@ -124,6 +124,10 @@ interface StoryDao {
     @Query("SELECT * FROM languages ORDER BY sortOrder ASC, code ASC")
     fun observeLanguages(): Flow<List<LanguageEntity>>
 
+    /** Whether anything is saved to show: some stories, and the languages they come in. */
+    @Query("SELECT EXISTS(SELECT 1 FROM stories) AND EXISTS(SELECT 1 FROM languages)")
+    suspend fun hasContent(): Boolean
+
     @Query("SELECT * FROM stories WHERE id = :storyId LIMIT 1")
     suspend fun getStory(storyId: String): StoryEntity?
 

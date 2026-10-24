@@ -71,7 +71,8 @@ class HomeViewModel @Inject constructor(
     )
 
     init {
-        refresh()
+        // Opening the app downloads only when a day has passed, or nothing is saved yet.
+        runRefresh(force = false)
     }
 
     fun onCategorySelected(categoryId: String?) {
@@ -84,13 +85,17 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { setContentLanguage(code) }
     }
 
-    fun refresh() {
+    /** Pull to refresh, or Retry: always downloads. */
+    fun refresh() = runRefresh(force = true)
+
+    private fun runRefresh(force: Boolean) {
         if (isRefreshing.value) return
         viewModelScope.launch {
-            isRefreshing.value = true
-            refreshContent()
+            // The spinner only for a refresh the reader asked for; the daily one updates the list quietly.
+            if (force) isRefreshing.value = true
+            refreshContent(force)
                 // New stories are on screen now, so the background check won't announce them later.
-                .onSuccess { checkForNewStory(userIsInApp = true) }
+                .onSuccess { downloaded -> if (downloaded) checkForNewStory(userIsInApp = true) }
                 .onFailure { events.send(HomeEvent.RefreshFailed) }
             isRefreshing.value = false
         }

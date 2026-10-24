@@ -48,6 +48,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
@@ -70,6 +72,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -257,23 +260,28 @@ private fun ReaderContent(
             )
         }
         val text = state.text
-        when {
-            state.format == StoryFormat.TEXT && text != null -> {
-                TextReader(
-                    story = story,
+        when (state.format) {
+            StoryFormat.TEXT if text != null -> {
+                TextPagesReader(
+                    title = story.title,
                     text = text,
                     textSize = state.settings.textSize,
                     startFraction = state.initialTextFraction,
+                    // A page of text takes longer to read than a comic page.
+                    autoTurnMillis = state.settings.autoTurnMillis?.let { TEXT_AUTO_TURN_MILLIS },
+                    timer = pageTimer,
                     onProgress = onTextProgress,
-                    endContent = likeSection,
+                    likePage = likeSection,
                     modifier = readerModifier,
                 )
                 return@Column
             }
-            state.format == StoryFormat.VIDEO && story.video != null -> {
+            StoryFormat.VIDEO if story.video != null -> {
                 WatchTab(story = story, endContent = likeSection, modifier = readerModifier)
                 return@Column
             }
+
+            else -> {}
         }
         val page: @Composable (index: Int, onContinue: () -> Unit) -> Unit = { index, onContinue ->
             ReaderPage(
@@ -350,6 +358,12 @@ private fun PagedReader(
     onPageSettled: (Int) -> Unit,
     page: @Composable (index: Int, onContinue: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
+    /** The pages' colour, on their backs as they curl. */
+    paper: Color = MaterialTheme.colorScheme.background,
+    /** Under each page's content; transparent shows the reader's background around a smaller page. */
+    pageBackground: Color = paper,
+    /** Room above and below each page. */
+    pageMargin: Dp = 8.dp,
 ) {
     val pagerState = rememberPagerState(initialPage = startPage) { pageCount }
     val scope = rememberCoroutineScope()
@@ -372,7 +386,6 @@ private fun PagedReader(
     // Which way a turning page's fold leans: after the finger, else the app's own lean.
     val lean = remember { PageLean() }
     LaunchedEffect(pagerState, lean) { lean.follow(pagerState) }
-    val paper = MaterialTheme.colorScheme.background
 
     HorizontalPager(
         state = pagerState,
@@ -394,7 +407,7 @@ private fun PagedReader(
                 .fillMaxSize()
                 .bookPageTurn(pagerState, index, lean, paper)
                 // Opaque, so the page underneath shows only where the turning page has lifted.
-                .background(paper),
+                .background(pageBackground),
         ) {
             val viewportHeight = maxHeight
             Column(
@@ -403,12 +416,89 @@ private fun PagedReader(
                     .verticalScroll(rememberScrollState())
                     // At least one screen tall, so a shorter page can be centred in it.
                     .heightIn(min = viewportHeight)
-                    .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = 8.dp),
+                    .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = pageMargin),
                 verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
             ) {
                 page(index) { scope.launch { pagerState.animateScrollToPage(likePageIndex, animationSpec = pageTurnSpec) } }
             }
         }
+    }
+}
+
+/** How long each page of text waits before auto-turn turns it (comic pages: Settings → Reading). */
+private const val TEXT_AUTO_TURN_MILLIS = 45_000L
+
+/**
+ * The Read tab as a book: the text split into pages that fit the screen (see [rememberTextBook]),
+ * turned like the comic pages (curl, auto-turn, the bars below), then the like page. Reports the
+ * last paragraph on the page as progress; the like page finishes the story.
+ */
+@Composable
+private fun TextPagesReader(
+    title: String,
+    text: StoryText,
+    textSize: ReaderTextSize,
+    startFraction: Float,
+    autoTurnMillis: Long?,
+    timer: PageTimer,
+    onProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
+    likePage: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val paragraphs = text.paragraphs
+    // Where the reader is in the text (paragraph, character), or at the end: survives a new layout
+    // (text size, rotation), unlike a page number.
+    var paragraph by rememberSaveable(text.languageCode) {
+        mutableIntStateOf((startFraction * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex.coerceAtLeast(0)))
+    }
+    var offset by rememberSaveable(text.languageCode) { mutableIntStateOf(0) }
+    var atEnd by rememberSaveable(text.languageCode) { mutableStateOf(false) }
+    var currentPage by remember { mutableIntStateOf(0) }
+    var pageCount by remember { mutableIntStateOf(1) }
+    val colors = bookColors()
+
+    Column(modifier) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // The book page keeps a little room from the screen's edges all round.
+            val book = rememberTextBook(title, paragraphs, textSize, width = maxWidth, height = maxHeight - BookPageMargin * 2)
+            val likeIndex = book.pages.size
+            SideEffect { pageCount = likeIndex + 1 }
+            key(text.languageCode, book.pages) {
+                PagedReader(
+                    startPage = if (atEnd) likeIndex else book.pageAt(paragraph, offset),
+                    autoTurnMillis = autoTurnMillis,
+                    timer = timer,
+                    pageCount = likeIndex + 1,
+                    comicPageCount = likeIndex, // book pages run edge to edge, like comic pages
+                    likePageIndex = likeIndex,
+                    onPageSettled = { page ->
+                        currentPage = page
+                        atEnd = page >= likeIndex
+                        if (page < likeIndex) {
+                            book.pages[page].firstOrNull()?.let {
+                                paragraph = it.paragraph
+                                offset = it.start
+                            }
+                            onProgress(book.lastParagraphOn(page), paragraphs.size)
+                        } else if (paragraphs.isNotEmpty()) {
+                            onProgress(paragraphs.lastIndex, paragraphs.size)
+                        }
+                    },
+                    page = { index, _ -> if (index < likeIndex) BookTextPage(book, index) else likePage() },
+                    paper = colors.paper,
+                    pageBackground = Color.Transparent,
+                    pageMargin = BookPageMargin,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        PageIndicator(
+            currentPage = currentPage,
+            pageCount = pageCount,
+            timer = timer,
+            autoTurn = autoTurnMillis != null,
+            lastAutoPage = pageCount - 1,
+        )
     }
 }
 

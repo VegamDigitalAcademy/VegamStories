@@ -7,10 +7,12 @@ import com.vegamstories.app.data.mapper.toNameEntities
 import com.vegamstories.app.data.mapper.toPageEntities
 import com.vegamstories.app.data.mapper.toTranslationEntities
 import com.vegamstories.app.data.remote.datasource.StoryRemoteDataSource
+import com.vegamstories.app.data.settings.ContentSyncStore
 import com.vegamstories.app.domain.model.Category
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.StoryText
+import com.vegamstories.app.domain.model.isContentRefreshDue
 import com.vegamstories.app.domain.repository.ContentLanguageRepository
 import com.vegamstories.app.domain.repository.StoryRepository
 import kotlinx.coroutines.CancellationException
@@ -22,13 +24,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Offline-first: the UI always reads from Room; [refresh] pulls from the server and
- * writes into Room, which then pushes the new data to every observer.
+ * Offline-first: the UI always reads from Room; [refresh] pulls from the server (at most once a
+ * day unless the reader asks) and writes into Room, which then pushes the new data to every observer.
  * Lists follow the story language chosen in the app ([ContentLanguageRepository]).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -38,7 +42,11 @@ class StoryRepositoryImpl @Inject constructor(
     private val remote: StoryRemoteDataSource,
     private val likeSyncer: LikeSyncer,
     private val contentLanguage: ContentLanguageRepository,
+    private val syncStore: ContentSyncStore,
 ) : StoryRepository {
+
+    /** One refresh at a time (Home, the first-launch screen and the background worker can overlap). */
+    private val refreshLock = Mutex()
 
     override fun observeCategories(): Flow<List<Category>> =
         contentLanguage.contentLanguage.flatMapLatest { lang ->
@@ -85,7 +93,24 @@ class StoryRepositoryImpl @Inject constructor(
             storyDao.searchStories(query, lang).map { rows -> rows.map { it.toDomain() } }
         }
 
-    override suspend fun refresh(): Result<Unit> = try {
+    override suspend fun refresh(force: Boolean): Result<Boolean> {
+        val before = syncStore.lastRefreshAt()
+        return refreshLock.withLock {
+            val last = syncStore.lastRefreshAt()
+            when {
+                // Another refresh finished while this one waited: what's saved is as fresh as it gets.
+                last != before -> Result.success(true)
+                !force && !isContentRefreshDue(storyDao.hasContent(), last, System.currentTimeMillis()) -> {
+                    // No download; likes made offline still go out (no call when there are none).
+                    likeSyncer.syncPending()
+                    Result.success(false)
+                }
+                else -> download()
+            }
+        }
+    }
+
+    private suspend fun download(): Result<Boolean> = try {
         // Send queued likes first, so the like counts in the feed already include them.
         likeSyncer.syncPending()
         val feed = remote.fetchFeed()
@@ -97,8 +122,9 @@ class StoryRepositoryImpl @Inject constructor(
             pages = feed.stories.flatMap { it.toPageEntities() },
             languages = feed.languages.map { it.toEntity() },
         )
+        syncStore.setLastRefreshAt(System.currentTimeMillis())
         Timber.i("Refreshed: %d categories, %d stories", feed.categories.size, feed.stories.size)
-        Result.success(Unit)
+        Result.success(true)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

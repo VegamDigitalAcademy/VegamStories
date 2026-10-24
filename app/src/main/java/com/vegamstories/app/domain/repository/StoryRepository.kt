@@ -20,8 +20,12 @@ interface StoryRepository {
 
     fun searchStories(query: String): Flow<List<Story>>
 
-    /** Pulls fresh content from the server into the local database. */
-    suspend fun refresh(): Result<Unit>
+    /**
+     * Pulls fresh content from the server into the local database: always when [force]d (the
+     * reader asked: pull to refresh, Retry), otherwise only when due (see isContentRefreshDue), as
+     * server calls cost money. Succeeds with whether it downloaded.
+     */
+    suspend fun refresh(force: Boolean): Result<Boolean>
 
     /** Next episode in the same category, or null if this is the last one. */
     suspend fun getNextStoryId(storyId: String): String?

@@ -12,7 +12,10 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Schedules [StoryRefreshWorker]: every few hours, only when online. */
+/**
+ * Schedules [StoryRefreshWorker]: every few hours, only when online. Each run downloads only when
+ * the saved stories are a day old, so the server is called at most once a day in the background.
+ */
 @Singleton
 class StoryRefreshScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
