@@ -41,6 +41,7 @@ fun MenuScreen(
     onDownloads: () -> Unit,
     onHistory: () -> Unit,
     onBookmarks: () -> Unit,
+    onBookshelf: () -> Unit,
     onSettings: () -> Unit,
     onInfoPage: (InfoPage) -> Unit,
 ) {
@@ -61,6 +62,7 @@ fun MenuScreen(
             MenuItem(R.drawable.ic_favorite_border, stringResource(R.string.menu_favorites), showChevron = true, onClick = onFavorites)
             MenuItem(R.drawable.ic_download, stringResource(R.string.menu_downloads), showChevron = true, onClick = onDownloads)
             MenuItem(R.drawable.ic_history, stringResource(R.string.menu_history), showChevron = true, onClick = onHistory)
+            MenuItem(R.drawable.ic_bookshelf, stringResource(R.string.menu_bookshelf), showChevron = true, onClick = onBookshelf)
             MenuItem(R.drawable.ic_bookmark, stringResource(R.string.menu_bookmarks), showChevron = true, onClick = onBookmarks)
             MenuItem(R.drawable.ic_settings, stringResource(R.string.menu_settings), showChevron = true, onClick = onSettings)
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
@@ -122,5 +124,5 @@ private fun MenuItem(
 @TeluguPreview
 @Composable
 private fun MenuPreview() = PreviewTheme {
-    MenuScreen(onBack = {}, onFavorites = {}, onDownloads = {}, onHistory = {}, onBookmarks = {}, onSettings = {}, onInfoPage = {})
+    MenuScreen(onBack = {}, onFavorites = {}, onDownloads = {}, onHistory = {}, onBookmarks = {}, onBookshelf = {}, onSettings = {}, onInfoPage = {})
 }

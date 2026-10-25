@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object MenuRoute
 @Serializable data object HistoryRoute
 @Serializable data object BookmarksRoute
+@Serializable data object BookshelfRoute
 @Serializable data object SearchRoute
 @Serializable data object SettingsRoute
 

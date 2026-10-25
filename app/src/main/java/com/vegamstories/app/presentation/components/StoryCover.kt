@@ -102,7 +102,7 @@ fun TitleCard(title: String, categoryId: String, modifier: Modifier = Modifier) 
     }
 }
 
-private data class CoverColors(val top: Color, val bottom: Color, val text: Color)
+internal data class CoverColors(val top: Color, val bottom: Color, val text: Color)
 
 private val LogoNavy = Color(0xFF1E1B4B)
 private val Cream = Color(0xFFFFF7E6)
@@ -116,7 +116,7 @@ private val coverPalette = listOf(
 )
 
 /** Same category → same colour, on every phone and every run (String.hashCode is stable). */
-private fun coverColorsFor(categoryId: String): CoverColors =
+internal fun coverColorsFor(categoryId: String): CoverColors =
     coverPalette[(categoryId.hashCode() and Int.MAX_VALUE) % coverPalette.size]
 
 // ---------------- Previews ----------------
