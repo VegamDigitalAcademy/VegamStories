@@ -81,7 +81,14 @@ private val TitleGap = 30.dp
 
 /** The paper and ink of the Read tab's pages: warm, dim paper with black ink; reversed at night. */
 @Immutable
-data class BookColors(val paper: Color, val ink: Color, val rule: Color, val faint: Color)
+data class BookColors(
+    val paper: Color,
+    val ink: Color,
+    val rule: Color,
+    val faint: Color,
+    /** Night pages: the edges are drawn lighter than the paper and the shadows deeper, so they show on dark. */
+    val night: Boolean = false,
+)
 
 private val DayBook = BookColors(
     paper = Color(0xFFF1E7D0),
@@ -90,12 +97,14 @@ private val DayBook = BookColors(
     faint = Color(0xFF6E5E46),
 )
 private val NightBook = BookColors(
-    paper = Color(0xFF1D1B17),
-    ink = Color(0xFFE8DFCB),
-    rule = Color(0xFF8C7752),
-    faint = Color(0xFFA8987A),
+    // Warm dark-brown paper, a few shades lighter than the dark screen around it, so the page shows
+    // as a page; soft warm ink, not glaring white.
+    paper = Color(0xFF2A251F),
+    ink = Color(0xFFE3D6BC),
+    rule = Color(0xFFA88B57),
+    faint = Color(0xFFA2927A),
+    night = true,
 )
-
 /** Night pages when the reader is dark (dark app theme, or the Dark page background). */
 @Composable
 fun bookColors(): BookColors = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) NightBook else DayBook
@@ -322,8 +331,18 @@ private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
     val pageRight = size.width - EdgeRoomX.toPx()
     val pageBottom = size.height - EdgeRoomY.toPx()
     val hairline = 0.6.dp.toPx()
-    val gaps = lerp(colors.paper, Color.Black, 0.22f) // between the edges
-    fun edgePaper(depth: Int) = lerp(colors.paper, Color.Black, 0.03f + 0.025f * depth)
+    val night = colors.night
+    val gaps = lerp(colors.paper, Color.Black, if (night) 0.55f else 0.22f) // between the edges
+    // At night the edges are lighter than the paper, as page edges catch the light; darker by day.
+    fun edgePaper(depth: Int) = if (night) {
+        lerp(lerp(colors.paper, Color.White, 0.12f), Color.Black, 0.035f * depth)
+    } else {
+        lerp(colors.paper, Color.Black, 0.03f + 0.025f * depth)
+    }
+    val edgeLine = colors.rule.copy(alpha = if (night) 0.55f else 0.35f)
+    // Shadows need to be deeper to show on dark paper.
+    val depth = if (night) 2.6f else 1f
+    fun shade(alpha: Float) = Color.Black.copy(alpha = (alpha * depth).coerceAtMost(0.6f))
 
     // The pages still to come, under the open one, the deepest first: each reaches a little further
     // right and down than the one on it, and none sits quite square, so they read as a block of pages.
@@ -335,8 +354,8 @@ private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
             val right = pageRight + i * stepX - jitter
             val bottom = pageBottom + i * stepY - jitter / 2
             drawRect(edgePaper(i), topLeft = Offset(pageLeft, top), size = Size(right - pageLeft, bottom - top))
-            drawLine(colors.rule.copy(alpha = 0.35f), Offset(right, top), Offset(right, bottom), hairline)
-            drawLine(colors.rule.copy(alpha = 0.3f), Offset(pageLeft, bottom), Offset(right, bottom), hairline)
+            drawLine(edgeLine, Offset(right, top), Offset(right, bottom), hairline)
+            drawLine(edgeLine, Offset(pageLeft, bottom), Offset(right, bottom), hairline)
         }
     }
     // The pages already read, showing on the left the same way.
@@ -348,26 +367,26 @@ private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
             val left = pageLeft - i * stepX + jitter
             val bottom = pageBottom - jitter / 2
             drawRect(edgePaper(i), topLeft = Offset(left, top), size = Size(pageLeft - left, bottom - top))
-            drawLine(colors.rule.copy(alpha = 0.35f), Offset(left, top), Offset(left, bottom), hairline)
+            drawLine(edgeLine, Offset(left, top), Offset(left, bottom), hairline)
         }
     }
     // The open page, its shadow falling on the edges around it.
     val shadow = 4.dp.toPx()
     if (edges.toCome > 0) {
         drawRect(
-            Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.12f), 1f to Color.Transparent, startX = pageRight, endX = pageRight + shadow),
+            Brush.horizontalGradient(0f to shade(0.12f), 1f to Color.Transparent, startX = pageRight, endX = pageRight + shadow),
             topLeft = Offset(pageRight, 0f),
             size = Size(shadow, pageBottom),
         )
         drawRect(
-            Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.10f), 1f to Color.Transparent, startY = pageBottom, endY = pageBottom + shadow),
+            Brush.verticalGradient(0f to shade(0.10f), 1f to Color.Transparent, startY = pageBottom, endY = pageBottom + shadow),
             topLeft = Offset(pageLeft, pageBottom),
             size = Size(pageRight - pageLeft, shadow),
         )
     }
     if (edges.read > 0) {
         drawRect(
-            Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.12f), startX = pageLeft - shadow, endX = pageLeft),
+            Brush.horizontalGradient(0f to Color.Transparent, 1f to shade(0.12f), startX = pageLeft - shadow, endX = pageLeft),
             topLeft = Offset(pageLeft - shadow, 0f),
             size = Size(shadow, pageBottom),
         )
@@ -375,12 +394,12 @@ private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
     drawRect(colors.paper, topLeft = Offset(pageLeft, 0f), size = Size(pageRight - pageLeft, pageBottom))
     // The spine: the page curves into the binding on the left, and a little at its outer edge.
     drawRect(
-        Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.14f), 1f to Color.Transparent, startX = pageLeft, endX = pageLeft + 26.dp.toPx()),
+        Brush.horizontalGradient(0f to shade(0.14f), 1f to Color.Transparent, startX = pageLeft, endX = pageLeft + 26.dp.toPx()),
         topLeft = Offset(pageLeft, 0f),
         size = Size(26.dp.toPx(), pageBottom),
     )
     drawRect(
-        Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.06f), startX = pageRight - 10.dp.toPx(), endX = pageRight),
+        Brush.horizontalGradient(0f to Color.Transparent, 1f to shade(0.06f), startX = pageRight - 10.dp.toPx(), endX = pageRight),
         topLeft = Offset(pageRight - 10.dp.toPx(), 0f),
         size = Size(10.dp.toPx(), pageBottom),
     )

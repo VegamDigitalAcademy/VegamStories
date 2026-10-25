@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material3.MaterialTheme
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -79,6 +81,7 @@ private val CardFaint = Color(0xFF6E5E46)
  */
 @Composable
 fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modifier = Modifier) {
+    val dim = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Box(
         modifier
             .widthIn(max = 360.dp)
@@ -89,6 +92,8 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
             .drawWithContent {
                 layer.record { this@drawWithContent.drawContent() }
                 drawLayer(layer)
+                // On a dark screen the bright card is toned down; the shared picture keeps its colours.
+                if (dim) drawRect(Color.Black.copy(alpha = 0.22f))
             }
             .background(CardFrame)
             .padding(10.dp),
