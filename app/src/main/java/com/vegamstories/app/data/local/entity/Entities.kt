@@ -141,6 +141,22 @@ data class ReadingProgressEntity(
     val updatedAt: Long,
 )
 
+/**
+ * A page marked with the ribbon, in one language version of a story. [format] is the StoryFormat
+ * name: COMIC marks page [position]; TEXT marks where the page starts in the text (paragraph
+ * [position], character [textOffset]), as text pages change with the text size. Like favorites, kept
+ * when the story leaves the catalogue (just not shown).
+ */
+@Entity(tableName = "bookmarks", primaryKeys = ["storyId", "language", "format", "position", "textOffset"])
+data class BookmarkEntity(
+    val storyId: String,
+    val language: String,
+    val format: String,
+    val position: Int,
+    val textOffset: Int,
+    val createdAt: Long,
+)
+
 /** A category with its name in the requested language (or another one it has). */
 data class CategoryRow(
     val id: String,

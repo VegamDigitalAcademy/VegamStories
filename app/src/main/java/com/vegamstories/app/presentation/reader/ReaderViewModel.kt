@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.vegamstories.app.domain.model.Bookmark
 import com.vegamstories.app.domain.model.PageBackground
 import com.vegamstories.app.domain.model.ReaderScrollMode
 import com.vegamstories.app.domain.model.ReaderSettings
@@ -12,10 +13,14 @@ import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
+import com.vegamstories.app.domain.model.findMoral
 import com.vegamstories.app.domain.model.Language
+import com.vegamstories.app.domain.usecase.AddBookmarkUseCase
 import com.vegamstories.app.domain.usecase.GetNextStoryUseCase
 import com.vegamstories.app.domain.usecase.GetReaderSettingsUseCase
+import com.vegamstories.app.domain.usecase.GetStoryBookmarksUseCase
 import com.vegamstories.app.domain.usecase.GetStoryDetailUseCase
+import com.vegamstories.app.domain.usecase.RemoveBookmarksUseCase
 import com.vegamstories.app.domain.usecase.SaveReadingProgressUseCase
 import com.vegamstories.app.domain.usecase.ToggleDownloadUseCase
 import com.vegamstories.app.domain.usecase.ToggleFavoriteUseCase
@@ -47,6 +52,10 @@ data class ReaderUiState(
     val initialPage: Int = 0,
     /** How far into the text to open, 0..1 (progress is shared by all formats). */
     val initialTextFraction: Float = 0f,
+    /** Opened from a bookmark in the text: open on its page instead (in its language). */
+    val textBookmarkStart: Bookmark? = null,
+    /** The pages marked with the ribbon in this story. */
+    val bookmarks: List<Bookmark> = emptyList(),
     /** Scroll mode, keep-screen-on, page background, format and text size; loaded before the reader first shows. */
     val settings: ReaderSettings = ReaderSettings(),
     /** The tab the user picked in this reader, if any. */
@@ -71,6 +80,9 @@ data class ReaderUiState(
     /** The text of the version shown, if it has one. */
     val text: StoryText? get() = detail?.text
 
+    /** The story's moral, from the last lines of its text (for the card at the end). */
+    val moral: String? get() = text?.paragraphs?.let(::findMoral)
+
     /** Languages the story is in (for the language chips), and the one shown. */
     val languages: List<Language> get() = detail?.languages.orEmpty()
     val language: String? get() = detail?.story?.language
@@ -92,9 +104,16 @@ class ReaderViewModel @Inject constructor(
     private val saveReadingProgress: SaveReadingProgressUseCase,
     private val toggleFavorite: ToggleFavoriteUseCase,
     private val toggleDownload: ToggleDownloadUseCase,
+    getStoryBookmarks: GetStoryBookmarksUseCase,
+    private val addBookmark: AddBookmarkUseCase,
+    private val removeBookmarks: RemoveBookmarksUseCase,
 ) : ViewModel() {
 
-    private val storyId: String = savedStateHandle.toRoute<ReaderRoute>().storyId
+    private val route = savedStateHandle.toRoute<ReaderRoute>()
+    private val storyId: String = route.storyId
+
+    /** Opened from Bookmarks: the page to open on (its format and language too). */
+    private val openedAt: Bookmark? = route.bookmark
 
     /** Live, so its cover/title/like count stay current while the reader is open. */
     private val nextStory: Flow<Story?> = flow { emit(getNextStory(storyId)) }
@@ -104,9 +123,9 @@ class ReaderViewModel @Inject constructor(
     private var initialPage: Int? = null
     private var initialTextFraction = 0f
 
-    private val selectedFormat = MutableStateFlow<StoryFormat?>(null)
+    private val selectedFormat = MutableStateFlow(openedAt?.format)
     /** Language version picked with the chips in this reader; null = the app's story language. */
-    private val selectedLanguage = MutableStateFlow<String?>(null)
+    private val selectedLanguage = MutableStateFlow(openedAt?.language)
 
     private val events = Channel<ReaderEvent>(Channel.BUFFERED)
     val eventFlow = events.receiveAsFlow()
@@ -116,7 +135,8 @@ class ReaderViewModel @Inject constructor(
         nextStory,
         getReaderSettings(),
         selectedFormat,
-    ) { detail, next, settings, format ->
+        getStoryBookmarks(storyId),
+    ) { detail, next, settings, format, bookmarks ->
         if (detail != null && initialPage == null) {
             // Progress is per story, whichever format it was saved in: resume at the same fraction.
             val progress = detail.story.progress
@@ -126,7 +146,8 @@ class ReaderViewModel @Inject constructor(
                 progress.lastPageIndex.toFloat() / progress.totalPages
             }
             val comicPages = detail.pages.size
-            initialPage = if (comicPages == 0) 0 else (fraction * comicPages).toInt().coerceIn(0, comicPages - 1)
+            val start = if (openedAt?.format == StoryFormat.COMIC) openedAt.position else (fraction * comicPages).toInt()
+            initialPage = if (comicPages == 0) 0 else start.coerceIn(0, comicPages - 1)
             initialTextFraction = fraction
         }
         ReaderUiState(
@@ -135,6 +156,8 @@ class ReaderViewModel @Inject constructor(
             nextStory = next,
             initialPage = initialPage ?: 0,
             initialTextFraction = initialTextFraction,
+            textBookmarkStart = openedAt?.takeIf { it.format == StoryFormat.TEXT },
+            bookmarks = bookmarks,
             settings = settings,
             selectedFormat = format,
         )
@@ -183,5 +206,21 @@ class ReaderViewModel @Inject constructor(
 
     fun onPageBackgroundChange(background: PageBackground) {
         viewModelScope.launch { updateReaderSettings { it.copy(pageBackground = background) } }
+    }
+
+    /** The ribbon on an unmarked page: marks it, in the language shown. */
+    fun onAddBookmark(format: StoryFormat, position: Int, offset: Int) {
+        val language = uiState.value.language ?: return
+        viewModelScope.launch { addBookmark(Bookmark(storyId, language, format, position, offset)) }
+    }
+
+    /** The ribbon on a marked page: clears its marks. */
+    fun onRemoveBookmarks(bookmarks: List<Bookmark>) {
+        viewModelScope.launch { removeBookmarks(bookmarks) }
+    }
+
+    /** The corner lifted once: not again (see PagedReader). */
+    fun onPageTurnHintShown() {
+        viewModelScope.launch { updateReaderSettings { it.copy(pageTurnHintShown = true) } }
     }
 }

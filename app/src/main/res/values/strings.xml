@@ -178,4 +178,22 @@
     <string name="reader_background_dark">Dark</string>
     <string name="reader_keep_screen_on">Keep screen on</string>
     <string name="reader_keep_screen_on_desc">The screen won\'t dim or lock while you read</string>
+
+    <!-- Bookmarks: the ribbon on reader pages, and the list in Menu -->
+    <string name="menu_bookmarks">Bookmarks</string>
+    <string name="bookmarks_title">Bookmarks</string>
+    <string name="bookmarks_empty_title">No bookmarks yet</string>
+    <string name="bookmarks_empty_message">Tap the ribbon at the top of a page to keep your place. Your marked pages appear here.</string>
+    <string name="bookmark_page">Bookmark this page</string>
+    <string name="bookmark_remove">Remove bookmark</string>
+    <string name="bookmark_comic_page">Comic · page %1$d</string>
+    <string name="bookmark_text_place">“%1$s”</string>
+
+    <!-- End-of-story card, shared as a picture -->
+    <string name="moral_label">Moral of the story</string>
+    <string name="share_story">Share this story</string>
+    <string name="share_story_title">Share this story</string>
+    <string name="share_card_tagline">stories for children</string>
+    <string name="share_text_moral">“%1$s”\n— from “%2$s”, a story on Vegam Stories. Read more stories for children: %3$s</string>
+    <string name="share_text_story">Read “%1$s” on Vegam Stories, stories for children: %2$s</string>
 </resources>

@@ -6,15 +6,22 @@ import com.vegamstories.app.data.local.dao.StoryDao
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.mapper.toDomain
+import com.vegamstories.app.data.mapper.toEntity
+import com.vegamstories.app.domain.model.Bookmark
+import com.vegamstories.app.domain.model.BookmarkItem
 import com.vegamstories.app.domain.model.Story
+import com.vegamstories.app.domain.model.StoryFormat
+import com.vegamstories.app.domain.model.StoryText
 import com.vegamstories.app.di.ApplicationScope
 import com.vegamstories.app.domain.repository.ContentLanguageRepository
 import com.vegamstories.app.domain.repository.LibraryRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -96,5 +103,45 @@ class LibraryRepositoryImpl @Inject constructor(
 
     override suspend fun clearReadingHistory() = libraryDao.clearProgress()
 
+    override fun observeBookmarks(): Flow<List<BookmarkItem>> =
+        libraryDao.observeBookmarks().flatMapLatest { entities ->
+            if (entities.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                combine(entities.map { bookmarkItem(it.toDomain()) }) { items -> items.filterNotNull() }
+            }
+        }
+
+    /** [bookmark] with its story in the bookmark's language, and the marked page's picture or first words. */
+    private fun bookmarkItem(bookmark: Bookmark): Flow<BookmarkItem?> {
+        val page: Flow<Pair<String?, String?>> = if (bookmark.format == StoryFormat.TEXT) {
+            storyDao.observeText(bookmark.storyId, bookmark.language).map { body ->
+                val paragraph = body?.let { StoryText(bookmark.language, it).paragraphs.getOrNull(bookmark.position) }
+                val words = paragraph?.drop(bookmark.offset)?.trim()
+                null to if (words != null && words.length > SNIPPET_LENGTH) words.take(SNIPPET_LENGTH).trimEnd() + "…" else words
+            }
+        } else {
+            storyDao.observePages(bookmark.storyId, bookmark.language).map { pages ->
+                pages.getOrNull(bookmark.position)?.imageUrl to null
+            }
+        }
+        return combine(storyDao.observeStory(bookmark.storyId, bookmark.language), page) { row, (image, snippet) ->
+            row?.let { BookmarkItem(bookmark, it.toDomain(), pageImageUrl = image, snippet = snippet) }
+        }
+    }
+
+    override fun observeBookmarks(storyId: String): Flow<List<Bookmark>> =
+        libraryDao.observeBookmarks(storyId).map { rows -> rows.map { it.toDomain() } }
+
+    override suspend fun addBookmark(bookmark: Bookmark) = libraryDao.upsertBookmark(bookmark.toEntity(createdAt = now()))
+
+    override suspend fun removeBookmarks(bookmarks: List<Bookmark>) =
+        libraryDao.deleteBookmarks(bookmarks.map { it.toEntity(createdAt = 0L) })
+
     private fun now() = System.currentTimeMillis()
+
+    private companion object {
+        /** Characters of a text bookmark shown in the library. */
+        const val SNIPPET_LENGTH = 120
+    }
 }

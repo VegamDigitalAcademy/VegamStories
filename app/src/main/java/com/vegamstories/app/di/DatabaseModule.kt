@@ -7,6 +7,7 @@ import com.vegamstories.app.data.local.MIGRATION_3_4
 import com.vegamstories.app.data.local.MIGRATION_4_5
 import com.vegamstories.app.data.local.MIGRATION_5_6
 import com.vegamstories.app.data.local.MIGRATION_6_7
+import com.vegamstories.app.data.local.MIGRATION_7_8
 import com.vegamstories.app.data.local.VegamDatabase
 import com.vegamstories.app.data.local.dao.LibraryDao
 import com.vegamstories.app.data.local.dao.StoryDao
@@ -28,7 +29,7 @@ object DatabaseModule {
             // Keeps favorites/likes, downloads and progress when updating from version 2 to 5.
             // Every version bump needs a Migration here: an upgrade without one crashes on
             // purpose instead of wiping the user's favorites, likes, downloads and progress.
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
             // Version 1 never shipped and has no migration; only dev installs can have it.
             .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1)
             // Installing an older build over a newer one has no way back, so start fresh.

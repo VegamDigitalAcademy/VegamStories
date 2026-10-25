@@ -1,5 +1,6 @@
 package com.vegamstories.app.data.mapper
 
+import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.CategoryEntity
 import com.vegamstories.app.data.local.entity.CategoryNameEntity
 import com.vegamstories.app.data.local.entity.CategoryRow
@@ -13,10 +14,12 @@ import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.LanguageDto
 import com.vegamstories.app.data.remote.dto.StoryDto
 import com.vegamstories.app.data.remote.dto.StoryTranslationDto
+import com.vegamstories.app.domain.model.Bookmark
 import com.vegamstories.app.domain.model.Category
 import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.domain.model.ReadingProgress
 import com.vegamstories.app.domain.model.Story
+import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryPage
 import com.vegamstories.app.domain.model.StoryVideo
 
@@ -125,3 +128,20 @@ fun LanguageEntity.toDomain() = Language(code = code, name = name, nativeName = 
 
 /** A language not in the saved list yet is shown by its code, e.g. "OR". */
 fun StoryLanguageRow.toDomain() = Language(code = code, name = nativeName ?: code.uppercase(), nativeName = nativeName ?: code.uppercase())
+
+fun BookmarkEntity.toDomain() = Bookmark(
+    storyId = storyId,
+    language = language,
+    format = StoryFormat.entries.firstOrNull { it.name == format } ?: StoryFormat.COMIC,
+    position = position,
+    offset = textOffset,
+)
+
+fun Bookmark.toEntity(createdAt: Long) = BookmarkEntity(
+    storyId = storyId,
+    language = language,
+    format = format.name,
+    position = position,
+    textOffset = offset,
+    createdAt = createdAt,
+)

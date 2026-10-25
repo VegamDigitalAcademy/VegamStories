@@ -174,4 +174,22 @@
     <string name="reader_background_dark">డార్క్</string>
     <string name="reader_keep_screen_on">స్క్రీన్ ఆన్‌లో ఉంచు</string>
     <string name="reader_keep_screen_on_desc">మీరు చదువుతున్నప్పుడు స్క్రీన్ మసకబారదు, లాక్ అవ్వదు</string>
+
+    <!-- Bookmarks: the ribbon on reader pages, and the list in Menu -->
+    <string name="menu_bookmarks">బుక్‌మార్క్‌లు</string>
+    <string name="bookmarks_title">బుక్‌మార్క్‌లు</string>
+    <string name="bookmarks_empty_title">ఇంకా బుక్‌మార్క్‌లు లేవు</string>
+    <string name="bookmarks_empty_message">మీరు చదువుతున్న చోటు గుర్తుంచుకోవడానికి పేజీ పైన ఉన్న రిబ్బన్‌ను నొక్కండి. గుర్తు పెట్టిన పేజీలు ఇక్కడ కనిపిస్తాయి.</string>
+    <string name="bookmark_page">ఈ పేజీని బుక్‌మార్క్ చేయండి</string>
+    <string name="bookmark_remove">బుక్‌మార్క్ తీసివేయండి</string>
+    <string name="bookmark_comic_page">బొమ్మల కథ · పేజీ %1$d</string>
+    <string name="bookmark_text_place">“%1$s”</string>
+
+    <!-- End-of-story card, shared as a picture -->
+    <string name="moral_label">కథలోని నీతి</string>
+    <string name="share_story">ఈ కథను షేర్ చేయండి</string>
+    <string name="share_story_title">ఈ కథను షేర్ చేయండి</string>
+    <string name="share_card_tagline">పిల్లల కోసం కథలు</string>
+    <string name="share_text_moral">“%1$s”\n— వేగం కథలు యాప్‌లోని “%2$s” కథ నుండి. పిల్లల కోసం మరిన్ని కథలు చదవండి: %3$s</string>
+    <string name="share_text_story">వేగం కథలు యాప్‌లో “%1$s” కథ చదవండి, పిల్లల కోసం కథలు: %2$s</string>
 </resources>

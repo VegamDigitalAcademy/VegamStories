@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.CategoryEntity
 import com.vegamstories.app.data.local.entity.CategoryNameEntity
 import com.vegamstories.app.data.local.entity.LanguageEntity
@@ -167,6 +168,28 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun upgradeFrom7_keepsLibraryAndAddsBookmarks() {
+        createDatabase(
+            version = 7,
+            schema = VERSION_7_SCHEMA,
+            "INSERT INTO favorites (storyId, addedAt) VALUES ('moral-1', 1700000000000)",
+            "INSERT INTO reading_progress (storyId, lastPageIndex, totalPages, isCompleted, updatedAt) " +
+                "VALUES ('moral-1', 2, 5, 0, 1700000000002)",
+        )
+
+        withMigratedDatabase { db ->
+            val library = db.libraryDao()
+            assertTrue(library.isFavorite("moral-1"))
+            assertEquals(2, library.getProgress("moral-1")?.lastPageIndex)
+            // The new table starts empty and works.
+            assertTrue(library.observeBookmarks().first().isEmpty())
+            val bookmark = BookmarkEntity("moral-1", "te", "TEXT", position = 3, textOffset = 120, createdAt = 1L)
+            library.upsertBookmark(bookmark)
+            assertEquals(listOf(bookmark), library.observeBookmarks("moral-1").first())
+        }
+    }
+
     private suspend fun assertStoryCacheRebuiltEmpty(db: VegamDatabase) {
         // Story content is a cache of the server: rebuilt empty in the per-language shape, refilled on refresh.
         assertTrue(db.storyDao().observeAllStories("te").first().isEmpty())
@@ -198,7 +221,7 @@ class MigrationTest {
      */
     private fun withMigratedDatabase(block: suspend (VegamDatabase) -> Unit) {
         val db = Room.databaseBuilder(context, VegamDatabase::class.java, TEST_DB)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
             .build()
         try {
             runBlocking { block(db) }
@@ -263,6 +286,42 @@ class MigrationTest {
 
         /** Room's CREATE statements from app/schemas/.../5.json. */
         val VERSION_5_SCHEMA = VERSION_4_SCHEMA + listOf(
+            "CREATE TABLE IF NOT EXISTS `languages` (`code` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`nativeName` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`code`))",
+        )
+
+        /** Room's CREATE statements from app/schemas/.../7.json. */
+        val VERSION_7_SCHEMA = listOf(
+            "CREATE TABLE IF NOT EXISTS `categories` (`id` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+            "CREATE TABLE IF NOT EXISTS `stories` (`id` TEXT NOT NULL, `categoryId` TEXT NOT NULL, " +
+                "`episodeNumber` INTEGER NOT NULL, `publishedAt` INTEGER NOT NULL, " +
+                "`likeCount` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+            "CREATE INDEX IF NOT EXISTS `index_stories_categoryId` ON `stories` (`categoryId`)",
+            "CREATE INDEX IF NOT EXISTS `index_stories_publishedAt` ON `stories` (`publishedAt`)",
+            "CREATE TABLE IF NOT EXISTS `story_pages` (`storyId` TEXT NOT NULL, " +
+                "`language` TEXT NOT NULL, `pageIndex` INTEGER NOT NULL, `imageUrl` TEXT NOT NULL, " +
+                "PRIMARY KEY(`storyId`, `language`, `pageIndex`), " +
+                "FOREIGN KEY(`storyId`) REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+            "CREATE TABLE IF NOT EXISTS `favorites` (`storyId` TEXT NOT NULL, " +
+                "`addedAt` INTEGER NOT NULL, PRIMARY KEY(`storyId`))",
+            "CREATE TABLE IF NOT EXISTS `downloads` (`storyId` TEXT NOT NULL, " +
+                "`downloadedAt` INTEGER NOT NULL, PRIMARY KEY(`storyId`))",
+            "CREATE TABLE IF NOT EXISTS `reading_progress` (`storyId` TEXT NOT NULL, " +
+                "`lastPageIndex` INTEGER NOT NULL, `totalPages` INTEGER NOT NULL, " +
+                "`isCompleted` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`storyId`))",
+            "CREATE TABLE IF NOT EXISTS `pending_likes` (`storyId` TEXT NOT NULL, " +
+                "`liked` INTEGER NOT NULL, PRIMARY KEY(`storyId`))",
+            "CREATE TABLE IF NOT EXISTS `story_translations` (`storyId` TEXT NOT NULL, " +
+                "`language` TEXT NOT NULL, `title` TEXT NOT NULL, `summary` TEXT NOT NULL, " +
+                "`coverImageUrl` TEXT, `pageCount` INTEGER NOT NULL, `body` TEXT, `videoTitle` TEXT, " +
+                "`videoDescription` TEXT, `videoThumbnailUrl` TEXT, `videoUrl` TEXT, PRIMARY KEY(`storyId`, " +
+                "`language`), " +
+                "FOREIGN KEY(`storyId`) REFERENCES `stories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+            "CREATE INDEX IF NOT EXISTS `index_story_translations_language` ON `story_translations` (`language`)",
+            "CREATE TABLE IF NOT EXISTS `category_names` (`categoryId` TEXT NOT NULL, " +
+                "`language` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`categoryId`, `language`), " +
+                "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
             "CREATE TABLE IF NOT EXISTS `languages` (`code` TEXT NOT NULL, `name` TEXT NOT NULL, " +
                 "`nativeName` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`code`))",
         )

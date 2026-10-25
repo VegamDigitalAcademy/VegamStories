@@ -1,5 +1,7 @@
 package com.vegamstories.app.domain.repository
 
+import com.vegamstories.app.domain.model.Bookmark
+import com.vegamstories.app.domain.model.BookmarkItem
 import com.vegamstories.app.domain.model.Story
 import kotlinx.coroutines.flow.Flow
 
@@ -23,4 +25,14 @@ interface LibraryRepository {
     suspend fun saveProgress(storyId: String, pageIndex: Int, totalPages: Int)
 
     suspend fun clearReadingHistory()
+
+    /** Every bookmark, newest first, with its story. Stories no longer in the catalogue are left out. */
+    fun observeBookmarks(): Flow<List<BookmarkItem>>
+
+    /** The bookmarks in one story, in every language and format. */
+    fun observeBookmarks(storyId: String): Flow<List<Bookmark>>
+
+    suspend fun addBookmark(bookmark: Bookmark)
+
+    suspend fun removeBookmarks(bookmarks: List<Bookmark>)
 }

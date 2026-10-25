@@ -38,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -76,8 +78,12 @@ fun LikeStoryPage(
     onOpenNextStory: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The story's moral, for the card at the top (its summary is shown if there is none). */
+    moral: String? = null,
 ) {
     val isLiked = story.isFavorite
+    val context = LocalContext.current
+    val card = rememberGraphicsLayer()
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val circleColor by animateColorAsState(
@@ -96,15 +102,15 @@ fun LikeStoryPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        StoryCover(
-            story = story,
-            contentDescription = story.title,
-            modifier = Modifier
-                .size(width = 120.dp, height = 160.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Spacer(Modifier.height(24.dp))
+        // The story's card, to keep or share (WhatsApp…): it brings friends and family to the app.
+        MoralCard(story = story, moral = moral, layer = card, modifier = Modifier.padding(horizontal = 8.dp))
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = { scope.launch { shareMoralCard(context, card, story, moral) } }) {
+            Icon(painterResource(R.drawable.ic_share), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.share_story))
+        }
+        Spacer(Modifier.height(28.dp))
         AnimatedContent(
             targetState = isLiked,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
