@@ -14,10 +14,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -105,7 +103,7 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
         ) {
             CardCover(story)
             Column(
-                Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 16.dp),
+                Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
@@ -113,11 +111,11 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
                     color = CardInk,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    lineHeight = 28.sp,
+                    fontSize = 20.sp,
+                    lineHeight = 26.sp,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
                 if (moral != null) {
                     val label = storyString(R.string.moral_label, story.language)
                     // Spaced capitals in Latin script; Telugu and Odia letters are set as written.
@@ -129,14 +127,14 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
                         fontWeight = FontWeight.Bold,
                         letterSpacing = if (latin) 1.5.sp else 0.sp,
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = "“$moral”",
                         color = CardInk,
                         fontFamily = FontFamily.Serif,
                         fontStyle = FontStyle.Italic,
-                        fontSize = 19.sp,
-                        lineHeight = 28.sp,
+                        fontSize = 17.sp,
+                        lineHeight = 25.sp,
                         textAlign = TextAlign.Center,
                     )
                 } else {
@@ -151,43 +149,42 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 CardSignature(story.language)
             }
         }
     }
 }
 
-/** The cover across the top of the card, fading into the paper; a title card if there is none. */
+/**
+ * The whole cover at the top of the card, as drawn (fitted, never cropped, nothing laid over it),
+ * no taller than [CoverMaxHeight]; a title card if there is none.
+ */
 @Composable
 private fun CardCover(story: Story) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 10f),
-    ) {
-        val cover = story.coverImageUrl
-        if (cover != null) {
-            AsyncImage(
-                // A software bitmap: the card is copied into a picture for sharing, and older Android
-                // can't copy hardware bitmaps.
-                model = ImageRequest.Builder(LocalContext.current).data(cover).allowHardware(false).build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            TitleCard(title = story.title, categoryId = story.categoryId, modifier = Modifier.fillMaxSize())
-        }
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(28.dp)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, CardPaper))),
+    val cover = story.coverImageUrl
+    val shape = RoundedCornerShape(10.dp)
+    val modifier = Modifier
+        .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+        .fillMaxWidth()
+    if (cover != null) {
+        AsyncImage(
+            // A software bitmap: the card is copied into a picture for sharing, and older Android
+            // can't copy hardware bitmaps.
+            model = ImageRequest.Builder(LocalContext.current).data(cover).allowHardware(false).build(),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = modifier
+                .heightIn(max = CoverMaxHeight)
+                .clip(shape),
         )
+    } else {
+        TitleCard(title = story.title, categoryId = story.categoryId, modifier = modifier.height(140.dp).clip(shape))
     }
 }
+
+/** Keeps the card short enough for the heart below it to show on most phones. */
+private val CoverMaxHeight = 190.dp
 
 /** The logo and the app's name, so whoever gets the picture knows where the story is from. */
 @Composable
