@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
+import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.domain.model.ReaderTextSize
 import com.vegamstories.app.domain.model.StoryFormat
 import androidx.compose.ui.text.font.FontWeight
@@ -127,6 +128,10 @@ fun ReaderOptionsSheet(
     onDismiss: () -> Unit,
     format: StoryFormat = StoryFormat.COMIC,
     onTextSizeChange: (ReaderTextSize) -> Unit = {},
+    /** The languages this story is in; with more than one, the sheet offers to switch. */
+    languages: List<Language> = emptyList(),
+    selectedLanguage: String? = null,
+    onLanguageSelected: (languageCode: String) -> Unit = {},
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -139,6 +144,9 @@ fun ReaderOptionsSheet(
             onPageBackgroundChange = onPageBackgroundChange,
             format = format,
             onTextSizeChange = onTextSizeChange,
+            languages = languages,
+            selectedLanguage = selectedLanguage,
+            onLanguageSelected = onLanguageSelected,
         )
     }
 }
@@ -151,6 +159,9 @@ private fun ReaderOptionsContent(
     onPageBackgroundChange: (PageBackground) -> Unit,
     format: StoryFormat = StoryFormat.COMIC,
     onTextSizeChange: (ReaderTextSize) -> Unit = {},
+    languages: List<Language> = emptyList(),
+    selectedLanguage: String? = null,
+    onLanguageSelected: (languageCode: String) -> Unit = {},
 ) {
     Column(
         Modifier
@@ -162,6 +173,12 @@ private fun ReaderOptionsContent(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
+
+        // ---- The story's language (its pages, text and video) ----
+        if (languages.size > 1) {
+            OptionLabel(stringResource(R.string.cd_story_language))
+            LanguageChips(languages = languages, selectedCode = selectedLanguage, onSelect = onLanguageSelected)
+        }
 
         // ---- Text size (Read tab) ----
         if (format == StoryFormat.TEXT) {

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -67,8 +68,9 @@ import kotlinx.coroutines.launch
  * The page after the last comic page.
  *  - Not liked yet: "Did you like this story?" with a big heart and the like count. Tapping the
  *    heart pops it, fills it with colour and rolls the count up. A small "skip" link moves on.
- *  - Liked (just now or before): "You liked this story!", and the next episode slides in below,
- *    or "Back to stories" after the last episode. Tapping the heart again unlikes.
+ *  - Liked (just now or before): "You liked this story!", and below slide in the story's card with
+ *    its moral and Share (see [MoralCard]), then the next episode, or "Back to stories" after the
+ *    last episode. Tapping the heart again unlikes.
  */
 @Composable
 fun LikeStoryPage(
@@ -102,15 +104,18 @@ fun LikeStoryPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // The story's card, to keep or share (WhatsApp…): it brings friends and family to the app.
-        MoralCard(story = story, moral = moral, layer = card, modifier = Modifier.padding(horizontal = 8.dp))
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = { scope.launch { shareMoralCard(context, card, story, moral) } }) {
-            Icon(painterResource(R.drawable.ic_share), contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.share_story))
+        // The cover until the story is liked; then the card below shows it.
+        AnimatedVisibility(visible = !isLiked, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            StoryCover(
+                story = story,
+                contentDescription = story.title,
+                modifier = Modifier
+                    .padding(bottom = 24.dp)
+                    .size(width = 120.dp, height = 160.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            )
         }
-        Spacer(Modifier.height(28.dp))
         AnimatedContent(
             targetState = isLiked,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -175,6 +180,15 @@ fun LikeStoryPage(
                 modifier = Modifier.padding(top = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // The story's card, to keep or share (WhatsApp…): it brings friends and family to the app.
+                MoralCard(story = story, moral = moral, layer = card, modifier = Modifier.padding(horizontal = 8.dp))
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = { scope.launch { shareMoralCard(context, card, story, moral) } }) {
+                    Icon(painterResource(R.drawable.ic_share), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.share_story))
+                }
+                Spacer(Modifier.height(28.dp))
                 if (nextStory != null) {
                     NextEpisodeCard(story = nextStory, onClick = { onOpenNextStory(nextStory.id) })
                 } else {

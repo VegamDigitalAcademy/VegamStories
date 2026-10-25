@@ -256,14 +256,6 @@ private fun ReaderContent(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        if (state.languages.size > 1) {
-            LanguageChips(
-                languages = state.languages,
-                selectedCode = state.language,
-                onSelect = onLanguageSelected,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            )
-        }
         val readerModifier = Modifier
             .weight(1f)
             .fillMaxWidth()
@@ -379,6 +371,9 @@ private fun ReaderContent(
             onPageBackgroundChange = onPageBackgroundChange,
             format = state.format,
             onTextSizeChange = onTextSizeChange,
+            languages = state.languages,
+            selectedLanguage = state.language,
+            onLanguageSelected = onLanguageSelected,
             onDismiss = { showOptions = false },
         )
     }
