@@ -18,6 +18,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
@@ -392,9 +394,9 @@ private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
         )
     }
     drawRect(colors.paper, topLeft = Offset(pageLeft, 0f), size = Size(pageRight - pageLeft, pageBottom))
-    // The spine: the page curves into the binding on the left, and a little at its outer edge.
+    // A soft shade along the binding on the left, and a little at the page's outer edge.
     drawRect(
-        Brush.horizontalGradient(0f to shade(0.14f), 1f to Color.Transparent, startX = pageLeft, endX = pageLeft + 26.dp.toPx()),
+        Brush.horizontalGradient(0f to shade(0.08f), 1f to Color.Transparent, startX = pageLeft, endX = pageLeft + 26.dp.toPx()),
         topLeft = Offset(pageLeft, 0f),
         size = Size(26.dp.toPx(), pageBottom),
     )
@@ -420,4 +422,48 @@ private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
         size = Size(width - 2 * inner, pageBottom - 2 * (y + inner)),
         style = Stroke(hairline),
     )
+    drawSpiral(pageLeft, pageBottom, night)
 }
+
+/** The spiral binding's wire: dark steel by day, lighter at night so it shows on dark paper. */
+private val WireDay = Color(0xFF2E2E30)
+private val WireNight = Color(0xFF9A9A9E)
+
+/**
+ * A spiral binding down the page's left edge, like a notebook: a punched hole every [SpiralStep]
+ * and a coil of wire through each, looping out past the edge and back in.
+ */
+private fun DrawScope.drawSpiral(pageLeft: Float, pageBottom: Float, night: Boolean) {
+    val step = SpiralStep.toPx()
+    val holeX = pageLeft + 9.dp.toPx()
+    val holeRadius = 2.6.dp.toPx()
+    val outX = pageLeft - 7.dp.toPx() // how far the coil reaches beyond the edge
+    val wire = if (night) WireNight else WireDay
+    val shine = Color.White.copy(alpha = if (night) 0.55f else 0.45f)
+    val hole = Color.Black.copy(alpha = if (night) 0.65f else 0.5f)
+    val wireWidth = 2.dp.toPx()
+    val count = ((pageBottom - 2 * SpiralMargin.toPx()) / step).toInt().coerceAtLeast(1)
+    val first = (pageBottom - (count - 1) * step) / 2
+    val coil = Path()
+    for (i in 0 until count) {
+        val y = first + i * step
+        // The hole, with the paper's lit lower lip.
+        drawCircle(hole, holeRadius, Offset(holeX, y))
+        drawCircle(Color.White.copy(alpha = 0.12f), holeRadius, Offset(holeX, y + 0.8.dp.toPx()), style = Stroke(0.6.dp.toPx()))
+        // Two turns of wire side by side, from the hole over the edge and round behind it.
+        for (turn in 0..1) {
+            val dy = (turn - 0.5f) * 2.6.dp.toPx()
+            coil.reset()
+            coil.moveTo(holeX, y + dy)
+            coil.cubicTo(holeX - 3.dp.toPx(), y + dy - 6.dp.toPx(), outX, y + dy - 6.dp.toPx(), outX, y + dy - 1.dp.toPx())
+            coil.cubicTo(outX, y + dy + 3.dp.toPx(), pageLeft - 2.dp.toPx(), y + dy + 4.dp.toPx(), pageLeft, y + dy + 3.dp.toPx())
+            drawPath(coil, Color.Black.copy(alpha = 0.25f), style = Stroke(wireWidth + 1.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(coil, wire, style = Stroke(wireWidth, cap = StrokeCap.Round))
+            drawPath(coil, shine, style = Stroke(0.6.dp.toPx(), cap = StrokeCap.Round))
+        }
+    }
+}
+
+/** Space between the spiral's coils, and the paper left clear above the first and below the last. */
+private val SpiralStep = 22.dp
+private val SpiralMargin = 18.dp
