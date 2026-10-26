@@ -126,8 +126,6 @@
     <!-- Likes -->
     <string name="like_prompt_title">మీకు ఈ కథ నచ్చిందా?</string>
     <string name="like_prompt_hint">నచ్చితే హార్ట్‌ని నొక్కండి</string>
-    <string name="liked_title">మీకు ఈ కథ నచ్చింది!</string>
-    <string name="liked_hint">ధన్యవాదాలు! ఇది మీ ఇష్టమైనవాటిలో సేవ్ అయింది.</string>
     <string name="like_count_zero">మొదటి లైక్ మీదే కావచ్చు</string>
     <plurals name="like_count">
         <item quantity="one">%s లైక్</item>

@@ -1,6 +1,5 @@
 package com.vegamstories.app.presentation.reader
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -8,7 +7,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +31,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -41,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -56,21 +56,22 @@ import com.vegamstories.app.core.util.toCompactCount
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.presentation.components.RollingCount
 import com.vegamstories.app.presentation.components.StoryCover
-import com.vegamstories.app.presentation.components.StoryImage
 import com.vegamstories.app.presentation.components.likeIcon
 import com.vegamstories.app.presentation.components.pop
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
  * The page after the last comic page.
  *  - Not liked yet: "Did you like this story?" with a big heart and the like count. Tapping the
- *    heart pops it, fills it with colour and rolls the count up. A small "skip" link moves on.
- *  - Liked (just now or before): "You liked this story!", and below slide in the story's card with
- *    its moral and Share (see [MoralCard]), then the next episode, or "Back to stories" after the
- *    last episode. Tapping the heart again unlikes.
+ *    heart pops it and fills it with colour (the heart in the reader's top bar pops and its count
+ *    rolls up too). A small "skip" link moves on.
+ *  - Liked (just now or before): the question and the big heart fold away, leaving the story's card
+ *    with its moral and Share (see [MoralCard]), then the next episode, or "Back to stories" after
+ *    the last episode. The top bar's heart unlikes.
  */
 @Composable
 fun LikeStoryPage(
@@ -84,6 +85,13 @@ fun LikeStoryPage(
     moral: String? = null,
 ) {
     val isLiked = story.isFavorite
+    // What the page shows. Opened already liked: the card straight away. Liked here: the big heart
+    // fills and pops first, then folds away.
+    var showLiked by remember { mutableStateOf(isLiked) }
+    LaunchedEffect(isLiked) {
+        if (isLiked && !showLiked) delay(LIKED_FOLD_DELAY_MILLIS)
+        showLiked = isLiked
+    }
     val context = LocalContext.current
     val card = rememberGraphicsLayer()
     val scale = remember { Animatable(1f) }
@@ -104,82 +112,80 @@ fun LikeStoryPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // The cover until the story is liked; then the card below shows it.
-        AnimatedVisibility(visible = !isLiked, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-            StoryCover(
-                story = story,
-                contentDescription = story.title,
-                modifier = Modifier
-                    .padding(bottom = 24.dp)
-                    .size(width = 120.dp, height = 160.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
-        }
-        AnimatedContent(
-            targetState = isLiked,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "likeTitle",
-        ) { liked ->
+        // Until it is liked: the question, the big heart and the count, and a quiet skip.
+        AnimatedVisibility(visible = !showLiked, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                StoryCover(
+                    story = story,
+                    contentDescription = story.title,
+                    modifier = Modifier
+                        .padding(bottom = 24.dp)
+                        .size(width = 120.dp, height = 160.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
                 Text(
-                    text = stringResource(if (liked) R.string.liked_title else R.string.like_prompt_title),
+                    text = stringResource(R.string.like_prompt_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = stringResource(if (liked) R.string.liked_hint else R.string.like_prompt_hint),
+                    text = stringResource(R.string.like_prompt_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
+                Spacer(Modifier.height(28.dp))
+                Box(
+                    modifier = Modifier
+                        .size(112.dp)
+                        .graphicsLayer {
+                            scaleX = scale.value
+                            scaleY = scale.value
+                        }
+                        .clip(CircleShape)
+                        .background(circleColor)
+                        .clickable(role = Role.Button) {
+                            onToggleLike()
+                            scope.launch { scale.pop() }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(likeIcon(isLiked)),
+                        contentDescription = stringResource(if (isLiked) R.string.cd_unlike else R.string.cd_like),
+                        tint = heartColor,
+                        modifier = Modifier.size(52.dp),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                RollingCount(count = story.likeCount) { count ->
+                    Text(
+                        text = if (count > 0) {
+                            pluralStringResource(R.plurals.like_count, count, count.toCompactCount())
+                        } else {
+                            stringResource(R.string.like_count_zero)
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+                TextButton(onClick = { if (nextStory != null) onOpenNextStory(nextStory.id) else onBack() }) {
+                    Text(
+                        text = stringResource(if (nextStory != null) R.string.skip_to_next_story else R.string.back_to_stories),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
-        Spacer(Modifier.height(28.dp))
-        Box(
-            modifier = Modifier
-                .size(112.dp)
-                .graphicsLayer {
-                    scaleX = scale.value
-                    scaleY = scale.value
-                }
-                .clip(CircleShape)
-                .background(circleColor)
-                .clickable(role = Role.Button) {
-                    onToggleLike()
-                    scope.launch { scale.pop() }
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(likeIcon(isLiked)),
-                contentDescription = stringResource(if (isLiked) R.string.cd_unlike else R.string.cd_like),
-                tint = heartColor,
-                modifier = Modifier.size(52.dp),
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        RollingCount(count = story.likeCount) { count ->
-            Text(
-                text = if (count > 0) {
-                    pluralStringResource(R.plurals.like_count, count, count.toCompactCount())
-                } else {
-                    stringResource(R.string.like_count_zero)
-                },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
 
-        // After liking: the way forward. Before: only a quiet skip, so the heart stays the focus.
-        AnimatedVisibility(visible = isLiked, enter = fadeIn() + expandVertically(), exit = fadeOut()) {
-            Column(
-                modifier = Modifier.padding(top = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
+        // Once liked: the story's card to share, and the way forward.
+        AnimatedVisibility(visible = showLiked, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // The story's card, to keep or share (WhatsApp…): it brings friends and family to the app.
                 MoralCard(story = story, moral = moral, layer = card, modifier = Modifier.padding(horizontal = 8.dp))
                 Spacer(Modifier.height(12.dp))
@@ -203,17 +209,11 @@ fun LikeStoryPage(
                 }
             }
         }
-        if (!isLiked) {
-            Spacer(Modifier.height(20.dp))
-            TextButton(onClick = { if (nextStory != null) onOpenNextStory(nextStory.id) else onBack() }) {
-                Text(
-                    text = stringResource(if (nextStory != null) R.string.skip_to_next_story else R.string.back_to_stories),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
     }
 }
+
+/** How long the big heart shows filled after a tap before the page moves on to the card. */
+private const val LIKED_FOLD_DELAY_MILLIS = 450L
 
 /** "NEXT EPISODE" card: cover, episode + title, and a Read button. The whole card opens it. */
 @Composable

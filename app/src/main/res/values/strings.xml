@@ -130,8 +130,6 @@
     <!-- Likes (the heart): card shows the count, the reader lets you like -->
     <string name="like_prompt_title">Did you like this story?</string>
     <string name="like_prompt_hint">Tap the heart to like it</string>
-    <string name="liked_title">You liked this story!</string>
-    <string name="liked_hint">Thanks! It\'s saved in your favorites.</string>
     <string name="like_count_zero">Be the first to like it</string>
     <plurals name="like_count">
         <item quantity="one">%s like</item>

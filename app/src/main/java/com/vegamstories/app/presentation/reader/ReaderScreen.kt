@@ -506,7 +506,7 @@ private const val TURN_HINT_DELAY_MILLIS = 1_200L
 private const val TURN_HINT_LIFT = 0.18f
 
 /** How long each page of text waits before auto-turn turns it (comic pages: Settings → Reading). */
-private const val TEXT_AUTO_TURN_MILLIS = 45_000L
+private const val TEXT_AUTO_TURN_MILLIS = 60_000L
 
 /**
  * The Read tab as a book: the text split into pages that fit the screen (see [rememberTextBook]),
