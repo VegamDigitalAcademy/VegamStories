@@ -5,7 +5,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.vegamstories.app.BuildConfig
 import com.vegamstories.app.data.remote.api.StoryApi
-import com.vegamstories.app.data.remote.logging.PrettyApiLogger
+import com.vegamstories.app.data.remote.logging.ApiLoggingInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,7 +14,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
@@ -51,19 +50,10 @@ object NetworkModule {
                 .build()
             chain.proceed(request)
         }
-        .apply {
-            // Debug builds only: every Supabase call in Logcat (tag "VegamApi") with pretty JSON.
-            // Added after the auth interceptor so it shows the real request; keys are masked.
-            if (BuildConfig.DEBUG) {
-                addInterceptor(
-                    HttpLoggingInterceptor(PrettyApiLogger()).apply {
-                        level = HttpLoggingInterceptor.Level.BODY
-                        redactHeader("apikey")
-                        redactHeader("Authorization")
-                    },
-                )
-            }
-        }
+        // Every call and its response in the logs (tag "ApiLoggingInterceptor"): Logcat in debug builds, the log
+        // files in every build. After the auth interceptor, so it sees the real request; it never
+        // logs headers, so the key stays out of the logs.
+        .addInterceptor(ApiLoggingInterceptor())
         .build()
 
     @Provides

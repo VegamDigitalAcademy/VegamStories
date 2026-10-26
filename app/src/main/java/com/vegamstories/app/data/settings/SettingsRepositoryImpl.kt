@@ -1,5 +1,7 @@
 package com.vegamstories.app.data.settings
 
+import com.vegamstories.app.core.logging.logTime
+import com.vegamstories.app.core.logging.AppLogger
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -25,13 +27,24 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val TAG = "SettingsRepositoryImpl"
+
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
 
+    private val log = AppLogger(TAG)
+
     private val prefs: Flow<Preferences> = dataStore.data
-        .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
+        .catch { e ->
+            if (e is IOException) {
+                log.w("$TAG: Settings file couldn't be read; using the defaults", e)
+                emit(emptyPreferences())
+            } else {
+                throw e
+            }
+        }
 
     override val themeMode: Flow<ThemeMode> = prefs
         // Nothing saved yet (first launch) → follow the phone.
@@ -40,6 +53,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[THEME_MODE] = mode.name }
+        log.i("$TAG: Theme saved: $mode")
     }
 
     override val readerSettings: Flow<ReaderSettings> = prefs
@@ -48,8 +62,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateReaderSettings(transform: (ReaderSettings) -> ReaderSettings) {
         dataStore.edit { prefs ->
-            val updated = transform(prefs.toReaderSettings())
+            val before = prefs.toReaderSettings()
+            val updated = transform(before)
             prefs.write(updated)
+            if (updated != before) log.i("$TAG: Reader settings saved", data = updated)
         }
     }
 
@@ -59,6 +75,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setNewStoryAlertsEnabled(enabled: Boolean) {
         dataStore.edit { it[NEW_STORY_ALERTS] = enabled }
+        log.i("$TAG: New story alerts ${if (enabled) "on" else "off"}")
     }
 
     override suspend fun getLastSeenStory(): SeenStory? {
@@ -72,6 +89,7 @@ class SettingsRepositoryImpl @Inject constructor(
             it[LAST_SEEN_STORY_ID] = story.id
             it[LAST_SEEN_STORY_PUBLISHED_AT] = story.publishedAt
         }
+        log.d("$TAG: Newest story seen: ${story.id} (${logTime(story.publishedAt)})")
     }
 
     private fun Preferences.toReaderSettings(): ReaderSettings {

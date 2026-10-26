@@ -1,5 +1,6 @@
 package com.vegamstories.app.presentation.reader
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -60,9 +61,10 @@ import com.vegamstories.app.presentation.preview.PreviewTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.File
 import java.util.Locale
+
+private const val TAG = "MoralCard"
 
 /**
  * The card's own colours, the same in light and dark mode: shared as a picture, it should look
@@ -222,7 +224,7 @@ suspend fun shareMoralCard(context: Context, card: GraphicsLayer, story: Story, 
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Timber.w(e, "Couldn't make the story card picture; sharing the text only")
+        shareLog.w("$TAG: Couldn't make the story card picture; sharing the text only", e)
         null
     }
     val link = "https://play.google.com/store/apps/details?id=${context.packageName}"
@@ -243,6 +245,7 @@ suspend fun shareMoralCard(context: Context, card: GraphicsLayer, story: Story, 
             type = "text/plain"
         }
     }
+    shareLog.i("$TAG: User: share story card ${story.id} (${if (picture != null) "picture and text" else "text only"})")
     context.startActivity(Intent.createChooser(send, context.getString(R.string.share_story_title)))
 }
 
@@ -260,6 +263,8 @@ private fun storyString(@StringRes id: Int, language: String): String {
     val context = LocalContext.current
     return remember(context, id, language) { context.inLanguage(language).getString(id) }
 }
+
+private val shareLog = AppLogger(TAG)
 
 /** Writes [bitmap] to the app's cache (one picture per story, replaced each time) and returns a shareable link to it. */
 private fun saveForSharing(context: Context, bitmap: Bitmap, storyId: String): Uri {

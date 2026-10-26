@@ -18,3 +18,11 @@
 # (the class is still shrunk and optimized) or, right after an app update, updateAll() can miss
 # the widgets until the system next sends StoryWidgetReceiver an update.
 -keepnames class * extends androidx.glance.appwidget.GlanceAppWidget
+
+# The app's logs (core/logging/LogData.kt) print the app's own objects as JSON by reading their
+# fields: models, database rows and screen states. Keep those classes' and fields' names, so
+# release logs (Settings → Support → Share logs) say "title" instead of "a". Names only: the
+# classes are still shrunk and optimized.
+-keepnames class com.vegamstories.app.domain.model.** { <fields>; }
+-keepnames class com.vegamstories.app.data.local.entity.** { <fields>; }
+-keepnames class com.vegamstories.app.presentation.**UiState { <fields>; }

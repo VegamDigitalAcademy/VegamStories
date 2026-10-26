@@ -1,5 +1,6 @@
 package com.vegamstories.app.data.remote.datasource
 
+import com.vegamstories.app.core.logging.AppLogger
 import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.FeedResponseDto
 import com.vegamstories.app.data.remote.dto.LanguageDto
@@ -13,6 +14,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+private const val TAG = "FakeStoryRemoteDataSource"
+
 /**
  * Pretends to be the server: returns the same JSON shape ([FeedResponseDto]) the real
  * API will return, filled with sample stories in Telugu, English and Odia and placeholder images.
@@ -22,7 +25,10 @@ class FakeStoryRemoteDataSource @Inject constructor(
     private val likes: FakeLikeRemoteDataSource,
 ) : StoryRemoteDataSource {
 
+    private val log = AppLogger(TAG)
+
     override suspend fun fetchFeed(): FeedResponseDto = withContext(ioDispatcher) {
+        log.d("$TAG: No server set up (local.properties): making the sample stories")
         delay(NETWORK_DELAY_MS) // simulate network latency so loading states are visible
         FeedResponseDto(categories = categories, stories = buildStories(), languages = languages)
     }

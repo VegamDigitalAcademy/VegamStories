@@ -1,5 +1,11 @@
 package com.vegamstories.app.presentation.settings
 
+import com.vegamstories.app.core.logging.SharedLogs
+import com.vegamstories.app.core.logging.AppLogger
+import androidx.compose.ui.res.painterResource
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Icon
+import android.content.ClipData
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -64,7 +70,8 @@ import com.vegamstories.app.presentation.components.VegamSwitch
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.preview.ScreenPreviews
 import com.vegamstories.app.presentation.preview.TeluguPreview
-import timber.log.Timber
+
+private const val TAG = "SettingsScreen"
 
 @Composable
 fun SettingsScreen(
@@ -75,7 +82,27 @@ fun SettingsScreen(
     val language by viewModel.language.collectAsStateWithLifecycle()
     val newStoryAlerts by viewModel.newStoryAlerts.collectAsStateWithLifecycle()
     val readerSettings by viewModel.readerSettings.collectAsStateWithLifecycle()
+    val shareLogs by viewModel.shareLogs.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Support → Share logs: the note dialog, then the share sheet with the zip.
+    var showShareLogs by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(viewModel) {
+        viewModel.logsToShare.collect { logs ->
+            showShareLogs = false
+            context.shareLogs(logs)
+        }
+    }
+    if (showShareLogs) {
+        ShareLogsDialog(
+            state = shareLogs,
+            onShare = viewModel::onShareLogs,
+            onDismiss = {
+                showShareLogs = false
+                viewModel.onShareLogsDismissed()
+            },
+        )
+    }
 
     // Whether the system lets the app post notifications at all. Re-checked on every resume,
     // since the user may have just changed it in the phone's settings.
@@ -116,9 +143,35 @@ fun SettingsScreen(
         autoTurnSeconds = readerSettings.autoTurnSeconds,
         onAutoTurnChange = viewModel::onAutoTurnChange,
         onAutoTurnSecondsChange = viewModel::onAutoTurnSecondsChange,
+        onShareLogs = { showShareLogs = true },
         onBack = onBack,
     )
 }
+
+/**
+ * The share sheet with the logs zip: WhatsApp, Gmail (addressed to support, with a subject) or any
+ * app that takes a file. The note and the app/phone line go in the message too.
+ */
+private fun Context.shareLogs(logs: SharedLogs) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/zip"
+        putExtra(Intent.EXTRA_STREAM, logs.uri)
+        putExtra(Intent.EXTRA_TEXT, logs.text)
+        putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_logs_subject))
+        putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.support_email)))
+        // Lets the chosen app read the zip (through the FileProvider).
+        clipData = ClipData.newRawUri(null, logs.uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        startActivity(Intent.createChooser(send, getString(R.string.share_logs_title)))
+        log.i("$TAG: Share sheet opened for the logs")
+    } catch (e: ActivityNotFoundException) {
+        log.w("$TAG: No app can share the logs", e)
+    }
+}
+
+private val log = AppLogger(TAG)
 
 /** The app's notification page in the phone's settings (Android 8+), else its app-info page. */
 private fun Context.openAppNotificationSettings() {
@@ -130,7 +183,7 @@ private fun Context.openAppNotificationSettings() {
     try {
         startActivity(intent)
     } catch (e: ActivityNotFoundException) {
-        Timber.w(e, "No settings screen for notifications")
+        log.w("$TAG: No settings screen for notifications", e)
     }
 }
 
@@ -150,6 +203,7 @@ fun SettingsContent(
     autoTurnSeconds: Int = 10,
     onAutoTurnChange: (Boolean) -> Unit = {},
     onAutoTurnSecondsChange: (Int) -> Unit = {},
+    onShareLogs: () -> Unit = {},
 ) {
     Scaffold(
         topBar = { BackTopBar(title = stringResource(R.string.menu_settings), onBack = onBack) },
@@ -244,6 +298,16 @@ fun SettingsContent(
                         .padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+
+            // ---- Support ----
+            SectionLabel(stringResource(R.string.settings_support_section))
+            ActionRow(
+                title = stringResource(R.string.settings_share_logs),
+                subtitle = stringResource(R.string.settings_share_logs_desc),
+                onClick = onShareLogs,
+            )
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -309,6 +373,33 @@ private fun RadioOptionRow(title: String, subtitle: String, selected: Boolean, o
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** A row that does something when tapped (opens a dialog), with a chevron. */
+@Composable
+private fun ActionRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+        )
     }
 }
 
