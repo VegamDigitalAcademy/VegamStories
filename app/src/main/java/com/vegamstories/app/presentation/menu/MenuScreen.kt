@@ -56,9 +56,7 @@ fun MenuScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            MenuItem(R.drawable.ic_person, stringResource(R.string.menu_profile), showChevron = true) {
-                onInfoPage(InfoPage.PROFILE)
-            }
+            // Profile (InfoPage.PROFILE) is hidden until sign-in exists.
             MenuItem(R.drawable.ic_favorite_border, stringResource(R.string.menu_favorites), showChevron = true, onClick = onFavorites)
             MenuItem(R.drawable.ic_download, stringResource(R.string.menu_downloads), showChevron = true, onClick = onDownloads)
             MenuItem(R.drawable.ic_history, stringResource(R.string.menu_history), showChevron = true, onClick = onHistory)
