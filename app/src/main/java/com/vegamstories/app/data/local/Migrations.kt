@@ -99,3 +99,14 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_story_translations_language` ON `story_translations` (`language`)")
     }
 }
+
+/** 7 → 8: bookmarks, pages marked with the ribbon. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `bookmarks` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`format` TEXT NOT NULL, `position` INTEGER NOT NULL, `textOffset` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`storyId`, `language`, `format`, `position`, `textOffset`))",
+        )
+    }
+}

@@ -1,6 +1,7 @@
 package com.vegamstories.app.testutil
 
 import com.vegamstories.app.data.local.dao.LibraryDao
+import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.FavoriteEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
@@ -47,4 +48,8 @@ class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     override suspend fun getProgress(storyId: String): ReadingProgressEntity? = null
     override suspend fun upsertProgress(entity: ReadingProgressEntity) = Unit
     override suspend fun clearProgress() = Unit
+    override fun observeBookmarks(): Flow<List<BookmarkEntity>> = emptyFlow()
+    override fun observeBookmarks(storyId: String): Flow<List<BookmarkEntity>> = emptyFlow()
+    override suspend fun upsertBookmark(entity: BookmarkEntity) = Unit
+    override suspend fun deleteBookmarks(entities: List<BookmarkEntity>) = Unit
 }

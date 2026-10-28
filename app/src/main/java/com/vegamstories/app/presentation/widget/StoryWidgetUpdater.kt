@@ -1,5 +1,6 @@
 package com.vegamstories.app.presentation.widget
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.content.Context
 import androidx.glance.appwidget.updateAll
 import com.vegamstories.app.di.ApplicationScope
@@ -10,9 +11,10 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "StoryWidgetUpdater"
 
 /**
  * Redraws placed widgets whenever what they show changes: a page turned, a story finished, or a
@@ -31,17 +33,20 @@ class StoryWidgetUpdater @Inject constructor(
             widgetData.observeKey()
                 .distinctUntilChanged()
                 .debounce(UPDATE_DEBOUNCE_MS) // page flips come quickly; redraw once they settle
-                .collect {
+                .collect { key ->
                     try {
-                        StoryWidget().updateAll(context)
+                        log.timed("$TAG: Redraw home screen widgets") { StoryWidget().updateAll(context) }
+                        log.v("$TAG: Widget shows", data = key)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Timber.w(e, "Widget update failed")
+                        log.w("$TAG: Widget update failed", e)
                     }
                 }
         }
     }
+
+    private val log = AppLogger(TAG)
 
     private companion object {
         const val UPDATE_DEBOUNCE_MS = 1_000L

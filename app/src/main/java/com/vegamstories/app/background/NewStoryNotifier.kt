@@ -1,5 +1,6 @@
 package com.vegamstories.app.background
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -22,9 +23,10 @@ import com.vegamstories.app.presentation.shortcuts.ShortcutTarget
 import com.vegamstories.app.ui.theme.VegamRed
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "NewStoryNotifier"
 
 /** Posts the "New story" notification. Tapping it opens the story in the reader. */
 @Singleton
@@ -37,7 +39,10 @@ class NewStoryNotifier @Inject constructor(
     @SuppressLint("MissingPermission") // checked by areNotificationsEnabled(), which covers POST_NOTIFICATIONS
     suspend fun show(story: Story) {
         val manager = NotificationManagerCompat.from(context)
-        if (!manager.areNotificationsEnabled()) return
+        if (!manager.areNotificationsEnabled()) {
+            log.i("$TAG: New story ${story.id}: no notification, the phone blocks the app's notifications")
+            return
+        }
         createChannel(context)
 
         val cover = loadCover(story.coverImageUrl)
@@ -70,8 +75,9 @@ class NewStoryNotifier @Inject constructor(
         try {
             // One notification per story: a second check for the same story replaces it.
             manager.notify(NOTIFICATION_TAG, story.id.hashCode(), notification)
+            log.i("$TAG: New story notification shown: ${story.id} \"${story.title}\" (cover: ${cover != null})")
         } catch (e: SecurityException) {
-            Timber.w(e, "New-story notification not allowed")
+            log.w("$TAG: New-story notification not allowed", e)
         }
     }
 
@@ -86,9 +92,11 @@ class NewStoryNotifier @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Timber.w(e, "Cover for notification failed to load")
+        log.w("$TAG: Cover for notification failed to load: $url", e)
         null
     }
+
+    private val log = AppLogger(TAG)
 
     companion object {
         private const val CHANNEL_ID = "new_stories"

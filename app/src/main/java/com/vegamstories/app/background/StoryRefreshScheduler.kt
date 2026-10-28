@@ -1,5 +1,6 @@
 package com.vegamstories.app.background
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -11,6 +12,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "StoryRefreshScheduler"
 
 /**
  * Schedules [StoryRefreshWorker]: every few hours, only when online. Each run downloads only when
@@ -28,7 +31,10 @@ class StoryRefreshScheduler @Inject constructor(
             .build()
         WorkManager.getInstance(context)
             .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        log.d("$TAG: Background check scheduled: every $REPEAT_HOURS hours, when online")
     }
+
+    private val log = AppLogger(TAG)
 
     private companion object {
         const val WORK_NAME = "story_refresh"

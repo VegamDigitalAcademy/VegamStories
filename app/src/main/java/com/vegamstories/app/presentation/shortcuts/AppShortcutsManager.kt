@@ -1,5 +1,6 @@
 package com.vegamstories.app.presentation.shortcuts
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.content.Context
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "AppShortcutsManager"
 
 /**
  * Keeps the app-icon long-press menu in sync with the story categories.
@@ -40,10 +43,14 @@ class AppShortcutsManager @Inject constructor(
     /** Call when the user opens a shortcut; launchers use this to rank shortcuts. */
     fun reportUsed(target: ShortcutTarget) {
         val id = target.shortcutIdOrNull() ?: return
+        log.d("$TAG: Shortcut used: $id")
         ShortcutManagerCompat.reportShortcutUsed(context, id)
     }
 
+    private val log = AppLogger(TAG)
+
     private fun publish(categories: List<Category>) {
+        log.d("$TAG: App icon shortcuts updated", data = categories.sortedBy { it.sortOrder }.take(MAX_CATEGORY_SHORTCUTS).map { it.name })
         // Launchers show about 4 entries; keep 3 categories + Search.
         val categoryShortcuts = categories
             .sortedBy { it.sortOrder }

@@ -1,5 +1,6 @@
 package com.vegamstories.app.presentation.home
 
+import com.vegamstories.app.core.logging.AppLogger
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,6 +26,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val TAG = "HomeViewModel"
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -37,6 +40,11 @@ class HomeViewModel @Inject constructor(
     getContentLanguages: GetContentLanguagesUseCase,
     private val setContentLanguage: SetContentLanguageUseCase,
 ) : ViewModel() {
+
+    private val log = AppLogger(TAG)
+
+    /** What Home showed last, so a like or a page turn elsewhere doesn't log the same list again. */
+    private var lastShown: String? = null
 
     // Opened from an app-icon shortcut → start on that category's tab.
     private val selectedCategoryId = MutableStateFlow(savedStateHandle.toRoute<HomeRoute>().categoryId)
@@ -55,6 +63,12 @@ class HomeViewModel @Inject constructor(
         continueReadingFlow,
         combine(isRefreshing, getContentLanguages(), ::Pair),
     ) { categories, selectedId, stories, continueReading, (refreshing, languages) ->
+        val shown = "${stories.size} stories in ${languages?.selected}, tab ${selectedId ?: "ALL"} of ${categories.size}" +
+            (continueReading?.let { ", continue reading ${it.id}" } ?: "")
+        if (shown != lastShown) {
+            lastShown = shown
+            log.d("$TAG: Home shows $shown", data = stories.take(5).map { "${it.id}: ${it.title}" })
+        }
         HomeUiState(
             categories = categories,
             selectedCategoryId = selectedId,
@@ -71,32 +85,47 @@ class HomeViewModel @Inject constructor(
     )
 
     init {
+        log.i("$TAG: Home opened" + (selectedCategoryId.value?.let { " on tab $it (app icon shortcut)" } ?: ""))
         // Opening the app downloads only when a day has passed, or nothing is saved yet.
         runRefresh(force = false)
     }
 
     fun onCategorySelected(categoryId: String?) {
+        log.i("$TAG: User: tab ${categoryId ?: "ALL"}")
         selectedCategoryId.value = categoryId
     }
 
     /** Shows Home (and Search, the reader, the widget…) in another language. Categories differ, so back to ALL. */
     fun onLanguageSelected(code: String) {
+        log.i("$TAG: User: story language $code")
         selectedCategoryId.value = null
         viewModelScope.launch { setContentLanguage(code) }
     }
 
     /** Pull to refresh, or Retry: always downloads. */
-    fun refresh() = runRefresh(force = true)
+    fun refresh() {
+        log.i("$TAG: User: pull to refresh")
+        runRefresh(force = true)
+    }
 
     private fun runRefresh(force: Boolean) {
-        if (isRefreshing.value) return
+        if (isRefreshing.value) {
+            log.d("$TAG: Refresh already running")
+            return
+        }
         viewModelScope.launch {
             // The spinner only for a refresh the reader asked for; the daily one updates the list quietly.
             if (force) isRefreshing.value = true
             refreshContent(force)
-                // New stories are on screen now, so the background check won't announce them later.
-                .onSuccess { downloaded -> if (downloaded) checkForNewStory(userIsInApp = true) }
-                .onFailure { events.send(HomeEvent.RefreshFailed) }
+                .onSuccess { downloaded ->
+                    log.d(if (downloaded) "$TAG: Home: stories downloaded" else "$TAG: Home: stories up to date, nothing downloaded")
+                    // New stories are on screen now, so the background check won't announce them later.
+                    if (downloaded) log.d("$TAG: New story check", data = checkForNewStory(userIsInApp = true))
+                }
+                .onFailure { e ->
+                    log.w("$TAG: Home: refresh failed, the saved stories stay", e)
+                    events.send(HomeEvent.RefreshFailed)
+                }
             isRefreshing.value = false
         }
     }

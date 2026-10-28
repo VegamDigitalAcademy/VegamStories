@@ -1,6 +1,8 @@
 package com.vegamstories.app.domain
 
 import com.vegamstories.app.domain.model.ReadingProgress
+import com.vegamstories.app.domain.model.Bookmark
+import com.vegamstories.app.domain.model.BookmarkItem
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.repository.LibraryRepository
 import com.vegamstories.app.domain.usecase.SaveReadingProgressUseCase
@@ -26,6 +28,10 @@ class SaveReadingProgressUseCaseTest {
             saved = Triple(storyId, pageIndex, totalPages)
         }
         override suspend fun clearReadingHistory() = Unit
+        override fun observeBookmarks(): Flow<List<BookmarkItem>> = emptyFlow()
+        override fun observeBookmarks(storyId: String): Flow<List<Bookmark>> = emptyFlow()
+        override suspend fun addBookmark(bookmark: Bookmark) = Unit
+        override suspend fun removeBookmarks(bookmarks: List<Bookmark>) = Unit
     }
 
     private val repo = FakeLibraryRepository()

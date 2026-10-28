@@ -1,5 +1,7 @@
 package com.vegamstories.app.presentation.navigation
 
+import com.vegamstories.app.presentation.bookmarks.BookmarksScreen
+import com.vegamstories.app.presentation.bookshelf.BookshelfScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -63,6 +65,8 @@ fun VegamNavHost(
                     onFavorites = { navController.navigateToTopLevel(TopLevelDestination.FAVORITES) },
                     onDownloads = { navController.navigateToTopLevel(TopLevelDestination.DOWNLOADS) },
                     onHistory = { navController.navigate(HistoryRoute) },
+                    onBookmarks = { navController.navigate(BookmarksRoute) },
+                    onBookshelf = { navController.navigate(BookshelfRoute) },
                     onSettings = { navController.navigate(SettingsRoute) },
                     onInfoPage = { page -> navController.navigate(InfoRoute(page.name)) },
                 )
@@ -70,6 +74,17 @@ fun VegamNavHost(
         }
         composable<HistoryRoute> {
             AboveBottomBar { HistoryScreen(onBack = navController::popBackStack, onStoryClick = openStory) }
+        }
+        composable<BookshelfRoute> {
+            AboveBottomBar { BookshelfScreen(onBack = navController::popBackStack, onStoryClick = openStory) }
+        }
+        composable<BookmarksRoute> {
+            AboveBottomBar {
+                BookmarksScreen(
+                    onBack = navController::popBackStack,
+                    onOpenBookmark = { bookmark -> navController.navigate(bookmark.toReaderRoute()) },
+                )
+            }
         }
         composable<SearchRoute> {
             SearchScreen(onBack = navController::popBackStack, onStoryClick = openStory)

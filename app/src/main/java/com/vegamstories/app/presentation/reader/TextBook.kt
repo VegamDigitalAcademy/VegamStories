@@ -18,6 +18,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
@@ -51,26 +53,44 @@ private val FrameInsetX = 14.dp
 private val FrameInsetY = 10.dp
 
 /** Where the text sits inside the page. */
-private val TextInsetX = 30.dp
+private val TextInsetX = 26.dp
 private val TextInsetTop = 34.dp
 
 /** Room under the text for the page number. */
 private val FooterHeight = 40.dp
 
-/** The edges of the pages under the open one, showing at its right and bottom as in a real book. */
-private const val UNDER_PAGES = 6
-private val PageStackRight = 8.dp
-private val PageStackBottom = 5.dp
+/**
+ * The edges of the book's other pages, showing beside the open one as in a real book: those still to
+ * come on the right (and below it), those already read on the left. At most [MAX_EDGES] on a side:
+ * the book looks thinner on the right and thicker on the left as it is read.
+ */
+private const val MAX_EDGES = 6
+private val EdgeStepX = 1.4.dp
+private val EdgeStepY = 0.9.dp
 
-/** How far each page underneath sits out of line (dp): a book's edge is never quite straight. */
-private val StackJitter = floatArrayOf(0.4f, 0f, 0.7f, 0.2f, 0.9f, 0.3f)
+/** Room kept for the edges on each side, so the page and its text stay put however many show. */
+private val EdgeRoomX = EdgeStepX * MAX_EDGES
+private val EdgeRoomY = EdgeStepY * MAX_EDGES
+
+/** How far each page sits out of line (dp): a book's edge is never quite straight. */
+private val EdgeJitter = floatArrayOf(0.4f, 0f, 0.7f, 0.2f, 0.9f, 0.3f)
+
+/** Where the ribbon hangs from the top of the page: in from its right edge. */
+internal val BookRibbonEndPadding = BookPageMargin + EdgeRoomX + 12.dp
 
 /** Space under the title on the first page, around its ornament. */
 private val TitleGap = 30.dp
 
 /** The paper and ink of the Read tab's pages: warm, dim paper with black ink; reversed at night. */
 @Immutable
-data class BookColors(val paper: Color, val ink: Color, val rule: Color, val faint: Color)
+data class BookColors(
+    val paper: Color,
+    val ink: Color,
+    val rule: Color,
+    val faint: Color,
+    /** Night pages: the edges are drawn lighter than the paper and the shadows deeper, so they show on dark. */
+    val night: Boolean = false,
+)
 
 private val DayBook = BookColors(
     paper = Color(0xFFF1E7D0),
@@ -79,12 +99,14 @@ private val DayBook = BookColors(
     faint = Color(0xFF6E5E46),
 )
 private val NightBook = BookColors(
-    paper = Color(0xFF1D1B17),
-    ink = Color(0xFFE8DFCB),
-    rule = Color(0xFF8C7752),
-    faint = Color(0xFFA8987A),
+    // Warm dark-brown paper, a few shades lighter than the dark screen around it, so the page shows
+    // as a page; soft warm ink, not glaring white.
+    paper = Color(0xFF2A251F),
+    ink = Color(0xFFE3D6BC),
+    rule = Color(0xFFA88B57),
+    faint = Color(0xFFA2927A),
+    night = true,
 )
-
 /** Night pages when the reader is dark (dark app theme, or the Dark page background). */
 @Composable
 fun bookColors(): BookColors = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) NightBook else DayBook
@@ -210,8 +232,8 @@ fun rememberTextBook(title: String, paragraphs: List<String>, textSize: ReaderTe
         val body = bodyStyle(textSize, colors.ink)
         val titleStyle = titleStyle(textSize, colors.ink)
         with(density) {
-            val textWidth = (width - BookPageMargin * 2 - TextInsetX * 2 - PageStackRight).roundToPx().coerceAtLeast(1)
-            val textHeight = (height - TextInsetTop - FooterHeight - PageStackBottom).toPx()
+            val textWidth = (width - (BookPageMargin + EdgeRoomX + TextInsetX) * 2).roundToPx().coerceAtLeast(1)
+            val textHeight = (height - TextInsetTop - FooterHeight - EdgeRoomY).toPx()
             val gap = (textSize.fontSizeSp * 0.7f).sp.toDp()
             // Laid-out heights are whole pixels: allow for rounding up at every paragraph.
             val slack = 2f
@@ -245,21 +267,36 @@ private fun TextLayoutResult.bookLines(slack: Float): List<BookLine> = List(line
     )
 }
 
+/** How many page edges show beside the open page: [read] on the left, [toCome] on the right. */
+internal data class BookEdges(val read: Int, val toCome: Int)
+
+/**
+ * The edges beside page [index] of [pageCount]: the pages still to come on the right, the ones read
+ * on the left, in proportion. A one-page story shows the pages under it.
+ */
+internal fun bookEdges(index: Int, pageCount: Int): BookEdges {
+    if (pageCount <= 1) return BookEdges(read = 0, toCome = MAX_EDGES)
+    val toCome = Math.round((pageCount - 1 - index).toFloat() / (pageCount - 1) * MAX_EDGES).coerceIn(0, MAX_EDGES)
+    return BookEdges(read = MAX_EDGES - toCome, toCome = toCome)
+}
+
 /**
  * Page [index] of [book]: its text inside a book page's double-ruled frame, the page darkening
- * toward the spine on the left, and its number at the foot. The first page opens with the title.
+ * toward the spine on the left, its number at the foot, and the book's other pages showing at its
+ * edges (see [bookEdges]). The first page opens with the title.
  */
 @Composable
 fun BookTextPage(book: TextBook, index: Int, modifier: Modifier = Modifier) {
     val colors = book.colors
+    val edges = bookEdges(index, book.pages.size)
     Box(
         modifier
             .fillMaxWidth()
             .padding(horizontal = BookPageMargin)
             .height(book.pageHeight)
-            .drawBehind { drawBookPage(colors) },
+            .drawBehind { drawBookPage(colors, edges) },
     ) {
-        Column(Modifier.padding(start = TextInsetX, end = TextInsetX + PageStackRight, top = TextInsetTop)) {
+        Column(Modifier.padding(horizontal = EdgeRoomX + TextInsetX).padding(top = TextInsetTop)) {
             if (index == 0) {
                 Text(book.title, style = book.titleStyle, modifier = Modifier.fillMaxWidth())
                 Box(Modifier.fillMaxWidth().height(TitleGap), contentAlignment = Alignment.Center) {
@@ -283,70 +320,150 @@ fun BookTextPage(book: TextBook, index: Int, modifier: Modifier = Modifier) {
             fontSize = 13.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(end = PageStackRight, bottom = PageStackBottom + FrameInsetY + 10.dp),
+                .padding(horizontal = EdgeRoomX)
+                .padding(bottom = EdgeRoomY + FrameInsetY + 10.dp),
         )
     }
 }
 
-private fun DrawScope.drawBookPage(colors: BookColors) {
-    val pageWidth = size.width - PageStackRight.toPx()
-    val pageHeight = size.height - PageStackBottom.toPx()
+private fun DrawScope.drawBookPage(colors: BookColors, edges: BookEdges) {
+    val stepX = EdgeStepX.toPx()
+    val stepY = EdgeStepY.toPx()
+    val pageLeft = EdgeRoomX.toPx()
+    val pageRight = size.width - EdgeRoomX.toPx()
+    val pageBottom = size.height - EdgeRoomY.toPx()
     val hairline = 0.6.dp.toPx()
-    // Beyond the pages: the gaps between their edges.
-    drawRect(lerp(colors.paper, Color.Black, 0.22f))
-    // The pages underneath, the deepest first: each reaches a little further out than the one on
-    // it, and none sits quite square, so the edge reads as a block of pages, not one straight line.
-    for (i in UNDER_PAGES downTo 1) {
-        val depth = i / UNDER_PAGES.toFloat()
-        val jitter = StackJitter[i - 1].dp.toPx()
-        val top = i * 0.8.dp.toPx() + jitter
-        val right = pageWidth + depth * PageStackRight.toPx() - jitter
-        val bottom = pageHeight + depth * PageStackBottom.toPx() - jitter / 2
-        drawRect(
-            lerp(colors.paper, Color.Black, 0.03f + 0.025f * i),
-            topLeft = Offset(0f, top),
-            size = Size(right, bottom - top),
-        )
-        drawLine(colors.rule.copy(alpha = 0.35f), Offset(right, top), Offset(right, bottom), hairline)
-        drawLine(colors.rule.copy(alpha = 0.3f), Offset(0f, bottom), Offset(right, bottom), hairline)
+    val night = colors.night
+    val gaps = lerp(colors.paper, Color.Black, if (night) 0.55f else 0.22f) // between the edges
+    // At night the edges are lighter than the paper, as page edges catch the light; darker by day.
+    fun edgePaper(depth: Int) = if (night) {
+        lerp(lerp(colors.paper, Color.White, 0.12f), Color.Black, 0.035f * depth)
+    } else {
+        lerp(colors.paper, Color.Black, 0.03f + 0.025f * depth)
     }
-    // The open page, its shadow falling on the edges beside and below it.
+    val edgeLine = colors.rule.copy(alpha = if (night) 0.55f else 0.35f)
+    // Shadows need to be deeper to show on dark paper.
+    val depth = if (night) 2.6f else 1f
+    fun shade(alpha: Float) = Color.Black.copy(alpha = (alpha * depth).coerceAtMost(0.6f))
+
+    // The pages still to come, under the open one, the deepest first: each reaches a little further
+    // right and down than the one on it, and none sits quite square, so they read as a block of pages.
+    if (edges.toCome > 0) {
+        drawRect(gaps, topLeft = Offset(pageLeft, 0f), size = Size(pageRight - pageLeft + edges.toCome * stepX, pageBottom + edges.toCome * stepY))
+        for (i in edges.toCome downTo 1) {
+            val jitter = EdgeJitter[i - 1].dp.toPx()
+            val top = i * 0.8.dp.toPx() + jitter
+            val right = pageRight + i * stepX - jitter
+            val bottom = pageBottom + i * stepY - jitter / 2
+            drawRect(edgePaper(i), topLeft = Offset(pageLeft, top), size = Size(right - pageLeft, bottom - top))
+            drawLine(edgeLine, Offset(right, top), Offset(right, bottom), hairline)
+            drawLine(edgeLine, Offset(pageLeft, bottom), Offset(right, bottom), hairline)
+        }
+    }
+    // The pages already read, showing on the left the same way.
+    if (edges.read > 0) {
+        drawRect(gaps, topLeft = Offset(pageLeft - edges.read * stepX, 0f), size = Size(edges.read * stepX, pageBottom))
+        for (i in edges.read downTo 1) {
+            val jitter = EdgeJitter[MAX_EDGES - i].dp.toPx()
+            val top = i * 0.8.dp.toPx() + jitter
+            val left = pageLeft - i * stepX + jitter
+            val bottom = pageBottom - jitter / 2
+            drawRect(edgePaper(i), topLeft = Offset(left, top), size = Size(pageLeft - left, bottom - top))
+            drawLine(edgeLine, Offset(left, top), Offset(left, bottom), hairline)
+        }
+    }
+    // The open page, its shadow falling on the edges around it.
     val shadow = 4.dp.toPx()
+    if (edges.toCome > 0) {
+        drawRect(
+            Brush.horizontalGradient(0f to shade(0.12f), 1f to Color.Transparent, startX = pageRight, endX = pageRight + shadow),
+            topLeft = Offset(pageRight, 0f),
+            size = Size(shadow, pageBottom),
+        )
+        drawRect(
+            Brush.verticalGradient(0f to shade(0.10f), 1f to Color.Transparent, startY = pageBottom, endY = pageBottom + shadow),
+            topLeft = Offset(pageLeft, pageBottom),
+            size = Size(pageRight - pageLeft, shadow),
+        )
+    }
+    if (edges.read > 0) {
+        drawRect(
+            Brush.horizontalGradient(0f to Color.Transparent, 1f to shade(0.12f), startX = pageLeft - shadow, endX = pageLeft),
+            topLeft = Offset(pageLeft - shadow, 0f),
+            size = Size(shadow, pageBottom),
+        )
+    }
+    drawRect(colors.paper, topLeft = Offset(pageLeft, 0f), size = Size(pageRight - pageLeft, pageBottom))
+    // A soft shade along the binding on the left, and a little at the page's outer edge.
     drawRect(
-        Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.12f), 1f to Color.Transparent, startX = pageWidth, endX = pageWidth + shadow),
-        topLeft = Offset(pageWidth, 0f),
-        size = Size(shadow, pageHeight),
+        Brush.horizontalGradient(0f to shade(0.08f), 1f to Color.Transparent, startX = pageLeft, endX = pageLeft + 26.dp.toPx()),
+        topLeft = Offset(pageLeft, 0f),
+        size = Size(26.dp.toPx(), pageBottom),
     )
     drawRect(
-        Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.10f), 1f to Color.Transparent, startY = pageHeight, endY = pageHeight + shadow),
-        topLeft = Offset(0f, pageHeight),
-        size = Size(pageWidth, shadow),
-    )
-    drawRect(colors.paper, size = Size(pageWidth, pageHeight))
-    // The spine: the page curves into the binding on the left, and a little at its outer edge.
-    drawRect(
-        Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.14f), 1f to Color.Transparent, startX = 0f, endX = 26.dp.toPx()),
-        size = Size(26.dp.toPx(), pageHeight),
-    )
-    drawRect(
-        Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.06f), startX = pageWidth - 10.dp.toPx(), endX = pageWidth),
-        topLeft = Offset(pageWidth - 10.dp.toPx(), 0f),
-        size = Size(10.dp.toPx(), pageHeight),
+        Brush.horizontalGradient(0f to Color.Transparent, 1f to shade(0.06f), startX = pageRight - 10.dp.toPx(), endX = pageRight),
+        topLeft = Offset(pageRight - 10.dp.toPx(), 0f),
+        size = Size(10.dp.toPx(), pageBottom),
     )
     // A double rule: a firm outer line, a fine inner one.
-    val x = FrameInsetX.toPx()
+    val x = pageLeft + FrameInsetX.toPx()
     val y = FrameInsetY.toPx()
+    val width = pageRight - pageLeft - 2 * FrameInsetX.toPx()
     drawRect(
         colors.rule.copy(alpha = 0.7f),
         topLeft = Offset(x, y),
-        size = Size(pageWidth - 2 * x, pageHeight - 2 * y),
+        size = Size(width, pageBottom - 2 * y),
         style = Stroke(1.2.dp.toPx()),
     )
     val inner = 4.dp.toPx()
     drawRect(
         colors.rule.copy(alpha = 0.45f),
         topLeft = Offset(x + inner, y + inner),
-        size = Size(pageWidth - 2 * (x + inner), pageHeight - 2 * (y + inner)),
+        size = Size(width - 2 * inner, pageBottom - 2 * (y + inner)),
         style = Stroke(hairline),
     )
+    drawSpiral(pageLeft, pageBottom, night)
 }
+
+/** The spiral binding's wire: dark steel by day, lighter at night so it shows on dark paper. */
+private val WireDay = Color(0xFF2E2E30)
+private val WireNight = Color(0xFF9A9A9E)
+
+/**
+ * A spiral binding down the page's left edge, like a notebook: a punched hole every [SpiralStep]
+ * and a coil of wire through each, looping out past the edge and back in.
+ */
+private fun DrawScope.drawSpiral(pageLeft: Float, pageBottom: Float, night: Boolean) {
+    val step = SpiralStep.toPx()
+    val holeX = pageLeft + 9.dp.toPx()
+    val holeRadius = 2.6.dp.toPx()
+    val outX = pageLeft - 7.dp.toPx() // how far the coil reaches beyond the edge
+    val wire = if (night) WireNight else WireDay
+    val shine = Color.White.copy(alpha = if (night) 0.55f else 0.45f)
+    val hole = Color.Black.copy(alpha = if (night) 0.65f else 0.5f)
+    val wireWidth = 2.dp.toPx()
+    val count = ((pageBottom - 2 * SpiralMargin.toPx()) / step).toInt().coerceAtLeast(1)
+    val first = (pageBottom - (count - 1) * step) / 2
+    val coil = Path()
+    for (i in 0 until count) {
+        val y = first + i * step
+        // The hole, with the paper's lit lower lip.
+        drawCircle(hole, holeRadius, Offset(holeX, y))
+        drawCircle(Color.White.copy(alpha = 0.12f), holeRadius, Offset(holeX, y + 0.8.dp.toPx()), style = Stroke(0.6.dp.toPx()))
+        // Two turns of wire side by side, from the hole over the edge and round behind it.
+        for (turn in 0..1) {
+            val dy = (turn - 0.5f) * 2.6.dp.toPx()
+            coil.reset()
+            coil.moveTo(holeX, y + dy)
+            coil.cubicTo(holeX - 3.dp.toPx(), y + dy - 6.dp.toPx(), outX, y + dy - 6.dp.toPx(), outX, y + dy - 1.dp.toPx())
+            coil.cubicTo(outX, y + dy + 3.dp.toPx(), pageLeft - 2.dp.toPx(), y + dy + 4.dp.toPx(), pageLeft, y + dy + 3.dp.toPx())
+            drawPath(coil, Color.Black.copy(alpha = 0.25f), style = Stroke(wireWidth + 1.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(coil, wire, style = Stroke(wireWidth, cap = StrokeCap.Round))
+            drawPath(coil, shine, style = Stroke(0.6.dp.toPx(), cap = StrokeCap.Round))
+        }
+    }
+}
+
+/** Space between the spiral's coils, and the paper left clear above the first and below the last. */
+private val SpiralStep = 22.dp
+private val SpiralMargin = 18.dp

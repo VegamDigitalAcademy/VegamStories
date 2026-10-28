@@ -1,5 +1,6 @@
 package com.vegamstories.app.presentation.onboarding
 
+import com.vegamstories.app.core.logging.AppLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vegamstories.app.domain.model.Language
@@ -14,6 +15,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val TAG = "StoryLanguageViewModel"
 
 data class StoryLanguageUiState(
     val languages: List<Language> = emptyList(),
@@ -53,7 +56,10 @@ class StoryLanguageViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StoryLanguageUiState())
 
+    private val log = AppLogger(TAG)
+
     init {
+        log.i("$TAG: First launch: choose your story language")
         load()
     }
 
@@ -61,18 +67,22 @@ class StoryLanguageViewModel @Inject constructor(
         viewModelScope.launch {
             loading.value = true
             failed.value = false
-            failed.value = refreshContent().isFailure
+            val result = refreshContent()
+            failed.value = result.isFailure
+            result.onFailure { log.w("$TAG: Languages couldn't be loaded (offline?)", it) }
             loading.value = false
         }
     }
 
     /** A card was tapped: only selects it. */
     fun onLanguageSelected(code: String) {
+        log.i("$TAG: User: tapped $code")
         tapped.value = code
     }
 
     /** "Let's go" (or Continue when offline): saves [code]; MainActivity then shows Home in that language. */
     fun onLanguageChosen(code: String) {
+        log.i("$TAG: User: Let's go with $code")
         viewModelScope.launch { setContentLanguage(code) }
     }
 }

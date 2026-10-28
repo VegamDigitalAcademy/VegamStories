@@ -26,6 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -90,6 +93,13 @@ fun LikeButton(
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
     val tint by animateColorAsState(likeTint(isLiked), label = "likeTint")
+    // Liked somewhere else on the screen (the big heart at the end of a story): pop here too, so the
+    // like is seen landing. Not when first shown, and not twice when this button was the one tapped.
+    var wasLiked by remember { mutableStateOf(isLiked) }
+    LaunchedEffect(isLiked) {
+        if (isLiked && !wasLiked && !scale.isRunning) scale.pop()
+        wasLiked = isLiked
+    }
     Row(
         modifier = modifier
             .minimumInteractiveComponentSize()

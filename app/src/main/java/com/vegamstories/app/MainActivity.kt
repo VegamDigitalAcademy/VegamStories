@@ -1,5 +1,6 @@
 package com.vegamstories.app
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -25,6 +26,8 @@ import com.vegamstories.app.presentation.shortcuts.ShortcutTarget
 import com.vegamstories.app.ui.theme.MyApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+
+private const val TAG = "MainActivity"
 
 @AndroidEntryPoint
 /** AppCompatActivity (not ComponentActivity) so the in-app language setting works on Android 7–12. */
@@ -96,10 +99,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleShortcut(intent: Intent?) {
         ShortcutTarget.from(intent)?.let { target ->
+            log.i("$TAG: Opened from outside the app (shortcut, widget or notification)", data = target)
             shortcutTarget = target
             appShortcutsManager.reportUsed(target)
         }
     }
+
+    private val log = AppLogger(TAG)
 
     private companion object {
         /** The logo splash stays at least this long. */

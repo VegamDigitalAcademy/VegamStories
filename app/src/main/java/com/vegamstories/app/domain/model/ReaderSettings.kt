@@ -14,6 +14,8 @@ data class ReaderSettings(
     val autoTurnPages: Boolean = true,
     /** One of [AUTO_TURN_SECONDS_OPTIONS]. */
     val autoTurnSeconds: Int = 10,
+    /** The corner of the first story's page has lifted once, to show pages can be turned. */
+    val pageTurnHintShown: Boolean = false,
 ) {
     /** How long a comic page stays before turning by itself; null = auto-turn off. */
     val autoTurnMillis: Long? get() = if (autoTurnPages) autoTurnSeconds * 1_000L else null

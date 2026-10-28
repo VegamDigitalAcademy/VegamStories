@@ -1,9 +1,11 @@
 package com.vegamstories.app.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.FavoriteEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
@@ -102,4 +104,17 @@ interface LibraryDao {
 
     @Query("DELETE FROM reading_progress")
     suspend fun clearProgress()
+
+    // ----- Bookmarks -----
+    @Query("SELECT * FROM bookmarks ORDER BY createdAt DESC")
+    fun observeBookmarks(): Flow<List<BookmarkEntity>>
+
+    @Query("SELECT * FROM bookmarks WHERE storyId = :storyId")
+    fun observeBookmarks(storyId: String): Flow<List<BookmarkEntity>>
+
+    @Upsert
+    suspend fun upsertBookmark(entity: BookmarkEntity)
+
+    @Delete
+    suspend fun deleteBookmarks(entities: List<BookmarkEntity>)
 }

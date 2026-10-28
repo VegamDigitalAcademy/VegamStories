@@ -1,11 +1,14 @@
 package com.vegamstories.app.data.settings
 
+import com.vegamstories.app.core.logging.AppLogger
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.vegamstories.app.domain.model.AppLanguage
 import com.vegamstories.app.domain.repository.LanguageRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "AppCompatLanguageRepository"
 
 /**
  * Per-app language via AppCompat:
@@ -21,7 +24,10 @@ class AppCompatLanguageRepository @Inject constructor() : LanguageRepository {
         return if (locales.isEmpty) AppLanguage.SYSTEM else AppLanguage.fromTag(locales[0]?.language)
     }
 
+    private val log = AppLogger(TAG)
+
     override fun setLanguage(language: AppLanguage) {
+        log.i("$TAG: App language set: $language (the screen reloads in it)")
         val locales = language.languageTag
             ?.let { LocaleListCompat.forLanguageTags(it) }
             ?: LocaleListCompat.getEmptyLocaleList() // empty = follow the phone

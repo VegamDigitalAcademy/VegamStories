@@ -48,6 +48,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.delay
+import com.vegamstories.app.domain.model.Bookmark
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.derivedStateOf
@@ -131,6 +137,9 @@ fun ReaderScreen(
         onLanguageSelected = viewModel::onLanguageSelected,
         onTextProgress = viewModel::onTextProgress,
         onTextSizeChange = viewModel::onTextSizeChange,
+        onAddBookmark = viewModel::onAddBookmark,
+        onRemoveBookmarks = viewModel::onRemoveBookmarks,
+        onTurnHintShown = viewModel::onPageTurnHintShown,
     )
 }
 
@@ -150,6 +159,9 @@ fun ReaderScreenContent(
     onLanguageSelected: (languageCode: String) -> Unit = {},
     onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit = { _, _ -> },
     onTextSizeChange: (ReaderTextSize) -> Unit = {},
+    onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit = { _, _, _ -> },
+    onRemoveBookmarks: (List<Bookmark>) -> Unit = {},
+    onTurnHintShown: () -> Unit = {},
 ) {
     ReaderPageTheme(background = state.settings.pageBackground) {
         Box(
@@ -183,6 +195,9 @@ fun ReaderScreenContent(
                     onLanguageSelected = onLanguageSelected,
                     onTextProgress = onTextProgress,
                     onTextSizeChange = onTextSizeChange,
+                    onAddBookmark = onAddBookmark,
+                    onRemoveBookmarks = onRemoveBookmarks,
+                    onTurnHintShown = onTurnHintShown,
                 )
             }
         }
@@ -205,6 +220,9 @@ private fun ReaderContent(
     onLanguageSelected: (languageCode: String) -> Unit,
     onTextProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
     onTextSizeChange: (ReaderTextSize) -> Unit,
+    onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit,
+    onRemoveBookmarks: (List<Bookmark>) -> Unit,
+    onTurnHintShown: () -> Unit,
 ) {
     val story = detail.story
     // Lives above both readers, so switching paged ↔ vertical stays on the same page.
@@ -238,14 +256,6 @@ private fun ReaderContent(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        if (state.languages.size > 1) {
-            LanguageChips(
-                languages = state.languages,
-                selectedCode = state.language,
-                onSelect = onLanguageSelected,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            )
-        }
         val readerModifier = Modifier
             .weight(1f)
             .fillMaxWidth()
@@ -257,6 +267,7 @@ private fun ReaderContent(
                 onToggleLike = onToggleFavorite,
                 onOpenNextStory = onOpenNextStory,
                 onBack = onBack,
+                moral = state.moral,
             )
         }
         val text = state.text
@@ -267,9 +278,15 @@ private fun ReaderContent(
                     text = text,
                     textSize = state.settings.textSize,
                     startFraction = state.initialTextFraction,
+                    startAt = state.textBookmarkStart,
                     // A page of text takes longer to read than a comic page.
                     autoTurnMillis = state.settings.autoTurnMillis?.let { TEXT_AUTO_TURN_MILLIS },
                     timer = pageTimer,
+                    bookmarks = state.bookmarks,
+                    onAddBookmark = onAddBookmark,
+                    onRemoveBookmarks = onRemoveBookmarks,
+                    showTurnHint = !state.settings.pageTurnHintShown,
+                    onTurnHintShown = onTurnHintShown,
                     onProgress = onTextProgress,
                     likePage = likeSection,
                     modifier = readerModifier,
@@ -307,6 +324,24 @@ private fun ReaderContent(
                 onPageSettled = onPageSettled,
                 page = page,
                 modifier = readerModifier,
+                showTurnHint = !state.settings.pageTurnHintShown,
+                onTurnHintShown = onTurnHintShown,
+                pageOverlay = { index ->
+                    if (index < detail.pages.size) {
+                        val onPage = state.bookmarks.filter {
+                            it.format == StoryFormat.COMIC && it.language == state.language && it.position == index
+                        }
+                        BookmarkRibbon(
+                            marked = onPage.isNotEmpty(),
+                            onToggle = {
+                                if (onPage.isNotEmpty()) onRemoveBookmarks(onPage) else onAddBookmark(StoryFormat.COMIC, index, 0)
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 12.dp),
+                        )
+                    }
+                },
             )
             ReaderScrollMode.VERTICAL -> VerticalReader(
                 startPage = currentPage,
@@ -336,6 +371,9 @@ private fun ReaderContent(
             onPageBackgroundChange = onPageBackgroundChange,
             format = state.format,
             onTextSizeChange = onTextSizeChange,
+            languages = state.languages,
+            selectedLanguage = state.language,
+            onLanguageSelected = onLanguageSelected,
             onDismiss = { showOptions = false },
         )
     }
@@ -364,6 +402,11 @@ private fun PagedReader(
     pageBackground: Color = paper,
     /** Room above and below each page. */
     pageMargin: Dp = 8.dp,
+    /** Lift the open page's corner once and let it fall back, to show pages turn; then [onTurnHintShown]. */
+    showTurnHint: Boolean = false,
+    onTurnHintShown: () -> Unit = {},
+    /** Drawn over page [index], turning with it: the bookmark ribbon. */
+    pageOverlay: @Composable BoxScope.(index: Int) -> Unit = {},
 ) {
     val pagerState = rememberPagerState(initialPage = startPage) { pageCount }
     val scope = rememberCoroutineScope()
@@ -387,12 +430,44 @@ private fun PagedReader(
     val lean = remember { PageLean() }
     LaunchedEffect(pagerState, lean) { lean.follow(pagerState) }
 
+    // The first story ever opened: the corner lifts a little and falls back. Decided once, so saving
+    // that it was shown doesn't stop it halfway.
+    val turnHint = remember { showTurnHint }
+    if (turnHint) {
+        val currentOnShown by rememberUpdatedState(onTurnHintShown)
+        LaunchedEffect(pagerState) {
+            delay(TURN_HINT_DELAY_MILLIS)
+            // Only with a page to turn to, and not while the reader is turning one already.
+            if (pagerState.isScrollInProgress || pagerState.currentPage >= pageCount - 1) return@LaunchedEffect
+            currentOnShown()
+            val lift = pagerState.layoutInfo.pageSize * TURN_HINT_LIFT
+            pagerState.animateScrollBy(lift, tween(durationMillis = 650, easing = EaseOut))
+            delay(150)
+            pagerState.animateScrollBy(-lift, tween(durationMillis = 550, easing = EaseInOut))
+        }
+    }
+
     HorizontalPager(
         state = pagerState,
         // The curl's shadows stay inside the reader area.
         modifier = modifier
             .clipToBounds()
-            .leanWithFinger(lean, pagerState),
+            .leanWithFinger(lean, pagerState)
+            // Tapping the left or right third of a page turns back or on, like an e-reader. Buttons on
+            // a page (Continue, the ribbon, the like page's) take their own taps first.
+            .pointerInput(pagerState, pageCount) {
+                detectTapGestures { tap ->
+                    val third = size.width / 3f
+                    val target = when {
+                        tap.x < third -> pagerState.targetPage - 1
+                        tap.x > size.width - third -> pagerState.targetPage + 1
+                        else -> return@detectTapGestures
+                    }
+                    if (target in 0 until pageCount) {
+                        scope.launch { pagerState.animateScrollToPage(target, animationSpec = pageTurnSpec) }
+                    }
+                }
+            },
         beyondViewportPageCount = 1,
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapAnimationSpec = pageSettleSpec),
     ) { index ->
@@ -421,12 +496,17 @@ private fun PagedReader(
             ) {
                 page(index) { scope.launch { pagerState.animateScrollToPage(likePageIndex, animationSpec = pageTurnSpec) } }
             }
+            pageOverlay(index)
         }
     }
 }
 
+/** The corner-lift hint: how long after the reader opens, and how far (a share of the page's width). */
+private const val TURN_HINT_DELAY_MILLIS = 1_200L
+private const val TURN_HINT_LIFT = 0.18f
+
 /** How long each page of text waits before auto-turn turns it (comic pages: Settings → Reading). */
-private const val TEXT_AUTO_TURN_MILLIS = 45_000L
+private const val TEXT_AUTO_TURN_MILLIS = 60_000L
 
 /**
  * The Read tab as a book: the text split into pages that fit the screen (see [rememberTextBook]),
@@ -439,23 +519,33 @@ private fun TextPagesReader(
     text: StoryText,
     textSize: ReaderTextSize,
     startFraction: Float,
+    /** Opened from a bookmark in the text: start on its page, when the text is in its language. */
+    startAt: Bookmark?,
     autoTurnMillis: Long?,
     timer: PageTimer,
+    /** This story's bookmarks: the text ones in this language show as ribbons on their pages. */
+    bookmarks: List<Bookmark>,
+    onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit,
+    onRemoveBookmarks: (List<Bookmark>) -> Unit,
+    showTurnHint: Boolean,
+    onTurnHintShown: () -> Unit,
     onProgress: (paragraphIndex: Int, paragraphCount: Int) -> Unit,
     likePage: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val paragraphs = text.paragraphs
+    val start = startAt?.takeIf { it.language == text.languageCode }
     // Where the reader is in the text (paragraph, character), or at the end: survives a new layout
     // (text size, rotation), unlike a page number.
     var paragraph by rememberSaveable(text.languageCode) {
-        mutableIntStateOf((startFraction * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex.coerceAtLeast(0)))
+        mutableIntStateOf(start?.position ?: (startFraction * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex.coerceAtLeast(0)))
     }
-    var offset by rememberSaveable(text.languageCode) { mutableIntStateOf(0) }
+    var offset by rememberSaveable(text.languageCode) { mutableIntStateOf(start?.offset ?: 0) }
     var atEnd by rememberSaveable(text.languageCode) { mutableStateOf(false) }
     var currentPage by remember { mutableIntStateOf(0) }
     var pageCount by remember { mutableIntStateOf(1) }
     val colors = bookColors()
+    val marks = bookmarks.filter { it.format == StoryFormat.TEXT && it.language == text.languageCode }
 
     Column(modifier) {
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -488,6 +578,29 @@ private fun TextPagesReader(
                     paper = colors.paper,
                     pageBackground = Color.Transparent,
                     pageMargin = BookPageMargin,
+                    showTurnHint = showTurnHint,
+                    onTurnHintShown = onTurnHintShown,
+                    pageOverlay = { index ->
+                        if (index < likeIndex) {
+                            // A text bookmark is on the page its place in the text falls on.
+                            val onPage = marks.filter { book.pageAt(it.position, it.offset) == index }
+                            BookmarkRibbon(
+                                marked = onPage.isNotEmpty(),
+                                onToggle = {
+                                    if (onPage.isNotEmpty()) {
+                                        onRemoveBookmarks(onPage)
+                                    } else {
+                                        val first = book.pages[index].firstOrNull()
+                                        onAddBookmark(StoryFormat.TEXT, first?.paragraph ?: 0, first?.start ?: 0)
+                                    }
+                                },
+                                idleColor = colors.rule,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = BookPageMargin, end = BookRibbonEndPadding),
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -686,6 +799,7 @@ private fun ReaderPage(
             onToggleLike = onToggleFavorite,
             onOpenNextStory = onOpenNextStory,
             onBack = onBack,
+            moral = state.moral,
         )
     }
 }

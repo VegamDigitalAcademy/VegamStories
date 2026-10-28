@@ -1,5 +1,6 @@
 package com.vegamstories.app.data.remote.datasource
 
+import com.vegamstories.app.core.logging.AppLogger
 import com.vegamstories.app.data.remote.api.StoryApi
 import com.vegamstories.app.data.remote.dto.CategoryDto
 import com.vegamstories.app.data.remote.dto.FeedResponseDto
@@ -12,18 +13,22 @@ import com.vegamstories.app.data.remote.dto.VideoDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
+
+private const val TAG = "NetworkStoryRemoteDataSource"
 
 /** Loads categories, stories and languages from Supabase and shapes them into the app's feed format. */
 class NetworkStoryRemoteDataSource @Inject constructor(
     private val api: StoryApi,
 ) : StoryRemoteDataSource {
 
+    private val log = AppLogger(TAG)
+
     override suspend fun fetchFeed(): FeedResponseDto = coroutineScope {
-        // Both requests run in parallel.
+        log.d("$TAG: Loading categories, stories and languages (in parallel)")
+        // The requests run in parallel.
         val categories = async { api.getCategories() }
         val stories = async { api.getStories() }
         val languages = async { fetchLanguages() }
@@ -33,7 +38,16 @@ class NetworkStoryRemoteDataSource @Inject constructor(
             },
             stories = stories.await().map { it.toStoryDto() },
             languages = languages.await(),
-        )
+        ).also { feed ->
+            log.d(
+                "$TAG: Feed received",
+                data = mapOf(
+                    "categories" to feed.categories.map { it.id },
+                    "stories" to feed.stories.size,
+                    "languages" to feed.languages.map { it.code },
+                ),
+            )
+        }
     }
 
     /** Only names and order hang on this, so stories still load if it fails (e.g. 005 not run yet). */
@@ -42,7 +56,7 @@ class NetworkStoryRemoteDataSource @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Timber.w(e, "Languages not loaded; keeping the saved list")
+        log.w("$TAG: Languages not loaded; keeping the saved list", e)
         emptyList()
     }
 
