@@ -4,6 +4,7 @@ import android.content.Context
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.vegamstories.app.BuildConfig
+import com.vegamstories.app.data.remote.api.CatalogueApi
 import com.vegamstories.app.data.remote.api.StoryApi
 import com.vegamstories.app.data.remote.logging.ApiLoggingInterceptor
 import dagger.Module
@@ -67,6 +68,26 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideStoryApi(retrofit: Retrofit): StoryApi = retrofit.create(StoryApi::class.java)
+
+    /**
+     * The story catalogue in R2 (media.vegamstories.com). Its own client: these requests must not
+     * carry the Supabase key. Logged like the Supabase calls.
+     */
+    @Provides
+    @Singleton
+    fun provideCatalogueApi(json: Json): CatalogueApi {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(ApiLoggingInterceptor())
+            .build()
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.CATALOGUE_URL.substringBeforeLast('/') + "/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(CatalogueApi::class.java)
+    }
 
     /** The app-wide Coil loader (configured in VegamStoriesApp). */
     @Provides

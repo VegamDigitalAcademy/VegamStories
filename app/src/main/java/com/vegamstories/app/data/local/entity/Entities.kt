@@ -169,3 +169,9 @@ data class StoryLanguageRow(
     val code: String,
     val nativeName: String?,
 )
+
+/** A story's like count (see StoryDao.likeCounts). */
+data class StoryLikeCount(
+    val id: String,
+    val likeCount: Int,
+)

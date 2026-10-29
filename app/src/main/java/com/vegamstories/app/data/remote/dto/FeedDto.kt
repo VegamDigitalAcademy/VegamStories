@@ -4,8 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Shape of the JSON we expect from the server. When the real API is ready, adjust the
- * @SerialName values to match it — nothing outside the data layer has to change.
+ * The stories as the app saves them: what NetworkStoryRemoteDataSource makes of Supabase's rows
+ * (from the catalogue in R2, or from Supabase), and what FakeStoryRemoteDataSource makes up.
  */
 @Serializable
 data class FeedResponseDto(
@@ -39,7 +39,8 @@ data class StoryDto(
     @SerialName("category_id") val categoryId: String,
     @SerialName("episode") val episode: Int,
     @SerialName("published_at") val publishedAt: Long,
-    @SerialName("like_count") val likeCount: Int = 0,
+    /** Not in the catalogue from R2 (likes change all the time): the app reads the counts separately. */
+    @SerialName("like_count") val likeCount: Int? = null,
     @SerialName("translations") val translations: List<StoryTranslationDto> = emptyList(),
 )
 
@@ -69,5 +70,16 @@ data class VideoDto(
     @SerialName("title") val title: String,
     @SerialName("description") val description: String = "",
     @SerialName("thumbnail_url") val thumbnailUrl: String,
+    @SerialName("url") val url: String,
+)
+
+/**
+ * The small file the app reads first (catalogue/v1.json in R2): which catalogue is current. The
+ * catalogue itself ([SupabaseCatalogueDto]) is downloaded only when [version] is new to the phone.
+ */
+@Serializable
+data class CataloguePointerDto(
+    /** Changes whenever the stories, categories or languages change; the same content keeps it. */
+    @SerialName("version") val version: String,
     @SerialName("url") val url: String,
 )

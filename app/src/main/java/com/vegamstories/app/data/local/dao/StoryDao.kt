@@ -9,6 +9,7 @@ import com.vegamstories.app.data.local.entity.CategoryNameEntity
 import com.vegamstories.app.data.local.entity.CategoryRow
 import com.vegamstories.app.data.local.entity.LanguageEntity
 import com.vegamstories.app.data.local.entity.StoryEntity
+import com.vegamstories.app.data.local.entity.StoryLikeCount
 import com.vegamstories.app.data.local.entity.StoryLanguageRow
 import com.vegamstories.app.data.local.entity.StoryPageEntity
 import com.vegamstories.app.data.local.entity.StoryTranslationEntity
@@ -130,6 +131,20 @@ interface StoryDao {
 
     @Query("SELECT * FROM stories WHERE id = :storyId LIMIT 1")
     suspend fun getStory(storyId: String): StoryEntity?
+
+    /** Every saved story's like count, kept when a new catalogue comes without fresh counts. */
+    @Query("SELECT id, likeCount FROM stories")
+    suspend fun likeCounts(): List<StoryLikeCount>
+
+    /** Writes only a count that changed, so lists don't redraw for nothing. */
+    @Query("UPDATE stories SET likeCount = :likeCount WHERE id = :storyId AND likeCount != :likeCount")
+    suspend fun setLikeCount(storyId: String, likeCount: Int)
+
+    /** The server's like counts, by story id. */
+    @Transaction
+    suspend fun setLikeCounts(counts: Map<String, Int>) {
+        counts.forEach { (storyId, count) -> setLikeCount(storyId, count) }
+    }
 
     /** Next episode in the same category that has a version in [lang]. */
     @Query(

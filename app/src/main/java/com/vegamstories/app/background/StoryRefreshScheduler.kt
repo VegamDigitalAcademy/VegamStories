@@ -16,8 +16,8 @@ import javax.inject.Singleton
 private const val TAG = "StoryRefreshScheduler"
 
 /**
- * Schedules [StoryRefreshWorker]: every few hours, only when online. Each run downloads only when
- * the saved stories are a day old, so the server is called at most once a day in the background.
+ * Schedules [StoryRefreshWorker]: every few hours, only when online. Each run checks the catalogue
+ * (a small file) and downloads the stories only when they changed.
  */
 @Singleton
 class StoryRefreshScheduler @Inject constructor(

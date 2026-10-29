@@ -4,8 +4,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Rows exactly as Supabase returns them (one class per table, column names as-is).
- * NetworkStoryRemoteDataSource converts these into the app's [FeedResponseDto].
+ * Rows exactly as Supabase returns them (one class per table, column names as-is), also in the
+ * catalogue in R2 ([SupabaseCatalogueDto]). NetworkStoryRemoteDataSource converts these into the
+ * app's [FeedResponseDto].
  * See supabase/migrations/006_story_translations.sql for the per-language tables.
  */
 @Serializable
@@ -15,8 +16,11 @@ data class SupabaseStoryRow(
     @SerialName("episode") val episode: Int,
     /** ISO-8601 timestamp, e.g. "2026-10-20T18:22:07.123456+00:00". */
     @SerialName("published_at") val publishedAt: String,
-    /** Kept up to date on the server by set_story_like() (supabase/migrations/003_story_likes.sql). */
-    @SerialName("like_count") val likeCount: Int = 0,
+    /**
+     * Kept up to date on the server by set_story_like() (supabase/migrations/003_story_likes.sql).
+     * Not in the catalogue in R2: the app reads the counts on their own.
+     */
+    @SerialName("like_count") val likeCount: Int? = null,
     /** Embedded: one row per language version. */
     @SerialName("story_translations") val translations: List<SupabaseTranslationRow> = emptyList(),
     /** Embedded: comic pages of every language version. */
@@ -69,4 +73,22 @@ data class SetStoryLikeRequest(
     /** Random UUID made once per install (see DeviceIdProvider). */
     @SerialName("p_device_id") val deviceId: String,
     @SerialName("p_liked") val liked: Boolean,
+)
+
+/** A story's like count, read on its own with every refresh (the catalogue in R2 has none). */
+@Serializable
+data class StoryLikeCountRow(
+    @SerialName("id") val id: String,
+    @SerialName("like_count") val likeCount: Int,
+)
+
+/**
+ * The catalogue in R2: the published stories, the categories and the languages, as Supabase's
+ * own rows (the admin site saves Supabase's responses as they are; see vegam-admin publishCatalogue).
+ */
+@Serializable
+data class SupabaseCatalogueDto(
+    @SerialName("categories") val categories: List<SupabaseCategoryRow>,
+    @SerialName("stories") val stories: List<SupabaseStoryRow>,
+    @SerialName("languages") val languages: List<LanguageDto> = emptyList(),
 )

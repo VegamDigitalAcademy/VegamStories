@@ -37,7 +37,7 @@ fun StoryDto.toEntity() = StoryEntity(
     categoryId = categoryId,
     episodeNumber = episode,
     publishedAt = publishedAt,
-    likeCount = likeCount,
+    likeCount = likeCount ?: 0,
 )
 
 /** The language versions worth showing: a language and a title; a second version in the same language is skipped. */

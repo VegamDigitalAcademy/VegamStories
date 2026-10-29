@@ -18,8 +18,8 @@ private const val TAG = "StoryRefreshWorker"
 
 /**
  * Runs every few hours in the background (StoryRefreshScheduler):
- *  1. refreshes stories from the server when they are a day old (else it downloads nothing; queued
- *     likes still go out),
+ *  1. checks the catalogue and downloads the stories only when they changed (queued likes go out
+ *     either way),
  *  2. redraws the home screen widget so "Today's new story" is current,
  *  3. posts a "New story" notification if one was published and alerts are on.
  */

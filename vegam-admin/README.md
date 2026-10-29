@@ -8,9 +8,25 @@ Fill in the story, drop in the images, click **Save**:
 - switch **Published** on and the story appears in the app on its next refresh
 
 ```
-Your browser ──▶ admin.vegamstories.com (Cloudflare Worker) ──▶ R2 bucket  (images)
- (this page)      checks your login, holds the secret key     └─▶ Supabase   (story rows)
+Your browser ──▶ admin.vegamstories.com (Cloudflare Worker) ──▶ R2 bucket  (images, the app's catalogue)
+ (this page)      checks your login, holds the secret key     └─▶ Supabase   (story rows, likes)
 ```
+
+### The app's catalogue
+
+The app doesn't read stories from Supabase. After every save, delete, publish switch, category or
+language change, the Worker writes the **catalogue** to R2: every published story in every language,
+the categories and the languages, as one JSON file. It holds Supabase's rows as Supabase sends them,
+so building it takes the Worker very little computing time (Workers Free allows 10 ms per run).
+
+- `catalogue/v1.json`: a small file with the current **version** (a fingerprint of the content).
+  The app reads it first and downloads the catalogue only when the version is new to it.
+- `catalogue/v1/<version>.json`: the catalogue itself. The newest three are kept.
+
+The same stories always give the same version, so saving without changes costs the apps nothing.
+Every hour the Worker writes it again, so changes made directly in Supabase reach the app too.
+Like counts aren't in it: the app reads them from Supabase (a few bytes per story).
+If saving shows *"Saved, but the app's story list wasn't updated"*, click **Save** again.
 
 Only `admin@vegamstories.com` can get in (Cloudflare Access, email code). The Supabase
 secret key lives only inside Cloudflare, never in the page.
@@ -131,6 +147,6 @@ on your Mac, but stories are saved to your real Supabase, so use test ids like `
 | File | What it is |
 |---|---|
 | `public/index.html`, `app.js`, `styles.css` | The admin page (no build step) |
-| `src/worker.js` | Server part: login check, image upload to R2, saving to Supabase |
+| `src/worker.js` | Server part: login check, image upload to R2, saving to Supabase, the app's catalogue |
 | `wrangler.jsonc` | Cloudflare settings: bucket, domain, Supabase URL, allowed emails |
 | `.dev.vars.example` | Template for local testing secrets |

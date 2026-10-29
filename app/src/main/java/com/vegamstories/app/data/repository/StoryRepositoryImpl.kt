@@ -8,6 +8,7 @@ import com.vegamstories.app.data.mapper.toEntity
 import com.vegamstories.app.data.mapper.toNameEntities
 import com.vegamstories.app.data.mapper.toPageEntities
 import com.vegamstories.app.data.mapper.toTranslationEntities
+import com.vegamstories.app.data.remote.datasource.CatalogueUpdate
 import com.vegamstories.app.data.remote.datasource.StoryRemoteDataSource
 import com.vegamstories.app.data.remote.dto.FeedResponseDto
 import com.vegamstories.app.data.settings.ContentSyncStore
@@ -53,6 +54,10 @@ class StoryRepositoryImpl @Inject constructor(
 
     /** One refresh at a time (Home, the first-launch screen and the background worker can overlap). */
     private val refreshLock = Mutex()
+
+    /** Whether the last refresh downloaded stories, for a refresh that waited for it to finish. */
+    @Volatile
+    private var lastDownloaded = false
 
     override fun observeCategories(): Flow<List<Category>> =
         contentLanguage.contentLanguage.flatMapLatest { lang ->
@@ -126,50 +131,82 @@ class StoryRepositoryImpl @Inject constructor(
             val last = syncStore.lastRefreshAt()
             if (last != before) {
                 // Another refresh finished while this one waited: what's saved is as fresh as it gets.
-                log.d("$TAG: Refresh: another refresh just finished; using its stories")
-                return@withLock Result.success(true)
+                log.d("$TAG: Refresh: another refresh just finished; using what it found")
+                return@withLock Result.success(lastDownloaded)
             }
             val hasContent = storyDao.hasContent()
             if (!force && !isContentRefreshDue(hasContent, last, System.currentTimeMillis())) {
                 // No download; likes made offline still go out (no call when there are none).
                 log.d(
-                    "$TAG: Refresh: not due, no download (stories are downloaded once a day)",
-                    data = mapOf("last download" to logTime(last), "stories saved" to hasContent),
+                    "$TAG: Refresh: checked a moment ago, not checking again yet",
+                    data = mapOf("last check" to logTime(last), "stories saved" to hasContent),
                 )
                 likeSyncer.syncPending()
                 Result.success(false)
             } else {
                 log.i(
-                    "$TAG: Refresh: downloading stories",
-                    data = mapOf("force" to force, "last download" to logTime(last), "stories saved" to hasContent),
+                    "$TAG: Refresh: checking the catalogue",
+                    data = mapOf("force" to force, "last check" to logTime(last), "stories saved" to hasContent),
                 )
-                download()
+                download(hasContent)
             }
         }
     }
 
-    private suspend fun download(): Result<Boolean> = try {
-        // Send queued likes first, so the like counts in the feed already include them.
+    /**
+     * Checks the catalogue and downloads it only when its version is new to the phone; the like
+     * counts are read either way. Succeeds with whether stories were downloaded.
+     */
+    private suspend fun download(hasContent: Boolean): Result<Boolean> = try {
+        // Send queued likes first, so the like counts below already include them.
         likeSyncer.syncPending()
-        val feed = log.timed("$TAG: Download stories", summary = { it.summary() }) { remote.fetchFeed() }
-        log.timed("$TAG: Save stories on the phone") {
-            storyDao.replaceContent(
-                categories = feed.categories.map { it.toEntity() },
-                categoryNames = feed.categories.flatMap { it.toNameEntities() },
-                stories = feed.stories.map { it.toEntity() },
-                translations = feed.stories.flatMap { it.toTranslationEntities() },
-                pages = feed.stories.flatMap { it.toPageEntities() },
-                languages = feed.languages.map { it.toEntity() },
-            )
+        // The saved version only counts while its stories are still on the phone.
+        val savedVersion = if (hasContent) syncStore.catalogueVersion() else null
+        val update = log.timed("$TAG: Check the catalogue") { remote.fetchCatalogue(savedVersion) }
+        val likeCounts = fetchLikeCounts()
+        when (update) {
+            CatalogueUpdate.Unchanged -> {
+                likeCounts?.let { storyDao.setLikeCounts(it) }
+                log.i("$TAG: Refresh done: stories unchanged" + if (likeCounts != null) ", like counts updated" else "")
+            }
+            is CatalogueUpdate.Changed -> {
+                val feed = update.feed
+                // Like counts: fresh from the server, else the feed's own, else the ones on the phone.
+                val saved = storyDao.likeCounts().associate { it.id to it.likeCount }
+                log.timed("$TAG: Save stories on the phone") {
+                    storyDao.replaceContent(
+                        categories = feed.categories.map { it.toEntity() },
+                        categoryNames = feed.categories.flatMap { it.toNameEntities() },
+                        stories = feed.stories.map { story ->
+                            story.toEntity().copy(likeCount = likeCounts?.get(story.id) ?: story.likeCount ?: saved[story.id] ?: 0)
+                        },
+                        translations = feed.stories.flatMap { it.toTranslationEntities() },
+                        pages = feed.stories.flatMap { it.toPageEntities() },
+                        languages = feed.languages.map { it.toEntity() },
+                    )
+                }
+                syncStore.setCatalogueVersion(update.version)
+                log.i("$TAG: Refresh done: new stories saved (version ${update.version})", data = feed.summary())
+            }
         }
         syncStore.setLastRefreshAt(System.currentTimeMillis())
-        log.i("$TAG: Refresh done", data = feed.summary())
-        Result.success(true)
+        lastDownloaded = update is CatalogueUpdate.Changed
+        Result.success(lastDownloaded)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
         log.w("$TAG: Refresh failed; showing the saved stories", e)
         Result.failure(e)
+    }
+
+    /** The like counts from the server, or null if they couldn't be read (the saved ones stay). */
+    private suspend fun fetchLikeCounts(): Map<String, Int>? = try {
+        remote.fetchLikeCounts()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.w("$TAG: Like counts not loaded; keeping the saved ones", e)
+        null
     }
 
     /** What a download brought, for the log: counts per language, not the stories themselves. */

@@ -1,17 +1,18 @@
 package com.vegamstories.app.domain.model
 
-/** How old the saved stories may get before the app downloads them again by itself. */
-const val CONTENT_MAX_AGE_MILLIS: Long = 24L * 60 * 60 * 1000
+/** The shortest time between two checks the app makes by itself: opening it again sooner doesn't check again. */
+const val CONTENT_CHECK_INTERVAL_MILLIS: Long = 5L * 60 * 1000
 
 /**
- * Whether the app should download the story catalogue without being asked. Server calls cost
- * money, so at most once a day, unless there is nothing saved to show (no stories or no languages
- * yet, as on first launch). A refresh the reader asks for (pull to refresh) always downloads.
- * [lastRefreshAt] is when the last download succeeded (null: never), [now] the time now.
+ * Whether the app should check the story catalogue without being asked. A check reads one small
+ * file (the catalogue's version) and downloads the catalogue only when it changed, so the app
+ * checks whenever it opens, at most every few minutes; at once when nothing is saved to show (no
+ * stories or no languages yet, as on first launch). A check the reader asks for (pull to refresh)
+ * always runs. [lastRefreshAt] is when the last check succeeded (null: never), [now] the time now.
  */
 fun isContentRefreshDue(hasContent: Boolean, lastRefreshAt: Long?, now: Long): Boolean = when {
     !hasContent -> true
     lastRefreshAt == null -> true
     now < lastRefreshAt -> true // the clock was turned back: no telling how old the stories are
-    else -> now - lastRefreshAt >= CONTENT_MAX_AGE_MILLIS
+    else -> now - lastRefreshAt >= CONTENT_CHECK_INTERVAL_MILLIS
 }

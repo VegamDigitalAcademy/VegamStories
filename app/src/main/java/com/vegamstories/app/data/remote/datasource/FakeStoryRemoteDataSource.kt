@@ -27,10 +27,17 @@ class FakeStoryRemoteDataSource @Inject constructor(
 
     private val log = AppLogger(TAG)
 
-    override suspend fun fetchFeed(): FeedResponseDto = withContext(ioDispatcher) {
+    override suspend fun fetchCatalogue(savedVersion: String?): CatalogueUpdate = withContext(ioDispatcher) {
         log.d("$TAG: No server set up (local.properties): making the sample stories")
         delay(NETWORK_DELAY_MS) // simulate network latency so loading states are visible
-        FeedResponseDto(categories = categories, stories = buildStories(), languages = languages)
+        val feed = FeedResponseDto(categories = categories, stories = buildStories(), languages = languages)
+        // As on the server: the same stories (like counts aside) keep the same version.
+        val version = "sample-${feed.copy(stories = feed.stories.map { it.copy(likeCount = null) }).hashCode()}"
+        if (version == savedVersion) CatalogueUpdate.Unchanged else CatalogueUpdate.Changed(feed, version)
+    }
+
+    override suspend fun fetchLikeCounts(): Map<String, Int> = withContext(ioDispatcher) {
+        buildStories().associate { it.id to (it.likeCount ?: 0) }
     }
 
     /**

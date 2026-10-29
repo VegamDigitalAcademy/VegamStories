@@ -86,7 +86,13 @@ class HomeViewModel @Inject constructor(
 
     init {
         log.i("$TAG: Home opened" + (selectedCategoryId.value?.let { " on tab $it (app icon shortcut)" } ?: ""))
-        // Opening the app downloads only when a day has passed, or nothing is saved yet.
+    }
+
+    /**
+     * Home came into view: the app was opened, or the reader came back to it. Checks the catalogue
+     * (a small file; the stories download only when they changed), unless it was checked a few minutes ago.
+     */
+    fun onShown() {
         runRefresh(force = false)
     }
 
@@ -124,7 +130,8 @@ class HomeViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     log.w("$TAG: Home: refresh failed, the saved stories stay", e)
-                    events.send(HomeEvent.RefreshFailed)
+                    // Only when the reader asked: a check on opening fails quietly (offline, say).
+                    if (force) events.send(HomeEvent.RefreshFailed)
                 }
             isRefreshing.value = false
         }

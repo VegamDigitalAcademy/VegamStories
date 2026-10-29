@@ -2,6 +2,7 @@ package com.vegamstories.app.data.remote.api
 
 import com.vegamstories.app.data.remote.dto.LanguageDto
 import com.vegamstories.app.data.remote.dto.SetStoryLikeRequest
+import com.vegamstories.app.data.remote.dto.StoryLikeCountRow
 import com.vegamstories.app.data.remote.dto.SupabaseCategoryRow
 import com.vegamstories.app.data.remote.dto.SupabaseStoryRow
 import retrofit2.http.Body
@@ -11,6 +12,8 @@ import retrofit2.http.Query
 
 /**
  * Supabase REST API (PostgREST), base URL = https://<project>.supabase.co/rest/v1/
+ * Stories normally come from the catalogue in R2 ([CatalogueApi]); the story calls here are its
+ * fallback. Like counts and likes always go through here.
  * Auth headers are added by the OkHttp interceptor in NetworkModule.
  * Row Level Security on the server decides what is visible (published stories only).
  */
@@ -41,6 +44,13 @@ interface StoryApi {
         @Query("order") order: String = "published_at.desc",
         @Query("story_pages.order") pagesOrder: String = "page_index.asc",
     ): List<SupabaseStoryRow>
+
+    /** Every published story's like count: a few bytes a story, read with each refresh. */
+    @GET("stories")
+    suspend fun getLikeCounts(
+        @Query("select") select: String = "id,like_count",
+        @Query("is_published") isPublished: String = "eq.true",
+    ): List<StoryLikeCountRow>
 
     /** Likes or unlikes a story for this device. Returns the story's new like count, e.g. `42`. */
     @POST("rpc/set_story_like")

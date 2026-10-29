@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegamstories.app.R
 import com.vegamstories.app.domain.model.Category
@@ -75,6 +76,12 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Each time Home comes into view (the app opens, or the reader comes back): new stories?
+    LifecycleStartEffect(viewModel) {
+        viewModel.onShown()
+        onStopOrDispose { }
+    }
 
     val refreshFailedMsg = stringResource(R.string.refresh_failed)
     LaunchedEffect(viewModel) {
