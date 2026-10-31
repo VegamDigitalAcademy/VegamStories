@@ -33,6 +33,8 @@ val hasUploadKey = uploadStoreFile.isNotEmpty() && file(uploadStoreFile).exists(
 android {
     namespace = "com.vegamstories.app"
     compileSdk = 37
+    // The NDK installed here; release builds use it to read native debug symbols (see release below).
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "com.vegamstories.app"
@@ -78,6 +80,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            // Native debug symbols for the AndroidX .so files, packed into the bundle, so Play can
+            // show readable native crash and ANR stacks.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
     }
     compileOptions {
