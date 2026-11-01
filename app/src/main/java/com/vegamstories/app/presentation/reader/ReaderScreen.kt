@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.CornerRadius
@@ -20,6 +21,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -74,6 +76,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -95,10 +98,13 @@ import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.LikeButton
 import com.vegamstories.app.presentation.components.LoadingBox
+import com.vegamstories.app.presentation.components.windowIsWideLandscape
+import com.vegamstories.app.presentation.components.pageTurn
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.preview.ScreenPreviews
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 @Composable
@@ -300,6 +306,10 @@ private fun ReaderContent(
 
             else -> {}
         }
+        // A wide screen on its side shows comic pages two at a time, like an open book.
+        val spreads = ComicSpreads(detail.pages.size).takeIf {
+            state.settings.scrollMode == ReaderScrollMode.PAGED && detail.pages.size > 1 && windowIsWideLandscape()
+        }
         val page: @Composable (index: Int, onContinue: () -> Unit) -> Unit = { index, onContinue ->
             ReaderPage(
                 index = index,
@@ -314,6 +324,38 @@ private fun ReaderContent(
             )
         }
         when (state.settings.scrollMode) {
+            ReaderScrollMode.PAGED if spreads != null -> BoxWithConstraints(readerModifier) {
+                // A page's room: the reader's height less the pager's margins above and below.
+                val pageRoom = maxHeight - SpreadPageMargin * 2
+                PagedReader(
+                    startPage = spreads.spreadOf(currentPage),
+                    autoTurnMillis = state.settings.autoTurnMillis,
+                    timer = pageTimer,
+                    pageCount = spreads.pagerPageCount,
+                    comicPageCount = spreads.spreadCount,
+                    likePageIndex = spreads.likeSpread,
+                    onPageSettled = { spread -> onPageSettled(spreads.readTo(spread)) },
+                    page = { spread, onContinue ->
+                        if (spread < spreads.spreadCount) {
+                            ComicSpread(
+                                pages = spreads.pagesOn(spread),
+                                state = state,
+                                detail = detail,
+                                maxPageHeight = pageRoom,
+                                onContinue = onContinue,
+                                onAddBookmark = onAddBookmark,
+                                onRemoveBookmarks = onRemoveBookmarks,
+                            )
+                        } else {
+                            page(state.likePageIndex, onContinue)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    pageMargin = SpreadPageMargin,
+                    showTurnHint = !state.settings.pageTurnHintShown,
+                    onTurnHintShown = onTurnHintShown,
+                )
+            }
             ReaderScrollMode.PAGED -> PagedReader(
                 startPage = currentPage,
                 autoTurnMillis = state.settings.autoTurnMillis,
@@ -328,14 +370,11 @@ private fun ReaderContent(
                 onTurnHintShown = onTurnHintShown,
                 pageOverlay = { index ->
                     if (index < detail.pages.size) {
-                        val onPage = state.bookmarks.filter {
-                            it.format == StoryFormat.COMIC && it.language == state.language && it.position == index
-                        }
-                        BookmarkRibbon(
-                            marked = onPage.isNotEmpty(),
-                            onToggle = {
-                                if (onPage.isNotEmpty()) onRemoveBookmarks(onPage) else onAddBookmark(StoryFormat.COMIC, index, 0)
-                            },
+                        ComicBookmarkRibbon(
+                            index = index,
+                            state = state,
+                            onAddBookmark = onAddBookmark,
+                            onRemoveBookmarks = onRemoveBookmarks,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(end = 12.dp),
@@ -354,12 +393,13 @@ private fun ReaderContent(
                 modifier = readerModifier,
             )
         }
+        // Two pages side by side fill one bar between them.
         PageIndicator(
-            currentPage = currentPage,
-            pageCount = state.totalPagerPages,
+            currentPage = spreads?.spreadOf(currentPage) ?: currentPage,
+            pageCount = spreads?.pagerPageCount ?: state.totalPagerPages,
             timer = pageTimer,
             autoTurn = state.settings.autoTurnMillis != null,
-            lastAutoPage = state.likePageIndex,
+            lastAutoPage = spreads?.likeSpread ?: state.likePageIndex,
         )
     }
 
@@ -416,6 +456,20 @@ private fun PagedReader(
         snapshotFlow { pagerState.currentPage }.collect { currentOnPageSettled(it) }
     }
 
+    // A light tick when the reader's own swipe lands on another page. Not for the auto-turn or the
+    // turn hint (no finger), and not for a swipe that springs back to the same page.
+    val haptics = LocalHapticFeedback.current
+    var swiped by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState) {
+        pagerState.interactionSource.interactions.collect { if (it is DragInteraction.Start) swiped = true }
+    }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.drop(1).collect {
+            if (swiped) haptics.pageTurn()
+            swiped = false
+        }
+    }
+
     // Auto-advance (Settings → Reading): each comic page turns to the next after autoTurnMillis.
     // Swiping restarts the wait; it stops at the like page.
     AutoAdvance(
@@ -424,7 +478,10 @@ private fun PagedReader(
         page = pagerState.settledPage,
         userIsScrolling = pagerState.isScrollInProgress,
         lastAutoPage = likePageIndex,
-    ) { pagerState.animateScrollToPage(pagerState.settledPage + 1, animationSpec = pageTurnSpec) }
+    ) {
+        swiped = false // a swipe that sprang back before this turn
+        pagerState.animateScrollToPage(pagerState.settledPage + 1, animationSpec = pageTurnSpec)
+    }
 
     // Which way a turning page's fold leans: after the finger, else the app's own lean.
     val lean = remember { PageLean() }
@@ -702,8 +759,11 @@ private fun VerticalReader(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(count = pageCount) { index ->
-            Column(Modifier.fillMaxWidth()) {
-                page(index) { scope.launch { listState.animateScrollToItem(likePageIndex) } }
+            // On a wide screen the strip stays a readable width, in the middle.
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Column(Modifier.widthIn(max = MAX_STRIP_WIDTH).fillMaxWidth()) {
+                    page(index) { scope.launch { listState.animateScrollToItem(likePageIndex) } }
+                }
             }
         }
     }
@@ -768,6 +828,78 @@ private fun LazyListState.pageAtCenter(): Int {
     val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
     return visible.firstOrNull { it.offset <= center && it.offset + it.size > center }?.index
         ?: firstVisibleItemIndex
+}
+
+/** The widest the vertical strip's pages get, so a tablet's pages aren't taller than its screen many times over. */
+private val MAX_STRIP_WIDTH = 640.dp
+
+/** Above and below two pages side by side. */
+private val SpreadPageMargin = 8.dp
+
+/** Room kept under the last spread for "The End" and its Continue button. */
+private val EndOfStoryHeight = 80.dp
+
+/**
+ * Comic pages side by side, meeting in the middle like an open book, each as tall as fits and
+ * with its own bookmark ribbon. Under the last ones, "The End" leads on to the like page.
+ */
+@Composable
+private fun ComicSpread(
+    pages: IntRange,
+    state: ReaderUiState,
+    detail: StoryDetail,
+    maxPageHeight: Dp,
+    onContinue: () -> Unit,
+    onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit,
+    onRemoveBookmarks: (List<Bookmark>) -> Unit,
+) {
+    val endsStory = detail.pages.lastIndex in pages
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (index in pages) {
+                Box(Modifier.weight(1f, fill = false)) {
+                    ComicPage(
+                        page = detail.pages[index],
+                        framed = false,
+                        maxHeight = if (endsStory) maxPageHeight - EndOfStoryHeight else maxPageHeight,
+                    )
+                    ComicBookmarkRibbon(
+                        index = index,
+                        state = state,
+                        onAddBookmark = onAddBookmark,
+                        onRemoveBookmarks = onRemoveBookmarks,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 12.dp),
+                    )
+                }
+            }
+        }
+        if (endsStory) EndOfStory(onContinue = onContinue, modifier = Modifier.padding(horizontal = 16.dp))
+    }
+}
+
+/** The ribbon on comic page [index]: marks the page in the language shown, or takes its marks off. */
+@Composable
+private fun ComicBookmarkRibbon(
+    index: Int,
+    state: ReaderUiState,
+    onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit,
+    onRemoveBookmarks: (List<Bookmark>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val onPage = state.bookmarks.filter {
+        it.format == StoryFormat.COMIC && it.language == state.language && it.position == index
+    }
+    BookmarkRibbon(
+        marked = onPage.isNotEmpty(),
+        onToggle = { if (onPage.isNotEmpty()) onRemoveBookmarks(onPage) else onAddBookmark(StoryFormat.COMIC, index, 0) },
+        modifier = modifier,
+    )
 }
 
 /** What goes on page [index]: a comic page or the like page. */

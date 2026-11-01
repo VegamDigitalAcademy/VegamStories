@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -92,6 +93,7 @@ fun LikeButton(
 ) {
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     val tint by animateColorAsState(likeTint(isLiked), label = "likeTint")
     // Liked somewhere else on the screen (the big heart at the end of a story): pop here too, so the
     // like is seen landing. Not when first shown, and not twice when this button was the one tapped.
@@ -105,6 +107,7 @@ fun LikeButton(
             .minimumInteractiveComponentSize()
             .clip(RoundedCornerShape(50))
             .clickable(role = Role.Button) {
+                haptics.toggle(on = !isLiked)
                 onClick()
                 scope.launch { scale.pop() }
             }

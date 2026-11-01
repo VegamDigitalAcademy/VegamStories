@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -58,6 +59,7 @@ import com.vegamstories.app.presentation.components.RollingCount
 import com.vegamstories.app.presentation.components.StoryCover
 import com.vegamstories.app.presentation.components.likeIcon
 import com.vegamstories.app.presentation.components.pop
+import com.vegamstories.app.presentation.components.toggle
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
@@ -96,6 +98,7 @@ fun LikeStoryPage(
     val card = rememberGraphicsLayer()
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     val circleColor by animateColorAsState(
         if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         label = "likeCircle",
@@ -148,6 +151,7 @@ fun LikeStoryPage(
                         .clip(CircleShape)
                         .background(circleColor)
                         .clickable(role = Role.Button) {
+                            haptics.toggle(on = !isLiked)
                             onToggleLike()
                             scope.launch { scale.pop() }
                         },

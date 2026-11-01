@@ -16,12 +16,14 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.vegamstories.app.R
+import com.vegamstories.app.presentation.components.toggle
 
 /** A book's satin ribbon marker: deep red, darker toward its edges. */
 private val RibbonRed = Color(0xFFB3261E)
@@ -44,6 +46,7 @@ fun BookmarkRibbon(
         label = "ribbon",
     )
     val label = stringResource(R.string.bookmark_page)
+    val haptics = LocalHapticFeedback.current
     Box(
         modifier
             .size(width = 48.dp, height = 56.dp) // room for a thumb, more than the ribbon
@@ -52,7 +55,10 @@ fun BookmarkRibbon(
                 interactionSource = null,
                 indication = null, // the ribbon dropping is the feedback
                 role = Role.Checkbox,
-                onValueChange = { onToggle() },
+                onValueChange = { on ->
+                    haptics.toggle(on)
+                    onToggle()
+                },
             )
             .semantics { contentDescription = label }
             .drawBehind { drawRibbon(length.toPx(), marked, idleColor) },

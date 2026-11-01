@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -19,7 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import com.vegamstories.app.R
@@ -35,27 +39,44 @@ import com.vegamstories.app.presentation.preview.PreviewTheme
  * While it loads, a portrait-shaped shimmer keeps the space.
  * [framed] draws the black comic border; the paged reader turns it off so the image can use
  * every pixel of the screen width.
+ * With [maxHeight] the whole page fits instead: no taller than that, and no wider than there's
+ * room for (two pages side by side on a wide screen).
  */
 @Composable
-fun ComicPage(page: StoryPage, modifier: Modifier = Modifier, framed: Boolean = true) {
+fun ComicPage(
+    page: StoryPage,
+    modifier: Modifier = Modifier,
+    framed: Boolean = true,
+    maxHeight: Dp = Dp.Unspecified,
+) {
     var state by remember(page.imageUrl) {
         mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)
     }
     val loaded = state is AsyncImagePainter.State.Success
+    val fit = maxHeight.isSpecified
+    // Until the image has a size of its own, reserve a typical comic-page shape (3:4).
+    val shape = (state as? AsyncImagePainter.State.Success)?.painter?.intrinsicSize
+        ?.takeIf { it.isSpecified && it.height > 0f }
+        ?.let { it.width / it.height }
+        ?: (3f / 4f)
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
+            .then(if (fit) Modifier.heightIn(max = maxHeight) else Modifier.fillMaxWidth())
             .then(if (framed) Modifier.border(2.dp, Color.Black) else Modifier)
             .background(Color.White),
     ) {
         AsyncImage(
             model = page.imageUrl,
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
+            contentScale = if (fit) ContentScale.Fit else ContentScale.FillWidth,
             onState = { state = it },
-            // Until the image has a size of its own, reserve a typical comic-page shape (3:4).
-            modifier = if (loaded) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().aspectRatio(3f / 4f),
+            modifier = when {
+                // As tall as allowed, unless that would make it too wide.
+                fit -> Modifier.aspectRatio(shape, matchHeightConstraintsFirst = true)
+                loaded -> Modifier.fillMaxWidth()
+                else -> Modifier.fillMaxWidth().aspectRatio(shape)
+            },
         )
         when (state) {
             is AsyncImagePainter.State.Loading, AsyncImagePainter.State.Empty ->
