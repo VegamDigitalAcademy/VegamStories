@@ -93,6 +93,11 @@ android {
         compose = true
         buildConfig = true
     }
+    // Every language in the base APK. Split by language, Play installs only the phone's own
+    // languages, so Telugu picked in the app's Settings on an English phone stayed English.
+    bundle {
+        language { enableSplit = false }
+    }
     testOptions {
         unitTests {
             // Robolectric tests (screens, view models) need the app's resources: strings, drawables, themes.
@@ -180,6 +185,6 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    implementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    debugImplementation(libs.androidx.compose.ui.tooling)
 }
