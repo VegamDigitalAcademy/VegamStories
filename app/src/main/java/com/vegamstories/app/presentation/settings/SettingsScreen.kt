@@ -200,7 +200,7 @@ fun SettingsContent(
     onOpenNotificationSettings: () -> Unit,
     onBack: () -> Unit,
     autoTurnPages: Boolean = true,
-    autoTurnSeconds: Int = 10,
+    autoTurnSeconds: Int = 30,
     onAutoTurnChange: (Boolean) -> Unit = {},
     onAutoTurnSecondsChange: (Int) -> Unit = {},
     onShareLogs: () -> Unit = {},

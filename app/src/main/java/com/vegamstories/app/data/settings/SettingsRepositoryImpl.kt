@@ -130,7 +130,9 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_PREFERRED_FORMAT = stringPreferencesKey("reader_preferred_format")
         val READER_TEXT_SIZE = stringPreferencesKey("reader_text_size")
         val READER_AUTO_TURN = booleanPreferencesKey("reader_auto_turn")
-        val READER_AUTO_TURN_SECONDS = intPreferencesKey("reader_auto_turn_seconds")
+        // v2 since the times went from 5/10/15 s to 10/20/30 s. Older versions saved their 10 s
+        // default with every reader setting, so that value is left behind and all start on 30 s.
+        val READER_AUTO_TURN_SECONDS = intPreferencesKey("reader_auto_turn_seconds_v2")
         val READER_PAGE_TURN_HINT_SHOWN = booleanPreferencesKey("reader_page_turn_hint_shown")
         val NEW_STORY_ALERTS = booleanPreferencesKey("new_story_alerts")
         val LAST_SEEN_STORY_ID = stringPreferencesKey("last_seen_story_id")

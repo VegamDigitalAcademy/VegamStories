@@ -74,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -106,6 +107,7 @@ import com.vegamstories.app.presentation.preview.ScreenPreviews
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ReaderScreen(
@@ -780,6 +782,14 @@ private class PageTimer {
 }
 
 /**
+ * Runs the auto-turn countdown at 1×, whatever the phone's animation speed (Developer options, or
+ * Remove animations in Accessibility), which would otherwise shorten a page's time or skip it.
+ */
+private object RealTime : MotionDurationScale {
+    override val scaleFactor = 1f
+}
+
+/**
  * Turns the page by itself: comic [page] (any page before [lastAutoPage], the like page) waits
  * [delayMillis] while [timer] fills, then [advance] is called. Holding or swiping the pages freezes
  * the timer; letting go, or a new page, starts it again from empty. While the app isn't on screen
@@ -807,7 +817,9 @@ private fun AutoAdvance(
             if (timer.progress.value >= 1f) return@repeatOnLifecycle // already turning
             // Back from the background: only the time that was left.
             val remaining = ((1f - timer.progress.value) * delayMillis).toInt()
-            timer.progress.animateTo(1f, tween(durationMillis = remaining, easing = LinearEasing))
+            withContext(RealTime) {
+                timer.progress.animateTo(1f, tween(durationMillis = remaining, easing = LinearEasing))
+            }
             // Turn the page outside this effect: the turn itself makes userIsScrolling true,
             // which restarts this effect, and would cancel the animation after its first frame.
             // A swipe still interrupts it (the pager gives user input priority).

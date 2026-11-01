@@ -13,7 +13,7 @@ data class ReaderSettings(
     /** Comic pages turn by themselves after [autoTurnSeconds] (Settings → Reading). */
     val autoTurnPages: Boolean = true,
     /** One of [AUTO_TURN_SECONDS_OPTIONS]. */
-    val autoTurnSeconds: Int = 10,
+    val autoTurnSeconds: Int = 30,
     /** The corner of the first story's page has lifted once, to show pages can be turned. */
     val pageTurnHintShown: Boolean = false,
 ) {
@@ -22,7 +22,7 @@ data class ReaderSettings(
 }
 
 /** The page times offered in Settings, in seconds. */
-val AUTO_TURN_SECONDS_OPTIONS = listOf(5, 10, 15)
+val AUTO_TURN_SECONDS_OPTIONS = listOf(10, 20, 30)
 
 /** [PAGED] flips one page at a time sideways; [VERTICAL] scrolls all pages in one long strip. */
 enum class ReaderScrollMode { PAGED, VERTICAL }

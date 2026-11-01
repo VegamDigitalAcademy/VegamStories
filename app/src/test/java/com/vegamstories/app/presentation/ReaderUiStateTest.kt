@@ -1,5 +1,6 @@
 package com.vegamstories.app.presentation
 
+import com.vegamstories.app.domain.model.AUTO_TURN_SECONDS_OPTIONS
 import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.domain.model.ReaderSettings
 import com.vegamstories.app.domain.model.StoryDetail
@@ -84,8 +85,10 @@ class ReaderUiStateTest {
 
     @Test
     fun `comic pages auto-turn after the time chosen in Settings, or not at all`() {
-        assertEquals(10_000L, ReaderSettings().autoTurnMillis) // on, 10 s by default
-        assertEquals(5_000L, ReaderSettings(autoTurnSeconds = 5).autoTurnMillis)
-        assertNull(ReaderSettings(autoTurnPages = false, autoTurnSeconds = 15).autoTurnMillis)
+        assertEquals(30_000L, ReaderSettings().autoTurnMillis) // on, 30 s by default
+        assertEquals(10_000L, ReaderSettings(autoTurnSeconds = 10).autoTurnMillis)
+        assertNull(ReaderSettings(autoTurnPages = false, autoTurnSeconds = 20).autoTurnMillis)
+        // The default is one of the times offered, so Settings shows it selected.
+        assertTrue(ReaderSettings().autoTurnSeconds in AUTO_TURN_SECONDS_OPTIONS)
     }
 }
