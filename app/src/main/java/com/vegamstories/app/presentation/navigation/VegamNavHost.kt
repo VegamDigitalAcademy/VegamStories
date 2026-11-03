@@ -12,6 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.vegamstories.app.BuildConfig
 import com.vegamstories.app.presentation.downloads.DownloadsScreen
 import com.vegamstories.app.presentation.favorites.FavoritesScreen
 import com.vegamstories.app.presentation.history.HistoryScreen
@@ -20,6 +21,7 @@ import com.vegamstories.app.presentation.info.InfoScreen
 import com.vegamstories.app.presentation.menu.MenuScreen
 import com.vegamstories.app.presentation.reader.ReaderScreen
 import com.vegamstories.app.presentation.search.SearchScreen
+import com.vegamstories.app.presentation.settings.ApiCallsScreen
 import com.vegamstories.app.presentation.settings.SettingsScreen
 import com.vegamstories.app.presentation.shortcuts.ShortcutTarget
 
@@ -90,8 +92,18 @@ fun VegamNavHost(
             SearchScreen(onBack = navController::popBackStack, onStoryClick = openStory)
         }
         composable<SettingsRoute> {
-            AboveBottomBar { SettingsScreen(onBack = navController::popBackStack) }
+            AboveBottomBar {
+                SettingsScreen(
+                    onBack = navController::popBackStack,
+                    onOpenApiCalls = { navController.navigate(ApiCallsRoute) },
+                )
+            }
         }
+//        if (BuildConfig.DEBUG) {
+            composable<ApiCallsRoute> {
+                AboveBottomBar { ApiCallsScreen(onBack = navController::popBackStack) }
+            }
+//        }
         composable<InfoRoute> { entry ->
             val page = InfoPage.valueOf(entry.toRoute<InfoRoute>().page)
             AboveBottomBar { InfoScreen(page = page, onBack = navController::popBackStack) }

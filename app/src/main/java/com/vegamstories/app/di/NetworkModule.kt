@@ -4,8 +4,10 @@ import android.content.Context
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.vegamstories.app.BuildConfig
+import com.vegamstories.app.core.logging.ApiCallCounter
 import com.vegamstories.app.data.remote.api.CatalogueApi
 import com.vegamstories.app.data.remote.api.StoryApi
+import com.vegamstories.app.data.remote.logging.ApiCallCountInterceptor
 import com.vegamstories.app.data.remote.logging.ApiLoggingInterceptor
 import dagger.Module
 import dagger.Provides
@@ -18,6 +20,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Provider
 import javax.inject.Singleton
 
 @Module
@@ -34,7 +37,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    fun provideOkHttpClient(apiCallCounter: Provider<ApiCallCounter>): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         // Supabase needs the project key on every request. This client is only used by
@@ -55,6 +58,7 @@ object NetworkModule {
         // files in every build. After the auth interceptor, so it sees the real request; it never
         // logs headers, so the key stays out of the logs.
         .addInterceptor(ApiLoggingInterceptor())
+        .countCallsInDebug(apiCallCounter)
         .build()
 
     @Provides
@@ -75,11 +79,12 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideCatalogueApi(json: Json): CatalogueApi {
+    fun provideCatalogueApi(json: Json, apiCallCounter: Provider<ApiCallCounter>): CatalogueApi {
         val client = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(ApiLoggingInterceptor())
+            .countCallsInDebug(apiCallCounter)
             .build()
         return Retrofit.Builder()
             .baseUrl(BuildConfig.CATALOGUE_URL.substringBeforeLast('/') + "/")
@@ -87,6 +92,14 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(CatalogueApi::class.java)
+    }
+
+    /**
+     * Debug builds count every API call (Settings → API calls). A Provider, so release builds never
+     * even create the counter.
+     */
+    private fun OkHttpClient.Builder.countCallsInDebug(counter: Provider<ApiCallCounter>) = apply {
+        if (BuildConfig.DEBUG) addInterceptor(ApiCallCountInterceptor(counter.get()::record))
     }
 
     /** The app-wide Coil loader (configured in VegamStoriesApp). */

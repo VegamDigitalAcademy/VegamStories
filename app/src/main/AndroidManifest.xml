@@ -28,10 +28,19 @@
         android:supportsRtl="true"
         android:localeConfig="@xml/locales_config"
         android:theme="@style/Theme.MyApplication">
+        <!-- Android 16+ ignores the portrait lock below on tablets and foldables (600 dp and wider)
+             unless the app opts out here. Only apps targeting SDK 36 can: at 37 this stops working. -->
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
+
+        <!-- Always upright, on phones, tablets and foldables. A full-screen video still turns
+             sideways (YouTubePlayer). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:theme="@style/Theme.Vegam.Starting"
             android:windowSoftInputMode="adjustResize">

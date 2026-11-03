@@ -2,8 +2,6 @@ package com.vegamstories.app
 
 import com.vegamstories.app.core.logging.AppLogger
 import android.content.Intent
-import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.os.SystemClock
@@ -52,9 +50,9 @@ class MainActivity : AppCompatActivity() {
                 viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
         }
         super.onCreate(savedInstanceState)
-        lockPortraitOnPhones()
         enableEdgeToEdge()
-        // Only on a fresh launch — after rotation the NavController already restored the screen.
+        // Only on a fresh launch — when the screen is recreated (language change) the NavController
+        // has already restored it.
         if (savedInstanceState == null) handleShortcut(intent)
         setContent {
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -94,21 +92,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** A foldable folded or opened: the screen changes size without the activity restarting. */
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        lockPortraitOnPhones()
-    }
-
-    /**
-     * Phones stay upright, as the app is laid out for. Tablets and open foldables turn freely: on
-     * their side, the story grid shows more covers and comics show two pages side by side.
-     */
-    private fun lockPortraitOnPhones() {
-        val phone = resources.configuration.smallestScreenWidthDp < TABLET_MIN_WIDTH_DP
-        requestedOrientation = if (phone) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    }
-
     /** App already open and the user taps a shortcut (singleTop activity). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -128,9 +111,6 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         /** The logo splash stays at least this long. */
         const val SPLASH_MIN_MS = 2_000L
-
-        /** Narrowest side, in dp, from which a screen counts as a tablet (Android's own split). */
-        const val TABLET_MIN_WIDTH_DP = 600
 
         // Same scrims the platform uses for 3-button navigation bars.
         val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)

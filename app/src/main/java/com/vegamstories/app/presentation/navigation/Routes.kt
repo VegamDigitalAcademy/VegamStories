@@ -19,6 +19,8 @@ import kotlinx.serialization.Serializable
 @Serializable data object BookshelfRoute
 @Serializable data object SearchRoute
 @Serializable data object SettingsRoute
+/** Settings → API calls, in debug builds only. */
+@Serializable data object ApiCallsRoute
 
 /**
  * A story in the reader. Opened from a bookmark it carries the bookmark's place ([bookmarkFormat]

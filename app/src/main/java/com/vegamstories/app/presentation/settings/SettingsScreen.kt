@@ -76,6 +76,8 @@ private const val TAG = "SettingsScreen"
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    /** Opens Settings → API calls. The row shows in debug builds only. */
+    onOpenApiCalls: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -144,6 +146,7 @@ fun SettingsScreen(
         onAutoTurnChange = viewModel::onAutoTurnChange,
         onAutoTurnSecondsChange = viewModel::onAutoTurnSecondsChange,
         onShareLogs = { showShareLogs = true },
+        onOpenApiCalls = onOpenApiCalls/*.takeIf { BuildConfig.DEBUG }*/,
         onBack = onBack,
     )
 }
@@ -204,6 +207,8 @@ fun SettingsContent(
     onAutoTurnChange: (Boolean) -> Unit = {},
     onAutoTurnSecondsChange: (Int) -> Unit = {},
     onShareLogs: () -> Unit = {},
+    /** Settings → API calls; null (release builds) hides the Developer section. */
+    onOpenApiCalls: (() -> Unit)? = null,
 ) {
     Scaffold(
         topBar = { BackTopBar(title = stringResource(R.string.menu_settings), onBack = onBack) },
@@ -308,6 +313,17 @@ fun SettingsContent(
                 subtitle = stringResource(R.string.settings_share_logs_desc),
                 onClick = onShareLogs,
             )
+
+            // ---- Developer (debug builds only) ----
+            if (onOpenApiCalls != null) {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+                SectionLabel(stringResource(R.string.settings_developer_section))
+                ActionRow(
+                    title = stringResource(R.string.settings_api_calls),
+                    subtitle = stringResource(R.string.settings_api_calls_desc),
+                    onClick = onOpenApiCalls,
+                )
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -376,7 +392,7 @@ private fun RadioOptionRow(title: String, subtitle: String, selected: Boolean, o
     }
 }
 
-/** A row that does something when tapped (opens a dialog), with a chevron. */
+/** A row that does something when tapped (opens a dialog or a page), with a chevron. */
 @Composable
 private fun ActionRow(title: String, subtitle: String, onClick: () -> Unit) {
     Row(

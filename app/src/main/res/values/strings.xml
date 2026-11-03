@@ -214,6 +214,18 @@
     <string name="cancel">Cancel</string>
     <string name="share_logs_action">Share</string>
     <string name="share_logs_failed">Couldn\'t prepare the logs. Please try again.</string>
+
+    <!-- Settings → Developer → API calls: debug builds only, so English only -->
+    <string name="settings_developer_section" translatable="false">DEVELOPER</string>
+    <string name="settings_api_calls" translatable="false">API calls</string>
+    <string name="settings_api_calls_desc" translatable="false">How many times each API has been called</string>
+    <string name="api_calls_last_call" translatable="false">Last call</string>
+    <string name="api_calls_api" translatable="false">API</string>
+    <string name="api_calls_count" translatable="false">Count</string>
+    <string name="api_calls_total" translatable="false">Total</string>
+    <string name="api_calls_reset" translatable="false">Reset</string>
+    <string name="api_calls_empty_title" translatable="false">No API calls yet</string>
+    <string name="api_calls_empty_message" translatable="false">Each call the app makes to the server is counted here.</string>
     <string name="share_logs_subject">Vegam Stories – app logs</string>
     <string name="support_email" translatable="false">supportvegamstories@gmail.com</string>
 </resources>
