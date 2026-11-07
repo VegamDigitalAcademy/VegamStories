@@ -52,8 +52,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.delay
 import com.vegamstories.app.domain.model.Bookmark
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.SideEffect
@@ -104,6 +107,7 @@ import com.vegamstories.app.presentation.components.pageTurn
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.preview.ScreenPreviews
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -512,10 +516,12 @@ private fun PagedReader(
         modifier = modifier
             .clipToBounds()
             .leanWithFinger(lean, pagerState)
+            .holdToPauseAutoTurn(timer)
             // Tapping the left or right third of a page turns back or on, like an e-reader. Buttons on
-            // a page (Continue, the ribbon, the like page's) take their own taps first.
+            // a page (Continue, the ribbon, the like page's) take their own taps first. A long press
+            // is not a tap: letting go of one leaves the page where it is.
             .pointerInput(pagerState, pageCount) {
-                detectTapGestures { tap ->
+                detectTapGestures(onLongPress = {}) { tap ->
                     val third = size.width / 3f
                     val target = when {
                         tap.x < third -> pagerState.targetPage - 1
@@ -756,7 +762,7 @@ private fun VerticalReader(
 
     LazyColumn(
         state = listState,
-        modifier = modifier,
+        modifier = modifier.holdToPauseAutoTurn(timer),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -779,6 +785,9 @@ private fun VerticalReader(
 private class PageTimer {
     val progress = Animatable(0f)
     var page by mutableIntStateOf(-1)
+
+    /** A finger is held on the page: the countdown stops where it is until it lifts. */
+    var held by mutableStateOf(false)
 }
 
 /**
@@ -791,9 +800,9 @@ private object RealTime : MotionDurationScale {
 
 /**
  * Turns the page by itself: comic [page] (any page before [lastAutoPage], the like page) waits
- * [delayMillis] while [timer] fills, then [advance] is called. Holding or swiping the pages freezes
- * the timer; letting go, or a new page, starts it again from empty. While the app isn't on screen
- * it pauses, and carries on from where it was on return. [delayMillis] null = auto-turn off.
+ * [delayMillis] while [timer] fills, then [advance] is called. Swiping the pages freezes the timer;
+ * letting go, or a new page, starts it again from empty. A long press on a page, and the app not
+ * being on screen, pause it: it carries on from where it was. [delayMillis] null = auto-turn off.
  */
 @Composable
 private fun AutoAdvance(
@@ -814,19 +823,48 @@ private fun AutoAdvance(
         timer.progress.snapTo(0f)
         if (delayMillis == null || page >= lastAutoPage) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            if (timer.progress.value >= 1f) return@repeatOnLifecycle // already turning
-            // Back from the background: only the time that was left.
-            val remaining = ((1f - timer.progress.value) * delayMillis).toInt()
-            withContext(RealTime) {
-                timer.progress.animateTo(1f, tween(durationMillis = remaining, easing = LinearEasing))
+            snapshotFlow { timer.held }.collectLatest { held ->
+                if (held || timer.progress.value >= 1f) return@collectLatest // paused, or already turning
+                // Back from a pause: only the time that was left.
+                val remaining = ((1f - timer.progress.value) * delayMillis).toInt()
+                withContext(RealTime) {
+                    timer.progress.animateTo(1f, tween(durationMillis = remaining, easing = LinearEasing))
+                }
+                // Turn the page outside this effect: the turn itself makes userIsScrolling true,
+                // which restarts this effect, and would cancel the animation after its first frame.
+                // A swipe still interrupts it (the pager gives user input priority).
+                scope.launch { currentAdvance() }
             }
-            // Turn the page outside this effect: the turn itself makes userIsScrolling true,
-            // which restarts this effect, and would cancel the animation after its first frame.
-            // A swipe still interrupts it (the pager gives user input priority).
-            scope.launch { currentAdvance() }
         }
     }
 }
+
+/**
+ * A long press on a page pauses its auto-turn ([PageTimer.held]) until the finger lifts. Watches
+ * the finger, without taking any of its moves or taps from the page.
+ */
+private fun Modifier.holdToPauseAutoTurn(timer: PageTimer): Modifier =
+    pointerInput(timer) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val letGoOrMoved = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                while (true) {
+                    val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                    if (change == null || !change.pressed) break
+                    if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+                }
+            }
+            if (letGoOrMoved != null) return@awaitEachGesture
+            timer.held = true
+            try {
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                } while (event.changes.any { it.id == down.id && it.pressed })
+            } finally {
+                timer.held = false
+            }
+        }
+    }
 
 /**
  * The page the reader is looking at: the one under the middle of the screen, or the last
