@@ -13,19 +13,32 @@ import androidx.compose.ui.platform.LocalContext
 import com.vegamstories.app.R
 import java.util.concurrent.Executors
 
-/** Plays the page-turn sound; the page-by-page reader calls it each time a page passes. */
-internal val LocalPageTurnSound = staticCompositionLocalOf<() -> Unit> { {} }
+/** The reader's sounds: a page turning (each time a page passes), tearing, and glued back. */
+interface ReaderSounds {
+    fun pageTurn()
+    fun tear()
+    fun glued()
+}
+
+/** No sounds: Settings → Reading → Page turn sound off. */
+private object Silent : ReaderSounds {
+    override fun pageTurn() = Unit
+    override fun tear() = Unit
+    override fun glued() = Unit
+}
+
+internal val LocalReaderSounds = staticCompositionLocalOf<ReaderSounds> { Silent }
 
 /**
- * The rustle of a page turning (Settings → Reading), or nothing when it's [enabled] off. It plays
- * at the phone's media volume, and never while the phone is on silent or vibrate.
+ * The reader's sounds (Settings → Reading → Page turn sound), or none when [enabled] is off. They
+ * play at the phone's media volume, and never while the phone is on silent or vibrate.
  */
 @Composable
-internal fun rememberPageTurnSound(enabled: Boolean): () -> Unit {
+internal fun rememberReaderSounds(enabled: Boolean): ReaderSounds {
     val context = LocalContext.current.applicationContext
-    val player = remember(enabled) { if (enabled) PageTurnPlayer(context) else null }
+    val player = remember(enabled) { if (enabled) ReaderSoundPlayer(context) else null }
     DisposableEffect(player) { onDispose { player?.release() } }
-    return remember(player) { { player?.play() } }
+    return player ?: Silent
 }
 
 /** How one page's sound plays: quicker and lighter when pages are turned one after another. */
@@ -42,7 +55,7 @@ internal fun pageTurnPlayback(sinceLastMillis: Long): PageTurnPlayback? {
     return PageTurnPlayback(rate = 1f + MAX_SPEED_UP * quick, volume = VOLUME - VOLUME_DROP * quick)
 }
 
-private class PageTurnPlayer(context: Context) {
+private class ReaderSoundPlayer(context: Context) : ReaderSounds {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val pool = SoundPool.Builder()
         // Fast turns overlap: each rustle fades out under the next.
@@ -54,21 +67,29 @@ private class PageTurnPlayer(context: Context) {
                 .build(),
         )
         .build()
-    private val sound = pool.load(context, R.raw.page_turn, 1)
+    private val turnSound = pool.load(context, R.raw.page_turn, 1)
+    private val tearSound = pool.load(context, R.raw.page_tear, 1)
+    private val glueSound = pool.load(context, R.raw.glue_press, 1)
 
     /** The sound plays from its own thread: a page turn never waits for it. */
     private val worker = Executors.newSingleThreadExecutor()
 
     private var lastTurnAt = -SLOW_TURN_MILLIS
 
-    fun play() {
+    override fun pageTurn() {
         val now = SystemClock.uptimeMillis()
         val playback = pageTurnPlayback(now - lastTurnAt) ?: return
         lastTurnAt = now
-        worker.execute {
-            if (audio?.ringerMode != AudioManager.RINGER_MODE_NORMAL) return@execute
-            pool.play(sound, playback.volume, playback.volume, 1, 0, playback.rate)
-        }
+        play(turnSound, playback.volume, playback.rate)
+    }
+
+    override fun tear() = play(tearSound, EFFECT_VOLUME)
+
+    override fun glued() = play(glueSound, EFFECT_VOLUME)
+
+    private fun play(sound: Int, volume: Float, rate: Float = 1f) = worker.execute {
+        if (audio?.ringerMode != AudioManager.RINGER_MODE_NORMAL) return@execute
+        pool.play(sound, volume, volume, 1, 0, rate)
     }
 
     fun release() {
@@ -87,6 +108,9 @@ private const val SLOW_TURN_MILLIS = 900L
 /** Soft: a page sound, not a notification. */
 private const val VOLUME = 0.5f
 private const val VOLUME_DROP = 0.15f
+
+/** The tear and the glue: a little louder than a page, being a moment of their own. */
+private const val EFFECT_VOLUME = 0.7f
 
 /** At the fastest, the rustle plays this much quicker (1.6×). */
 private const val MAX_SPEED_UP = 0.6f

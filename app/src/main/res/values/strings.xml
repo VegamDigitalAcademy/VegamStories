@@ -148,6 +148,10 @@
     <string name="settings_auto_turn_seconds">%1$d s</string>
     <string name="settings_page_turn_sound">Page turn sound</string>
     <string name="settings_page_turn_sound_desc">A soft paper sound as each page turns. Quiet when your phone is on silent</string>
+    <string name="settings_torn_pages">Torn pages</string>
+    <string name="settings_torn_pages_desc">Turn pages too fast and one tears. Rub on some glue to fix it</string>
+    <string name="tear_hint">Too fast! The page tore. Rub glue along the tear to fix it</string>
+    <string name="tear_fix">Fix it</string>
 
     <!-- New-story notifications -->
     <string name="settings_notifications_section">NOTIFICATIONS</string>

@@ -16,6 +16,8 @@ data class ReaderSettings(
     val autoTurnSeconds: Int = 30,
     /** A paper rustle as each page turns, in the page-by-page reader (Settings → Reading). */
     val pageTurnSound: Boolean = true,
+    /** Turning pages too fast tears one, to be glued back (Settings → Reading). */
+    val tornPages: Boolean = false,
     /** The corner of the first story's page has lifted once, to show pages can be turned. */
     val pageTurnHintShown: Boolean = false,
 ) {

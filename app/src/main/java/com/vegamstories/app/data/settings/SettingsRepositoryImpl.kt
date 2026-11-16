@@ -102,6 +102,7 @@ class SettingsRepositoryImpl @Inject constructor(
             textSize = this[READER_TEXT_SIZE].toEnumOr(defaults.textSize),
             autoTurnPages = this[READER_AUTO_TURN] ?: defaults.autoTurnPages,
             pageTurnSound = this[READER_PAGE_TURN_SOUND] ?: defaults.pageTurnSound,
+            tornPages = this[READER_TORN_PAGES] ?: defaults.tornPages,
             pageTurnHintShown = this[READER_PAGE_TURN_HINT_SHOWN] ?: defaults.pageTurnHintShown,
             autoTurnSeconds = this[READER_AUTO_TURN_SECONDS]?.takeIf { it in AUTO_TURN_SECONDS_OPTIONS }
                 ?: defaults.autoTurnSeconds,
@@ -116,6 +117,7 @@ class SettingsRepositoryImpl @Inject constructor(
         this[READER_TEXT_SIZE] = settings.textSize.name
         this[READER_AUTO_TURN] = settings.autoTurnPages
         this[READER_PAGE_TURN_SOUND] = settings.pageTurnSound
+        this[READER_TORN_PAGES] = settings.tornPages
         this[READER_AUTO_TURN_SECONDS] = settings.autoTurnSeconds
         this[READER_PAGE_TURN_HINT_SHOWN] = settings.pageTurnHintShown
     }
@@ -133,6 +135,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_TEXT_SIZE = stringPreferencesKey("reader_text_size")
         val READER_AUTO_TURN = booleanPreferencesKey("reader_auto_turn")
         val READER_PAGE_TURN_SOUND = booleanPreferencesKey("reader_page_turn_sound")
+        val READER_TORN_PAGES = booleanPreferencesKey("reader_torn_pages")
         // v2 since the times went from 5/10/15 s to 10/20/30 s. Older versions saved their 10 s
         // default with every reader setting, so that value is left behind and all start on 30 s.
         val READER_AUTO_TURN_SECONDS = intPreferencesKey("reader_auto_turn_seconds_v2")

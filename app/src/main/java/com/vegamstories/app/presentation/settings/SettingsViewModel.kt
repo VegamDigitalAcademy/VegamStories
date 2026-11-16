@@ -88,6 +88,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { updateReaderSettings { it.copy(pageTurnSound = enabled) } }
     }
 
+    fun onTornPagesChange(enabled: Boolean) {
+        log.i("$TAG: User: torn pages ${if (enabled) "on" else "off"}")
+        viewModelScope.launch { updateReaderSettings { it.copy(tornPages = enabled) } }
+    }
+
     fun onAutoTurnSecondsChange(seconds: Int) {
         log.i("$TAG: User: auto-turn every $seconds s")
         viewModelScope.launch { updateReaderSettings { it.copy(autoTurnSeconds = seconds) } }

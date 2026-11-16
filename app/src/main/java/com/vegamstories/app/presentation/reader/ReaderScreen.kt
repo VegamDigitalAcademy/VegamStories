@@ -9,6 +9,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Size
 import androidx.compose.animation.core.EaseInOut
@@ -176,11 +182,14 @@ fun ReaderScreenContent(
     onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit = { _, _, _ -> },
     onRemoveBookmarks: (List<Bookmark>) -> Unit = {},
     onTurnHintShown: () -> Unit = {},
-    /** Each page turn's sound (Settings → Reading). */
-    pageTurnSound: () -> Unit = rememberPageTurnSound(enabled = state.settings.pageTurnSound),
+    /** Page turns, tears and glue (Settings → Reading → Page turn sound). */
+    sounds: ReaderSounds = rememberReaderSounds(enabled = state.settings.pageTurnSound),
 ) {
     ReaderPageTheme(background = state.settings.pageBackground) {
-        CompositionLocalProvider(LocalPageTurnSound provides pageTurnSound) {
+        CompositionLocalProvider(
+            LocalReaderSounds provides sounds,
+            LocalTornPages provides state.settings.tornPages,
+        ) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -472,8 +481,15 @@ private fun PagedReader(
     // turn hint (no finger), and not for a swipe that springs back to the same page.
     val haptics = LocalHapticFeedback.current
     var swiped by remember { mutableStateOf(false) }
+    // The reader is turning the pages themselves (swipes and taps), not the auto-turn or a jump.
+    var turnedByReader by remember { mutableStateOf(false) }
     LaunchedEffect(pagerState) {
-        pagerState.interactionSource.interactions.collect { if (it is DragInteraction.Start) swiped = true }
+        pagerState.interactionSource.interactions.collect {
+            if (it is DragInteraction.Start) {
+                swiped = true
+                turnedByReader = true
+            }
+        }
     }
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.drop(1).collect {
@@ -485,9 +501,42 @@ private fun PagedReader(
     // The page-turn sound (Settings → Reading), as a page passes the middle: for a swipe, a tap and
     // the auto-turn alike. Not for the corner-lift hint or a swipe that springs back, which never
     // get that far. Fast turns get quicker sounds (see pageTurnPlayback).
-    val pageTurnSound by rememberUpdatedState(LocalPageTurnSound.current)
+    // Torn pages (Settings → Reading): the reader turning too many pages too fast tears the page
+    // they reach. It stays there, and nothing turns it, until it's glued back (TearGlue).
+    val sounds by rememberUpdatedState(LocalReaderSounds.current)
+    val tornPages by rememberUpdatedState(LocalTornPages.current)
+    val tear = remember { PageTear() }
+    // Pages turning from a tap right now (a quick next tap takes over the one before).
+    var tapTurns by remember { mutableIntStateOf(0) }
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.drop(1).collect { pageTurnSound() }
+        snapshotFlow { pagerState.currentPage }.drop(1).collect { page ->
+            sounds.pageTurn()
+            if (!tornPages || !turnedByReader || page >= likePageIndex || tear.isTorn) {
+                tear.fastTurns.reset()
+                return@collect
+            }
+            if (tear.fastTurns.turned(withFrameMillis { it })) {
+                tear.tear(page)
+                // Turns still queued up stop here.
+                scope.launch { pagerState.animateScrollToPage(page, animationSpec = quickPageTurnSpec) }
+            }
+        }
+    }
+    // Once the page has come to rest: the rip, and the loose piece falls.
+    LaunchedEffect(tear.page) {
+        if (!tear.isTorn) return@LaunchedEffect
+        snapshotFlow { pagerState.isScrollInProgress }.first { !it }
+        sounds.tear()
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        tear.drop.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessLow))
+    }
+    val mend: () -> Unit = {
+        scope.launch {
+            tear.mend {
+                sounds.glued()
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            }
+        }
     }
 
     // Auto-advance (Settings → Reading): each comic page turns to the next after autoTurnMillis.
@@ -498,8 +547,10 @@ private fun PagedReader(
         page = pagerState.settledPage,
         userIsScrolling = pagerState.isScrollInProgress,
         lastAutoPage = likePageIndex,
+        paused = tear.isTorn,
     ) {
         swiped = false // a swipe that sprang back before this turn
+        turnedByReader = false
         pagerState.animateScrollToPage(pagerState.settledPage + 1, animationSpec = pageTurnSpec)
     }
 
@@ -533,39 +584,61 @@ private fun PagedReader(
             .holdToPauseAutoTurn(timer)
             // Tapping the left or right third of a page turns back or on, like an e-reader.
             .tapToTurn(pagerState, pageCount) { target, quick ->
+                if (tear.isTorn) return@tapToTurn
+                turnedByReader = true
                 scope.launch {
-                    pagerState.animateScrollToPage(target, animationSpec = if (quick) quickPageTurnSpec else pageTurnSpec)
+                    tapTurns++
+                    try {
+                        pagerState.animateScrollToPage(target, animationSpec = if (quick) quickPageTurnSpec else pageTurnSpec)
+                    } finally {
+                        tapTurns--
+                    }
                 }
             },
         beyondViewportPageCount = 1,
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapAnimationSpec = pageSettleSpec),
+        // Not while a tapped page turns: a finger landing for the next tap would catch the page and
+        // stop it there. Taps keep turning; a swipe works again once the page is down.
+        userScrollEnabled = !tear.isTorn && tapTurns == 0,
     ) { index ->
         val isComic = index < comicPageCount
         // Which page lies on top changes only a few times per turn: recompose just then.
         val layer by remember(pagerState, index) {
             derivedStateOf { turnLayer(turnPosition(index, pagerState.currentPage, pagerState.currentPageOffsetFraction)) }
         }
+        val tornLayer = rememberGraphicsLayer()
         BoxWithConstraints(
             Modifier
                 .zIndex(layer)
                 .fillMaxSize()
-                .bookPageTurn(pagerState, index, lean, paper)
-                // Opaque, so the page underneath shows only where the turning page has lifted.
-                .background(pageBackground),
+                .bookPageTurn(pagerState, index, lean, paper),
         ) {
             val viewportHeight = maxHeight
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    // At least one screen tall, so a shorter page can be centred in it.
-                    .heightIn(min = viewportHeight)
-                    .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = pageMargin),
-                verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (tear.page == index) Modifier.tornPage(tear, tornLayer, paper) else Modifier)
+                    // Opaque, so the page underneath shows only where the turning page has lifted.
+                    .background(pageBackground),
             ) {
-                page(index) { scope.launch { pagerState.animateScrollToPage(likePageIndex, animationSpec = pageTurnSpec) } }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        // At least one screen tall, so a shorter page can be centred in it.
+                        .heightIn(min = viewportHeight)
+                        .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = pageMargin),
+                    verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
+                ) {
+                    page(index) {
+                        turnedByReader = false // a jump, not turning
+                        scope.launch { pagerState.animateScrollToPage(likePageIndex, animationSpec = pageTurnSpec) }
+                    }
+                }
+                pageOverlay(index)
             }
-            pageOverlay(index)
+            // Over the torn page, not part of it: it stays put while the loose piece hangs.
+            if (tear.page == index) TearGlue(tear, onGlued = mend)
         }
     }
 }
@@ -818,10 +891,13 @@ private fun AutoAdvance(
     page: Int,
     userIsScrolling: Boolean,
     lastAutoPage: Int,
+    /** The page can't turn now (torn): the countdown waits where it is. */
+    paused: Boolean = false,
     advance: suspend () -> Unit,
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val currentAdvance by rememberUpdatedState(advance)
+    val isPaused by rememberUpdatedState(paused)
     val scope = rememberCoroutineScope()
     LaunchedEffect(page, userIsScrolling, lastAutoPage, delayMillis) {
         // While pages move (a swipe, or the auto-turn itself) the bar stays as it is.
@@ -830,7 +906,7 @@ private fun AutoAdvance(
         timer.progress.snapTo(0f)
         if (delayMillis == null || page >= lastAutoPage) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            snapshotFlow { timer.held }.collectLatest { held ->
+            snapshotFlow { timer.held || isPaused }.collectLatest { held ->
                 if (held || timer.progress.value >= 1f) return@collectLatest // paused, or already turning
                 // Back from a pause: only the time that was left.
                 val remaining = ((1f - timer.progress.value) * delayMillis).toInt()

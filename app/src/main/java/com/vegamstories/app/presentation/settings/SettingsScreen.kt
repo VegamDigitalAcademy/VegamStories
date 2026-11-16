@@ -147,6 +147,8 @@ fun SettingsScreen(
         onAutoTurnSecondsChange = viewModel::onAutoTurnSecondsChange,
         pageTurnSound = readerSettings.pageTurnSound,
         onPageTurnSoundChange = viewModel::onPageTurnSoundChange,
+        tornPages = readerSettings.tornPages,
+        onTornPagesChange = viewModel::onTornPagesChange,
         onShareLogs = { showShareLogs = true },
         onOpenApiCalls = onOpenApiCalls/*.takeIf { BuildConfig.DEBUG }*/,
         onBack = onBack,
@@ -210,6 +212,8 @@ fun SettingsContent(
     onAutoTurnSecondsChange: (Int) -> Unit = {},
     pageTurnSound: Boolean = true,
     onPageTurnSoundChange: (Boolean) -> Unit = {},
+    tornPages: Boolean = false,
+    onTornPagesChange: (Boolean) -> Unit = {},
     onShareLogs: () -> Unit = {},
     /** Settings → API calls; null (release builds) hides the Developer section. */
     onOpenApiCalls: (() -> Unit)? = null,
@@ -289,6 +293,12 @@ fun SettingsContent(
                 subtitle = stringResource(R.string.settings_page_turn_sound_desc),
                 checked = pageTurnSound,
                 onCheckedChange = onPageTurnSoundChange,
+            )
+            SwitchRow(
+                title = stringResource(R.string.settings_torn_pages),
+                subtitle = stringResource(R.string.settings_torn_pages_desc),
+                checked = tornPages,
+                onCheckedChange = onTornPagesChange,
             )
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)

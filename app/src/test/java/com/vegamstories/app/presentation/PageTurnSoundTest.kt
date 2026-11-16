@@ -20,6 +20,7 @@ import com.vegamstories.app.domain.model.StoryPage
 import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.reader.ReaderScreenContent
+import com.vegamstories.app.presentation.reader.ReaderSounds
 import com.vegamstories.app.presentation.reader.ReaderUiState
 import com.vegamstories.app.presentation.reader.pageTurnPlayback
 import com.vegamstories.app.presentation.settings.SettingsContent
@@ -63,7 +64,11 @@ class PageTurnSoundTest {
                     onToggleFavorite = {},
                     onToggleDownload = {},
                     onOpenNextStory = {},
-                    pageTurnSound = { sounds++ },
+                    sounds = object : ReaderSounds {
+                        override fun pageTurn() { sounds++ }
+                        override fun tear() = Unit
+                        override fun glued() = Unit
+                    },
                 )
             }
         }
