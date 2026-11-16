@@ -142,6 +142,8 @@
     <string name="settings_auto_turn">బొమ్మల పేజీలు ఆటోగా మారాలి</string>
     <string name="settings_auto_turn_desc">కొన్ని సెకన్ల తర్వాత బొమ్మల కథ పేజీ దానంతట అదే తదుపరి పేజీకి మారుతుంది</string>
     <string name="settings_auto_turn_seconds">%1$d సె</string>
+    <string name="settings_page_turn_sound">పేజీ తిప్పే శబ్దం</string>
+    <string name="settings_page_turn_sound_desc">ప్రతి పేజీ తిప్పినప్పుడు మెల్లని కాగితం శబ్దం. ఫోన్ సైలెంట్‌లో ఉంటే రాదు</string>
 
     <!-- కొత్త కథల నోటిఫికేషన్లు -->
     <string name="settings_notifications_section">నోటిఫికేషన్లు</string>

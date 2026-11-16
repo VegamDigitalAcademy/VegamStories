@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Size
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.EaseOut
@@ -52,12 +53,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.delay
 import com.vegamstories.app.domain.model.Bookmark
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
@@ -174,8 +176,11 @@ fun ReaderScreenContent(
     onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit = { _, _, _ -> },
     onRemoveBookmarks: (List<Bookmark>) -> Unit = {},
     onTurnHintShown: () -> Unit = {},
+    /** Each page turn's sound (Settings → Reading). */
+    pageTurnSound: () -> Unit = rememberPageTurnSound(enabled = state.settings.pageTurnSound),
 ) {
     ReaderPageTheme(background = state.settings.pageBackground) {
+        CompositionLocalProvider(LocalPageTurnSound provides pageTurnSound) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -212,6 +217,7 @@ fun ReaderScreenContent(
                     onTurnHintShown = onTurnHintShown,
                 )
             }
+        }
         }
     }
 }
@@ -476,6 +482,14 @@ private fun PagedReader(
         }
     }
 
+    // The page-turn sound (Settings → Reading), as a page passes the middle: for a swipe, a tap and
+    // the auto-turn alike. Not for the corner-lift hint or a swipe that springs back, which never
+    // get that far. Fast turns get quicker sounds (see pageTurnPlayback).
+    val pageTurnSound by rememberUpdatedState(LocalPageTurnSound.current)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.drop(1).collect { pageTurnSound() }
+    }
+
     // Auto-advance (Settings → Reading): each comic page turns to the next after autoTurnMillis.
     // Swiping restarts the wait; it stops at the like page.
     AutoAdvance(
@@ -517,20 +531,10 @@ private fun PagedReader(
             .clipToBounds()
             .leanWithFinger(lean, pagerState)
             .holdToPauseAutoTurn(timer)
-            // Tapping the left or right third of a page turns back or on, like an e-reader. Buttons on
-            // a page (Continue, the ribbon, the like page's) take their own taps first. A long press
-            // is not a tap: letting go of one leaves the page where it is.
-            .pointerInput(pagerState, pageCount) {
-                detectTapGestures(onLongPress = {}) { tap ->
-                    val third = size.width / 3f
-                    val target = when {
-                        tap.x < third -> pagerState.targetPage - 1
-                        tap.x > size.width - third -> pagerState.targetPage + 1
-                        else -> return@detectTapGestures
-                    }
-                    if (target in 0 until pageCount) {
-                        scope.launch { pagerState.animateScrollToPage(target, animationSpec = pageTurnSpec) }
-                    }
+            // Tapping the left or right third of a page turns back or on, like an e-reader.
+            .tapToTurn(pagerState, pageCount) { target, quick ->
+                scope.launch {
+                    pagerState.animateScrollToPage(target, animationSpec = if (quick) quickPageTurnSpec else pageTurnSpec)
                 }
             },
         beyondViewportPageCount = 1,
@@ -686,6 +690,9 @@ private fun TextPagesReader(
  */
 private val pageTurnSpec = tween<Float>(durationMillis = 1100, easing = EaseInOut)
 
+/** A tap while a page is still turning: the next one follows quickly, carrying on the movement. */
+private val quickPageTurnSpec = tween<Float>(durationMillis = 450, easing = EaseOut)
+
 /**
  * A page let go of mid-turn finishes turning (or falls back) at the same pace, slowing to a stop,
  * however fast the swipe was.
@@ -836,6 +843,44 @@ private fun AutoAdvance(
                 scope.launch { currentAdvance() }
             }
         }
+    }
+}
+
+/**
+ * Tapping the left or right third of the pager turns a page back or on: [turn] gets the page to go
+ * to, and quick = true for a tap while a page is still turning, so tapping fast flicks through,
+ * like a book. Buttons on a page (Continue, the ribbon, the like page's) keep their own taps. A long
+ * press is not a tap (it pauses the auto-turn instead).
+ *
+ * Watched from the outside in, since the pager stops a turning page the moment a finger touches
+ * it: such a tap carries on from the page it was turning to, instead of being lost.
+ */
+private fun Modifier.tapToTurn(pagerState: PagerState, pageCount: Int, turn: (target: Int, quick: Boolean) -> Unit): Modifier =
+    pointerInput(pagerState, pageCount) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val turning = pagerState.isScrollInProgress
+            val headingTo = pagerState.targetPage
+            val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) { awaitTapUp(down) }
+                ?: return@awaitEachGesture
+            // A button on a still page took it. On a turning page the pager itself takes every touch.
+            if (up.isConsumed && !turning) return@awaitEachGesture
+            val third = size.width / 3f
+            val target = when {
+                up.position.x < third -> headingTo - 1
+                up.position.x > size.width - third -> headingTo + 1
+                else -> return@awaitEachGesture
+            }
+            if (target in 0 until pageCount) turn(target, turning)
+        }
+    }
+
+/** The finger [down] lifting without moving away: the tap's up, or null for a swipe. */
+private suspend fun AwaitPointerEventScope.awaitTapUp(down: PointerInputChange): PointerInputChange? {
+    while (true) {
+        val change = awaitPointerEvent(PointerEventPass.Final).changes.firstOrNull { it.id == down.id } ?: return null
+        if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) return null
+        if (!change.pressed) return change
     }
 }
 

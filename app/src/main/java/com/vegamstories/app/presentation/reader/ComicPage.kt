@@ -106,6 +106,7 @@ fun ComicPage(
 @ComponentPreviews
 @Composable
 private fun ComicPagePreview() = PreviewTheme {
-    // Images don't load in previews, so this shows the loading shimmer at page size.
+    // A still preview shows the loading shimmer at page size: PreviewTheme's stand-in image
+    // comes a frame later.
     ComicPage(page = PreviewData.pages[0], modifier = Modifier.padding(16.dp))
 }

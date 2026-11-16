@@ -8,8 +8,8 @@ import com.vegamstories.app.domain.model.StoryPage
 import com.vegamstories.app.domain.model.StoryVideo
 
 /**
- * Sample data for @Preview only. Images don't load in previews (no network),
- * so cards show their placeholder background there.
+ * Sample data for @Preview only. Previews don't download images: PreviewTheme puts a block of
+ * colour in place of each one, shaped by the /width/height its address ends in.
  */
 object PreviewData {
 
