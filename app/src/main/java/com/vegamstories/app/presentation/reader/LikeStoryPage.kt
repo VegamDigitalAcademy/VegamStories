@@ -191,7 +191,7 @@ fun LikeStoryPage(
         AnimatedVisibility(visible = showLiked, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // The story's card, to keep or share (WhatsApp…): it brings friends and family to the app.
-                MoralCard(story = story, moral = moral, layer = card, modifier = Modifier.padding(horizontal = 8.dp))
+                MoralCard(story = story, moral = moral, layer = card)
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(onClick = { scope.launch { shareMoralCard(context, card, story, moral) } }) {
                     Icon(painterResource(R.drawable.ic_share), contentDescription = null, modifier = Modifier.size(18.dp))

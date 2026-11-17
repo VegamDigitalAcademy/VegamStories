@@ -64,6 +64,7 @@ class PageTurnSoundTest {
                     onToggleFavorite = {},
                     onToggleDownload = {},
                     onOpenNextStory = {},
+                    openOnCover = false,
                     sounds = object : ReaderSounds {
                         override fun pageTurn() { sounds++ }
                         override fun tear() = Unit

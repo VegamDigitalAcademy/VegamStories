@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import com.vegamstories.app.presentation.reader.StoryOpeningOverlay
+import com.vegamstories.app.presentation.navigation.StoryOpener
+import com.vegamstories.app.presentation.navigation.LocalStoryOpener
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +65,9 @@ fun VegamApp(
     }
 
     // Gradient + arches behind every screen; screens are transparent on top.
+    // A story opening from its card grows over everything (StoryOpeningOverlay).
+    val storyOpener = remember { StoryOpener() }
+    CompositionLocalProvider(LocalStoryOpener provides storyOpener) {
     AppBackground {
         // The bar and snackbar float over the screens instead of resizing them. If the bar's
         // space were taken from the screen area, every screen would shrink and grow while the
@@ -97,7 +104,9 @@ fun VegamApp(
                     .align(Alignment.BottomCenter)
                     .then(if (showBottomBar) Modifier.glassBottomBarSpace() else Modifier.navigationBarsPadding()),
             )
+            StoryOpeningOverlay(storyOpener)
         }
+    }
     }
 }
 

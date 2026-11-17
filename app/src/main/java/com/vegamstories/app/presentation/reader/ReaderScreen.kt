@@ -8,7 +8,14 @@ import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.geometry.Rect
+import com.vegamstories.app.domain.model.Story
+import com.vegamstories.app.presentation.navigation.LocalStoryOpener
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import kotlinx.coroutines.flow.first
@@ -143,6 +150,15 @@ fun ReaderScreen(
         }
     }
 
+    // Opened from its card, the card's picture grew into the cover over the app: that can go once
+    // this screen is drawn under it (two frames on).
+    val storyOpener = LocalStoryOpener.current
+    LaunchedEffect(viewModel) {
+        withFrameNanos {}
+        withFrameNanos {}
+        storyOpener.arrived(viewModel.storyId)
+    }
+
     ReaderScreenContent(
         state = state,
         onBack = onBack,
@@ -160,6 +176,8 @@ fun ReaderScreen(
         onAddBookmark = viewModel::onAddBookmark,
         onRemoveBookmarks = viewModel::onRemoveBookmarks,
         onTurnHintShown = viewModel::onPageTurnHintShown,
+        openingStory = storyOpener.story?.takeIf { it.id == viewModel.storyId },
+        openingFormat = viewModel.preferredFormat.collectAsStateWithLifecycle().value,
     )
 }
 
@@ -184,6 +202,13 @@ fun ReaderScreenContent(
     onTurnHintShown: () -> Unit = {},
     /** Page turns, tears and glue (Settings → Reading → Page turn sound). */
     sounds: ReaderSounds = rememberReaderSounds(enabled = state.settings.pageTurnSound),
+    /** A story opened at its start opens on its cover and turns it; false goes straight to its first page. */
+    openOnCover: Boolean = true,
+    /** The story as its card showed it, until the reader is ready for it (see [ReaderOpening]). */
+    openingStory: Story? = null,
+    /** The tab the reader will open on, as far as is known before the story has loaded. */
+    openingFormat: StoryFormat? = null,
+    modifier: Modifier = Modifier,
 ) {
     ReaderPageTheme(background = state.settings.pageBackground) {
         CompositionLocalProvider(
@@ -191,14 +216,23 @@ fun ReaderScreenContent(
             LocalTornPages provides state.settings.tornPages,
         ) {
         Box(
-            Modifier
+            modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
             val detail = state.detail
+            // A story opened from its card: until it has loaded, the bars and the cover, as the card's
+            // picture left them (ReaderOpening).
+            var arrived by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(state.isLoading) { if (!state.isLoading) arrived = true }
             when {
+                openingStory != null && !arrived -> ReaderOpening(
+                    story = openingStory,
+                    format = if (state.isLoading) openingFormat else state.format,
+                    onBack = onBack,
+                )
                 state.isLoading -> LoadingBox()
                 detail == null -> EmptyState(
                     icon = R.drawable.ic_info,
@@ -224,6 +258,7 @@ fun ReaderScreenContent(
                     onAddBookmark = onAddBookmark,
                     onRemoveBookmarks = onRemoveBookmarks,
                     onTurnHintShown = onTurnHintShown,
+                    openOnCover = openOnCover,
                 )
             }
         }
@@ -250,10 +285,19 @@ private fun ReaderContent(
     onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit,
     onRemoveBookmarks: (List<Bookmark>) -> Unit,
     onTurnHintShown: () -> Unit,
+    openOnCover: Boolean,
 ) {
     val story = detail.story
     // Lives above both readers, so switching paged ↔ vertical stays on the same page.
     var currentPage by rememberSaveable { mutableIntStateOf(state.initialPage) }
+    // Page by page, the story's cover comes before its first page. Opened at its start, the story
+    // opens on the cover and turns it by itself, once; picked up where the reader left off, it
+    // opens there.
+    val animated = animationsOn()
+    var coverToTurn by rememberSaveable {
+        mutableStateOf(openOnCover && animated && state.initialPage == 0 && state.initialTextFraction == 0f && state.textBookmarkStart == null)
+    }
+    val cover: @Composable () -> Unit = { ReaderCover(story) }
     var showOptions by rememberSaveable { mutableStateOf(false) }
     val onPageSettled: (Int) -> Unit = { page ->
         currentPage = page
@@ -301,6 +345,9 @@ private fun ReaderContent(
         when (state.format) {
             StoryFormat.TEXT if text != null -> {
                 TextPagesReader(
+                    cover = cover,
+                    openOnCover = coverToTurn,
+                    onCoverTurned = { coverToTurn = false },
                     title = story.title,
                     text = text,
                     textSize = state.settings.textSize,
@@ -378,6 +425,9 @@ private fun ReaderContent(
                 )
             }
             ReaderScrollMode.PAGED -> PagedReader(
+                cover = cover,
+                openOnCover = coverToTurn,
+                onCoverTurned = { coverToTurn = false },
                 startPage = currentPage,
                 autoTurnMillis = state.settings.autoTurnMillis,
                 timer = pageTimer,
@@ -462,19 +512,51 @@ private fun PagedReader(
     /** Under each page's content; transparent shows the reader's background around a smaller page. */
     pageBackground: Color = paper,
     /** Room above and below each page. */
-    pageMargin: Dp = 8.dp,
+    pageMargin: Dp = DefaultPageMargin,
     /** Lift the open page's corner once and let it fall back, to show pages turn; then [onTurnHintShown]. */
     showTurnHint: Boolean = false,
     onTurnHintShown: () -> Unit = {},
     /** Drawn over page [index], turning with it: the bookmark ribbon. */
     pageOverlay: @Composable BoxScope.(index: Int) -> Unit = {},
+    /**
+     * The story's cover, a page of its own before the first one (see [ReaderCover]). Page numbers
+     * in and out of here leave it out: page 0 is still the story's first page.
+     */
+    cover: (@Composable () -> Unit)? = null,
+    /** Open on the cover, and turn it by itself (unless the reader touches it first); then [onCoverTurned]. */
+    openOnCover: Boolean = false,
+    onCoverTurned: () -> Unit = {},
 ) {
-    val pagerState = rememberPagerState(initialPage = startPage) { pageCount }
+    // The pager's own pages: the cover (if any), then the story's pages.
+    val first = if (cover != null) 1 else 0
+    val pagerState = rememberPagerState(initialPage = if (cover != null && openOnCover) 0 else startPage + first) {
+        pageCount + first
+    }
     val scope = rememberCoroutineScope()
     val currentOnPageSettled by rememberUpdatedState(onPageSettled)
 
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { currentOnPageSettled(it) }
+        snapshotFlow { pagerState.currentPage }.collect { if (it >= first) currentOnPageSettled(it - first) }
+    }
+
+    // A story opened at its start: its cover shows once the card has grown into the reader, then
+    // turns by itself to the first page. Not if the reader touches the page first.
+    // Decided once, as it opens: [onCoverTurned] changes openOnCover, and that mustn't stop the
+    // turn half-way.
+    val turnCover = remember { cover != null && openOnCover }
+    var touchedCover by remember { mutableStateOf(false) }
+    if (turnCover) {
+        val currentOnCoverTurned by rememberUpdatedState(onCoverTurned)
+        LaunchedEffect(pagerState) {
+            delay(COVER_TURN_DELAY_MILLIS)
+            if (!touchedCover && pagerState.currentPage == 0 && !pagerState.isScrollInProgress) {
+                pagerState.animateScrollToPage(1, animationSpec = pageTurnSpec)
+            }
+        }
+        LaunchedEffect(pagerState) {
+            snapshotFlow { pagerState.settledPage }.first { it >= 1 }
+            currentOnCoverTurned()
+        }
     }
 
     // A light tick when the reader's own swipe lands on another page. Not for the auto-turn or the
@@ -511,7 +593,7 @@ private fun PagedReader(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.drop(1).collect { page ->
             sounds.pageTurn()
-            if (!tornPages || !turnedByReader || page >= likePageIndex || tear.isTorn) {
+            if (!tornPages || !turnedByReader || page < first || page >= likePageIndex + first || tear.isTorn) {
                 tear.fastTurns.reset()
                 return@collect
             }
@@ -544,7 +626,7 @@ private fun PagedReader(
     AutoAdvance(
         delayMillis = autoTurnMillis,
         timer = timer,
-        page = pagerState.settledPage,
+        page = pagerState.settledPage - first,
         userIsScrolling = pagerState.isScrollInProgress,
         lastAutoPage = likePageIndex,
         paused = tear.isTorn,
@@ -560,13 +642,14 @@ private fun PagedReader(
 
     // The first story ever opened: the corner lifts a little and falls back. Decided once, so saving
     // that it was shown doesn't stop it halfway.
-    val turnHint = remember { showTurnHint }
+    // Not with the cover turning by itself: that shows pages turn already.
+    val turnHint = remember { showTurnHint && !turnCover }
     if (turnHint) {
         val currentOnShown by rememberUpdatedState(onTurnHintShown)
         LaunchedEffect(pagerState) {
             delay(TURN_HINT_DELAY_MILLIS)
             // Only with a page to turn to, and not while the reader is turning one already.
-            if (pagerState.isScrollInProgress || pagerState.currentPage >= pageCount - 1) return@LaunchedEffect
+            if (pagerState.isScrollInProgress || pagerState.currentPage >= pageCount + first - 1) return@LaunchedEffect
             currentOnShown()
             val lift = pagerState.layoutInfo.pageSize * TURN_HINT_LIFT
             pagerState.animateScrollBy(lift, tween(durationMillis = 650, easing = EaseOut))
@@ -583,7 +666,19 @@ private fun PagedReader(
             .leanWithFinger(lean, pagerState)
             .holdToPauseAutoTurn(timer)
             // Tapping the left or right third of a page turns back or on, like an e-reader.
-            .tapToTurn(pagerState, pageCount) { target, quick ->
+            .then(
+                if (turnCover) {
+                    Modifier.pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            touchedCover = true
+                        }
+                    }
+                } else {
+                    Modifier
+                },
+            )
+            .tapToTurn(pagerState, pageCount + first) { target, quick ->
                 if (tear.isTorn) return@tapToTurn
                 turnedByReader = true
                 scope.launch {
@@ -601,7 +696,8 @@ private fun PagedReader(
         // stop it there. Taps keep turning; a swipe works again once the page is down.
         userScrollEnabled = !tear.isTorn && tapTurns == 0,
     ) { index ->
-        val isComic = index < comicPageCount
+        val isCover = index < first
+        val isComic = index - first in 0 until comicPageCount
         // Which page lies on top changes only a few times per turn: recompose just then.
         val layer by remember(pagerState, index) {
             derivedStateOf { turnLayer(turnPosition(index, pagerState.currentPage, pagerState.currentPageOffsetFraction)) }
@@ -621,27 +717,122 @@ private fun PagedReader(
                     // Opaque, so the page underneath shows only where the turning page has lifted.
                     .background(pageBackground),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        // At least one screen tall, so a shorter page can be centred in it.
-                        .heightIn(min = viewportHeight)
-                        .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = pageMargin),
-                    verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
-                ) {
-                    page(index) {
-                        turnedByReader = false // a jump, not turning
-                        scope.launch { pagerState.animateScrollToPage(likePageIndex, animationSpec = pageTurnSpec) }
+                if (isCover) {
+                    CoverSlot(pageMargin) { cover?.invoke() }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            // At least one screen tall, so a shorter page can be centred in it.
+                            .heightIn(min = viewportHeight)
+                            .padding(horizontal = if (isComic) 0.dp else 16.dp, vertical = pageMargin),
+                        verticalArrangement = if (isComic) Arrangement.Center else Arrangement.Top,
+                    ) {
+                        page(index - first) {
+                            turnedByReader = false // a jump, not turning
+                            scope.launch { pagerState.animateScrollToPage(likePageIndex + first, animationSpec = pageTurnSpec) }
+                        }
                     }
                 }
-                pageOverlay(index)
+                if (!isCover) pageOverlay(index - first)
             }
             // Over the torn page, not part of it: it stays put while the loose piece hangs.
             if (tear.page == index) TearGlue(tear, onGlued = mend)
         }
     }
 }
+
+/**
+ * Where the cover sits: as big as the pages after it ([pageMargin] above and below, the book
+ * pages' margin at the sides), the same in the pager and while the story loads. Opaque, so the
+ * first page doesn't show through around it.
+ */
+@Composable
+private fun CoverSlot(pageMargin: Dp, cover: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = BookPageMargin, vertical = pageMargin),
+    ) {
+        cover()
+    }
+}
+
+/**
+ * The reader as it first shows a story opened from its card, laid out as it will be once loaded:
+ * the bar, the tabs (on [format]), and, opened at its start, the cover where its page will be. The
+ * page bars keep their room, unseen. Drawn by the reader while the story loads, and over the app
+ * (StoryOpeningOverlay) for the card's picture to grow into: [onCoverPlaced] says where the cover
+ * is, and [coverAlpha] hides it until the picture has landed.
+ */
+@Composable
+internal fun ReaderOpening(
+    story: Story,
+    format: StoryFormat?,
+    onBack: () -> Unit,
+    coverAlpha: () -> Float = { 1f },
+    onCoverPlaced: ((Rect) -> Unit)? = null,
+) {
+    Column(Modifier.fillMaxSize()) {
+        ReaderTopBar(
+            title = story.title,
+            isFavorite = story.isFavorite,
+            likeCount = story.likeCount,
+            isDownloaded = story.isDownloaded,
+            onBack = onBack,
+            onToggleFavorite = {},
+            onToggleDownload = {},
+            onOpenOptions = {},
+        )
+        if (story.formats.size > 1) {
+            FormatTabs(
+                formats = story.formats,
+                selected = format?.takeIf { it in story.formats } ?: story.formats.first(),
+                onSelect = {},
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        // As the reader decides once it has the story: opened at its start (and the phone animates),
+        // on the cover; else on the page it was left on, here, where the card's picture goes instead.
+        val onCover = story.opensOnCover && animationsOn()
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .then(
+                    if (!onCover && onCoverPlaced != null) {
+                        Modifier.onGloballyPositioned { onCoverPlaced(it.boundsInRoot()) }
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
+            if (onCover) {
+                // The page margin the reader will use for this tab (PagedReader's, or the book's).
+                val margin = if (format == StoryFormat.TEXT) BookPageMargin else DefaultPageMargin
+                CoverSlot(margin) { ReaderCover(story, pictureAlpha = coverAlpha, onPlaced = onCoverPlaced) }
+            }
+        }
+        Box(Modifier.alpha(0f)) {
+            PageIndicator(currentPage = 0, pageCount = 1, timer = remember { PageTimer() }, autoTurn = false, lastAutoPage = 0)
+        }
+    }
+}
+
+/**
+ * A story opened from its card starts on its cover: never read, or read to the end, or left on
+ * its first page. Otherwise it opens where it was left.
+ */
+internal val Story.opensOnCover: Boolean
+    get() = progress.let { it == null || it.isCompleted || it.lastPageIndex == 0 }
+
+/** Room above and below each page in the page-by-page reader. */
+private val DefaultPageMargin = 8.dp
+
+/** How long the cover stays, once the card has grown into the reader, before it turns by itself. */
+private const val COVER_TURN_DELAY_MILLIS = 1_000L
 
 /** The corner-lift hint: how long after the reader opens, and how far (a share of the page's width). */
 private const val TURN_HINT_DELAY_MILLIS = 1_200L
@@ -657,6 +848,10 @@ private const val TEXT_AUTO_TURN_MILLIS = 60_000L
  */
 @Composable
 private fun TextPagesReader(
+    /** The story's cover, before the first page; opened on it, turned by itself (see PagedReader). */
+    cover: @Composable () -> Unit,
+    openOnCover: Boolean,
+    onCoverTurned: () -> Unit,
     title: String,
     text: StoryText,
     textSize: ReaderTextSize,
@@ -697,6 +892,9 @@ private fun TextPagesReader(
             SideEffect { pageCount = likeIndex + 1 }
             key(text.languageCode, book.pages) {
                 PagedReader(
+                    cover = cover,
+                    openOnCover = openOnCover,
+                    onCoverTurned = onCoverTurned,
                     startPage = if (atEnd) likeIndex else book.pageAt(paragraph, offset),
                     autoTurnMillis = autoTurnMillis,
                     timer = timer,

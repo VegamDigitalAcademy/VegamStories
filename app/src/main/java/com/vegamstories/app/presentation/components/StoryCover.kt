@@ -47,6 +47,7 @@ fun StoryCover(
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
         modifier = modifier,
+        cacheKey = story.coverImageUrl?.let { "cover:$it" },
         fallback = { TitleCard(title = story.title, categoryId = story.categoryId, modifier = Modifier.matchParentSize()) },
     )
 }

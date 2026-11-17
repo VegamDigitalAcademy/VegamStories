@@ -21,6 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -34,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.vegamstories.app.R
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryFormat
+import com.vegamstories.app.presentation.navigation.LocalStoryOpener
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
@@ -49,11 +55,22 @@ fun StoryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.clickable(onClick = onClick)) {
+    // Tapped, its picture grows into the reader's cover (StoryOpener): it needs to know where it is.
+    val opener = LocalStoryOpener.current
+    val pictureBounds = remember { arrayOfNulls<Rect>(1) }
+    Column(
+        modifier = modifier.clickable {
+            opener.tapped(story, pictureBounds[0])
+            onClick()
+        },
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
+                .onGloballyPositioned { pictureBounds[0] = it.boundsInRoot() }
+                // While its picture is growing over the app, it has left the card.
+                .graphicsLayer { alpha = if (opener.opening?.story?.id == story.id) 0f else 1f }
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {

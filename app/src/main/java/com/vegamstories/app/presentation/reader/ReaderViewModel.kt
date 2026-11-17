@@ -10,6 +10,7 @@ import com.vegamstories.app.domain.model.Bookmark
 import com.vegamstories.app.domain.model.PageBackground
 import com.vegamstories.app.domain.model.ReaderScrollMode
 import com.vegamstories.app.domain.model.ReaderSettings
+import com.vegamstories.app.di.IoDispatcher
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.ReaderTextSize
@@ -29,6 +30,7 @@ import com.vegamstories.app.domain.usecase.ToggleFavoriteUseCase
 import com.vegamstories.app.domain.usecase.UpdateReaderSettingsUseCase
 import com.vegamstories.app.presentation.navigation.ReaderRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +41,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -111,10 +114,11 @@ class ReaderViewModel @Inject constructor(
     getStoryBookmarks: GetStoryBookmarksUseCase,
     private val addBookmark: AddBookmarkUseCase,
     private val removeBookmarks: RemoveBookmarksUseCase,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<ReaderRoute>()
-    private val storyId: String = route.storyId
+    val storyId: String = route.storyId
 
     /** Opened from Bookmarks: the page to open on (its format and language too). */
     private val openedAt: Bookmark? = route.bookmark
@@ -144,6 +148,14 @@ class ReaderViewModel @Inject constructor(
 
     private val events = Channel<ReaderEvent>(Channel.BUFFERED)
     val eventFlow = events.receiveAsFlow()
+
+    /**
+     * The tab the reader last used, known well before the story has loaded: the reader's bars are
+     * drawn with it while the story's card is still growing into the screen.
+     */
+    val preferredFormat: StateFlow<StoryFormat?> = getReaderSettings()
+        .map { it.preferredFormat }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val uiState: StateFlow<ReaderUiState> = combine(
         selectedLanguage.flatMapLatest { language -> getStoryDetail(storyId, language) },
@@ -195,7 +207,11 @@ class ReaderViewModel @Inject constructor(
             settings = settings,
             selectedFormat = format,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReaderUiState())
+    }
+        // Off the main thread: the story arrives while its card is still growing into the reader,
+        // and putting it together there would hold up the frames of that.
+        .flowOn(ioDispatcher)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReaderUiState())
 
     fun onPageChanged(pagerIndex: Int) {
         val pageCount = uiState.value.detail?.pages?.size ?: return

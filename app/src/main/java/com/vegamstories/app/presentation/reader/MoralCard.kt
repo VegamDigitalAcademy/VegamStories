@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +34,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -44,7 +48,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -68,44 +71,53 @@ private const val TAG = "MoralCard"
 
 /**
  * The card's own colours, the same in light and dark mode: shared as a picture, it should look
- * the same on every phone. Warm paper and ink, like the Read tab's pages.
+ * the same on every phone. Warm paper and ink, like the Read tab's pages, on the story's book.
  */
 private val CardPaper = Color(0xFFF6EDD8)
-private val CardFrame = Color(0xFFE6D5B0)
+/** The book's cloth: behind the shared picture, which can't have clear parts (WhatsApp turns them black). */
+private val BookCloth = android.graphics.Color.rgb(0x1D, 0x1D, 0x4F)
 private val CardInk = Color(0xFF1B1712)
 private val CardRule = Color(0xFF9C8259)
 private val CardFaint = Color(0xFF6E5E46)
 
 /**
- * The end-of-story card: the cover, the title and the story's [moral] (else its summary), signed
+ * The end-of-story card: the story's book (the reader's cover) with a page set into the panel on
+ * its front: the cover picture, the title and the story's [moral] (else its summary), signed
  * Vegam Stories. Made to be shared as a picture (see [shareMoralCard]); [layer] records what it
  * draws for that.
  */
 @Composable
 fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modifier = Modifier) {
     val dim = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val book = ImageBitmap.imageResource(R.drawable.book_cover)
+    // Just the book, as wide as the page: the bigger it is, the more of the story's words it holds.
     Box(
         modifier
-            .widthIn(max = 360.dp)
+            .widthIn(max = 480.dp)
             .fillMaxWidth()
-            // Rounded on screen only: the picture keeps square, filled corners (WhatsApp turns
-            // transparent corners black).
-            .clip(RoundedCornerShape(20.dp))
             .drawWithContent {
                 layer.record { this@drawWithContent.drawContent() }
                 drawLayer(layer)
-                // On a dark screen the bright card is toned down; the shared picture keeps its colours.
+                // On a dark screen the bright page is toned down; the shared picture keeps its colours.
                 if (dim) drawRect(Color.Black.copy(alpha = 0.22f))
-            }
-            .background(CardFrame)
-            .padding(10.dp),
+            },
     ) {
+        // The book, as tall as the page in it needs: its plain middle stretches (drawStretchedBook).
+        BoxWithConstraints(Modifier.fillMaxWidth().drawBehind { drawStretchedBook(book) }) {
+        val bookHeight = maxWidth * (book.height.toFloat() / book.width)
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                // Into the panel on the book's front.
+                .padding(
+                    start = maxWidth * BOOK_PANEL_LEFT + PanelInset,
+                    end = maxWidth * (1f - BOOK_PANEL_RIGHT) + PanelInset,
+                    top = bookHeight * BOOK_PANEL_TOP + PanelInset,
+                    bottom = bookHeight * (1f - BOOK_PANEL_BOTTOM) + PanelInset,
+                )
+                .clip(RoundedCornerShape(6.dp))
                 .background(CardPaper)
-                .border(1.dp, CardRule.copy(alpha = 0.4f), RoundedCornerShape(14.dp)),
+                .border(1.dp, CardRule.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             CardCover(story)
@@ -152,16 +164,18 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
                         fontSize = 16.sp,
                         lineHeight = 24.sp,
                         textAlign = TextAlign.Center,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Spacer(Modifier.height(12.dp))
                 CardSignature(story.language)
             }
         }
+        }
     }
 }
+
+/** Room between the book's panel and the page set into it. */
+private val PanelInset = 4.dp
 
 /**
  * The whole cover at the top of the card, as drawn (fitted, never cropped, nothing laid over it),
@@ -190,25 +204,29 @@ private fun CardCover(story: Story) {
     }
 }
 
-/** Keeps the card short enough for the heart below it to show on most phones. */
-private val CoverMaxHeight = 190.dp
+/** Keeps the cover from taking most of the page: the words matter more. */
+private val CoverMaxHeight = 220.dp
 
 /** The logo and the app's name, so whoever gets the picture knows where the story is from. */
 @Composable
 private fun CardSignature(language: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        VegamLogoMark(size = 24)
-        Spacer(Modifier.width(8.dp))
+    // The tagline on a line of its own: the page in the book is narrow.
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            VegamLogoMark(size = 24)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = storyString(R.string.app_name, language),
+                color = CardInk,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+            )
+        }
         Text(
-            text = storyString(R.string.app_name, language),
-            color = CardInk,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-        )
-        Text(
-            text = " · " + storyString(R.string.share_card_tagline, language),
+            text = storyString(R.string.share_card_tagline, language),
             color = CardFaint,
             fontSize = 12.sp,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -275,9 +293,35 @@ private fun saveForSharing(context: Context, bitmap: Bitmap, storyId: String): U
     } else {
         bitmap
     }
-    file.outputStream().use { readable.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    file.outputStream().use { bookOnly(readable).compress(Bitmap.CompressFormat.PNG, 100, it) }
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
+
+/**
+ * The card as a picture of the book alone: without the soft shadow the book picture has to its
+ * right and below, and on the book's own cloth colour where anything is still see-through.
+ */
+private fun bookOnly(card: Bitmap): Bitmap {
+    val scale = card.width / BOOK_PICTURE_WIDTH
+    val left = (BOOK_SOLID_LEFT * scale).toInt()
+    val top = (BOOK_SOLID_TOP * scale).toInt()
+    val right = card.width - (BOOK_SOLID_RIGHT * scale).toInt()
+    val bottom = card.height - (BOOK_SOLID_BOTTOM * scale).toInt()
+    if (right <= left || bottom <= top) return card
+    val out = Bitmap.createBitmap(right - left, bottom - top, Bitmap.Config.ARGB_8888)
+    android.graphics.Canvas(out).apply {
+        drawColor(BookCloth)
+        drawBitmap(card, -left.toFloat(), -top.toFloat(), null)
+    }
+    return out
+}
+
+/** The book picture (book_cover) is this wide; its shadow and edges past the cover, in its pixels. */
+private const val BOOK_PICTURE_WIDTH = 1260f
+private const val BOOK_SOLID_LEFT = 6
+private const val BOOK_SOLID_TOP = 12
+private const val BOOK_SOLID_RIGHT = 40
+private const val BOOK_SOLID_BOTTOM = 38
 
 // ---------------- Previews ----------------
 

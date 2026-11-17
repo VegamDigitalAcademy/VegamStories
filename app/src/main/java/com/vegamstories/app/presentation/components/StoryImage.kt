@@ -17,7 +17,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImagePainter
+import coil3.compose.LocalPlatformContext
+import coil3.memory.MemoryCache
+import coil3.request.ImageRequest
 import com.vegamstories.app.R
 
 /**
@@ -35,16 +39,38 @@ fun StoryImage(
     contentScale: ContentScale = ContentScale.Crop,
     /** Shown when there is no image ([model] null) or it fails to load. */
     fallback: (@Composable BoxScope.() -> Unit)? = null,
+    /**
+     * A name for this picture in memory, shared by every place that shows it, at any size. A place
+     * that shows it bigger (a card's cover growing into the reader's) then starts from the copy
+     * already in memory, with no empty moment, and sharpens once its own size has loaded.
+     */
+    cacheKey: String? = null,
 ) {
     if (model == null && fallback != null) {
         Box(modifier) { fallback() }
         return
     }
     var state by remember(model) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+    val context = LocalPlatformContext.current
+    val request = remember(model, cacheKey) {
+        ImageRequest.Builder(context)
+            .data(model)
+            .apply {
+                if (cacheKey != null) {
+                    memoryCacheKey(cacheKey)
+                    placeholderMemoryCacheKey(cacheKey)
+                }
+            }
+            .build()
+    }
+    // Already in memory: it's drawn from the first frame, so no shimmer over it.
+    val inMemory = remember(cacheKey) {
+        cacheKey != null && SingletonImageLoader.get(context).memoryCache?.get(MemoryCache.Key(cacheKey)) != null
+    }
 
     Box(modifier) {
         AsyncImage(
-            model = model,
+            model = request,
             contentDescription = contentDescription,
             contentScale = contentScale,
             onState = { state = it },
@@ -52,7 +78,7 @@ fun StoryImage(
         )
         when (state) {
             is AsyncImagePainter.State.Loading, AsyncImagePainter.State.Empty ->
-                ShimmerBox(Modifier.matchParentSize())
+                if (!inMemory) ShimmerBox(Modifier.matchParentSize())
 
             is AsyncImagePainter.State.Error -> if (fallback != null) fallback() else Box(
                 modifier = Modifier

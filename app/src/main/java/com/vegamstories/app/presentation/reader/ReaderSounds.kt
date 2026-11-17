@@ -12,6 +12,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import com.vegamstories.app.R
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /** The reader's sounds: a page turning (each time a page passes), tearing, and glued back. */
 interface ReaderSounds {
@@ -55,48 +56,66 @@ internal fun pageTurnPlayback(sinceLastMillis: Long): PageTurnPlayback? {
     return PageTurnPlayback(rate = 1f + MAX_SPEED_UP * quick, volume = VOLUME - VOLUME_DROP * quick)
 }
 
-private class ReaderSoundPlayer(context: Context) : ReaderSounds {
+private class ReaderSoundPlayer(private val context: Context) : ReaderSounds {
     private val audio = context.getSystemService(AudioManager::class.java)
-    private val pool = SoundPool.Builder()
-        // Fast turns overlap: each rustle fades out under the next.
-        .setMaxStreams(3)
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build(),
-        )
-        .build()
-    private val turnSound = pool.load(context, R.raw.page_turn, 1)
-    private val tearSound = pool.load(context, R.raw.page_tear, 1)
-    private val glueSound = pool.load(context, R.raw.glue_press, 1)
 
-    /** The sound plays from its own thread: a page turn never waits for it. */
-    private val worker = Executors.newSingleThreadExecutor()
+    /** The sounds are loaded and played from this thread: a page turn never waits for them. */
+    private val worker = Executors.newSingleThreadScheduledExecutor()
+
+    /** Set once loaded; only the worker thread touches it. */
+    private var loaded: Loaded? = null
 
     private var lastTurnAt = -SLOW_TURN_MILLIS
+
+    init {
+        // Not the moment the reader opens: decoding three sounds then would compete with the
+        // story's card growing into the reader. The first page turn is well after this.
+        worker.schedule({ loaded = Loaded(context) }, LOAD_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+    }
 
     override fun pageTurn() {
         val now = SystemClock.uptimeMillis()
         val playback = pageTurnPlayback(now - lastTurnAt) ?: return
         lastTurnAt = now
-        play(turnSound, playback.volume, playback.rate)
+        play({ it.turn }, playback.volume, playback.rate)
     }
 
-    override fun tear() = play(tearSound, EFFECT_VOLUME)
+    override fun tear() = play({ it.tear }, EFFECT_VOLUME)
 
-    override fun glued() = play(glueSound, EFFECT_VOLUME)
+    override fun glued() = play({ it.glue }, EFFECT_VOLUME)
 
-    private fun play(sound: Int, volume: Float, rate: Float = 1f) = worker.execute {
-        if (audio?.ringerMode != AudioManager.RINGER_MODE_NORMAL) return@execute
-        pool.play(sound, volume, volume, 1, 0, rate)
+    private fun play(sound: (Loaded) -> Int, volume: Float, rate: Float = 1f) {
+        worker.execute {
+            val sounds = loaded ?: return@execute
+            if (audio?.ringerMode != AudioManager.RINGER_MODE_NORMAL) return@execute
+            sounds.pool.play(sound(sounds), volume, volume, 1, 0, rate)
+        }
     }
 
     fun release() {
-        worker.execute { pool.release() }
+        worker.execute { loaded?.pool?.release() }
         worker.shutdown()
     }
+
+    private class Loaded(context: Context) {
+        val pool: SoundPool = SoundPool.Builder()
+            // Fast turns overlap: each rustle fades out under the next.
+            .setMaxStreams(3)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
+            .build()
+        val turn = pool.load(context, R.raw.page_turn, 1)
+        val tear = pool.load(context, R.raw.page_tear, 1)
+        val glue = pool.load(context, R.raw.glue_press, 1)
+    }
 }
+
+/** How long after the reader opens its sounds are loaded. */
+private const val LOAD_DELAY_MILLIS = 600L
 
 /** Turns closer together than this are one jump, with one sound. */
 private const val SAME_TURN_MILLIS = 90L

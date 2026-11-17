@@ -51,7 +51,6 @@ import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.presentation.components.BackTopBar
 import com.vegamstories.app.presentation.components.EmptyState
 import com.vegamstories.app.presentation.components.LoadingBox
-import com.vegamstories.app.presentation.components.coverColorsFor
 import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.preview.ScreenPreviews
@@ -64,6 +63,10 @@ private val BackBottom = Color(0xFF55391F)
 
 /** Gold of the spines' bands and of the "series complete" sticker. */
 private val Gold = Color(0xFFE2B865)
+
+/** The books' blue cloth (the reader's book cover, book_cover), and the title printed on it. */
+private val BookCloth = Color(0xFF25245A)
+private val SpineText = Color(0xFFF3E9D2)
 
 /**
  * The reader's bookshelf: every story read to the end, standing as a book on a wooden shelf, one
@@ -194,14 +197,13 @@ private fun Plank() {
 }
 
 /**
- * A finished story as a book on the shelf: its series' colour, rounded by light and shade, gold
- * bands top and bottom, the title written up the spine and the episode number at its foot.
- * Books differ a little in height, as on a real shelf.
+ * A finished story as a book on the shelf: bound in the same blue cloth as the reader's cover,
+ * rounded by light and shade, gold bands top and bottom, the title written up the spine and the
+ * episode number at its foot. Books differ a little in shade and height, as on a real shelf.
  */
 @Composable
 private fun BookSpine(story: Story, onClick: () -> Unit) {
-    val colors = coverColorsFor(story.categoryId)
-    val base = lerp(colors.bottom, Color.Black, (story.episodeNumber % 3) * 0.08f)
+    val base = lerp(BookCloth, Color.Black, (story.episodeNumber % 3) * 0.08f)
     val height = (128 + (story.id.hashCode() and Int.MAX_VALUE) % 4 * 8).dp
     Box(
         modifier = Modifier
@@ -225,7 +227,7 @@ private fun BookSpine(story: Story, onClick: () -> Unit) {
     ) {
         Text(
             text = story.title,
-            color = colors.text,
+            color = SpineText,
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold,
             fontSize = 11.sp,

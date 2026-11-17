@@ -5,6 +5,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -43,27 +44,46 @@ private val fadeInAfterExit = fadeIn(tween(FADE_IN_MS, delayMillis = FADE_OUT_MS
 private val quickFadeOut = fadeOut(tween(FADE_OUT_MS, easing = FastOutLinearInEasing))
 
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.enterTransition(): EnterTransition =
-    if (isTabSwitch()) {
+    if (opensStory()) {
+        EnterTransition.None
+    } else if (isTabSwitch()) {
         fadeInAfterExit + scaleIn(tween(NAV_ANIM_MS, easing = EmphasizedEasing), initialScale = 0.96f)
     } else {
         slideInHorizontally(tween(NAV_ANIM_MS, easing = EmphasizedEasing)) { nudge(it) } + fadeInAfterExit
     }
 
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.exitTransition(): ExitTransition =
-    if (isTabSwitch()) {
+    if (opensStory()) {
+        ExitTransition.None
+    } else if (isTabSwitch()) {
         quickFadeOut
     } else {
         slideOutHorizontally(tween(NAV_ANIM_MS, easing = EmphasizedEasing)) { -nudge(it) } + quickFadeOut
     }
 
 /**
- * Back has no animation: the previous screen simply comes back. (Opening screens and switching
- * tabs are still animated.) Android's predictive-back preview is switched off in the manifest
+ * Back has no animation: the previous screen simply comes back (a story fades away quickly).
+ * Opening screens and switching tabs are still animated. Android's predictive-back preview is switched off in the manifest
  * (enableOnBackInvokedCallback="false"), so a back swipe doesn't shrink the screen either.
  */
-internal fun popEnterTransition(): EnterTransition = EnterTransition.None
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnterTransition(): EnterTransition =
+    EnterTransition.None
 
-internal fun popExitTransition(): ExitTransition = ExitTransition.None
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popExitTransition(): ExitTransition =
+    if (closesStory()) fadeOut(tween(STORY_CLOSE_MS, easing = FastOutLinearInEasing)) else ExitTransition.None
+
+/*
+ * Opening a story: no screen animation of its own. From its card, the card's picture has already
+ * grown into the reader's cover over the app (StoryOpeningOverlay), and the reader appears under
+ * that, looking the same. Back from a story fades it away quickly.
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.opensStory(): Boolean =
+    targetState.destination.hasRoute(ReaderRoute::class)
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.closesStory(): Boolean =
+    initialState.destination.hasRoute(ReaderRoute::class)
+
+private const val STORY_CLOSE_MS = 200
 
 /** Both ends are bottom-bar tabs (Home, Favorites, Downloads, Menu). */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean =

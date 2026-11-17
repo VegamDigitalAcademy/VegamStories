@@ -20,6 +20,7 @@ import com.vegamstories.app.presentation.home.HomeScreen
 import com.vegamstories.app.presentation.info.InfoScreen
 import com.vegamstories.app.presentation.menu.MenuScreen
 import com.vegamstories.app.presentation.reader.ReaderScreen
+import com.vegamstories.app.presentation.reader.animationsOn
 import com.vegamstories.app.presentation.search.SearchScreen
 import com.vegamstories.app.presentation.settings.ApiCallsScreen
 import com.vegamstories.app.presentation.settings.SettingsScreen
@@ -33,7 +34,12 @@ fun VegamNavHost(
     onShowMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val openStory: (String) -> Unit = { id -> navController.navigate(ReaderRoute(id)) }
+    // From its card, the card's picture grows into the reader first (StoryOpener).
+    val storyOpener = LocalStoryOpener.current
+    val animates = animationsOn()
+    val openStory: (String) -> Unit = { id ->
+        storyOpener.open(id, animates) { navController.navigate(ReaderRoute(id)) }
+    }
 
     NavHost(
         navController = navController,
