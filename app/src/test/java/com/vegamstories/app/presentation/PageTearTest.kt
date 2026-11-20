@@ -27,6 +27,7 @@ import com.vegamstories.app.presentation.reader.ReaderScreenContent
 import com.vegamstories.app.presentation.reader.ReaderSounds
 import com.vegamstories.app.presentation.reader.ReaderUiState
 import com.vegamstories.app.presentation.reader.pointAt
+import com.vegamstories.app.presentation.reader.pouredRange
 import com.vegamstories.app.presentation.reader.rubbedAfter
 import com.vegamstories.app.presentation.reader.tearLine
 import com.vegamstories.app.presentation.settings.SettingsContent
@@ -148,6 +149,15 @@ class PageTearTest {
     }
 
     @Test
+    fun `glue dropped on the tear runs from there to both ends, reaching them together`() {
+        assertEquals(0.3f..0.3f, pouredRange(from = 0.3f, poured = 0f))
+        val half = pouredRange(from = 0.3f, poured = 0.5f)
+        assertEquals(0.15f, half.start, 0.001f)
+        assertEquals(0.65f, half.endInclusive, 0.001f)
+        assertEquals(0f..1f, pouredRange(from = 0.3f, poured = 1f))
+    }
+
+    @Test
     fun `points along the tear follow its jags`() {
         val line = listOf(Offset(0f, 0f), Offset(100f, 50f), Offset(200f, 0f))
 
@@ -192,16 +202,32 @@ class PageTearTest {
         val tornAt = pagesSettled.last()
 
         compose.onNodeWithText(storyText(R.string.tear_fix)).performClick()
-        compose.mainClock.advanceTimeBy(2_000)
+        compose.mainClock.advanceTimeBy(1_000)
 
         compose.onNodeWithText(storyText(R.string.tear_fixed)).assertExists()
         assertEquals(listOf("tear", "glued"), heard)
-        tapRight(thenWait = 2_000)
+        tapRight(thenWait = 500)
         assertEquals(tornAt, pagesSettled.last()) // still showing Page fixed
 
         compose.onNodeWithText(storyText(R.string.tear_read_story)).performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithText(storyText(R.string.tear_hint)).assertDoesNotExist()
+        tapRight(thenWait = 2_000)
+        assertEquals(tornAt + 1, pagesSettled.last())
+    }
+
+    @Test
+    fun `Page fixed goes by itself after 3 seconds, and the page turns again`() {
+        reader()
+        flickThrough()
+        val tornAt = pagesSettled.last()
+
+        compose.onNodeWithText(storyText(R.string.tear_fix)).performClick()
+        compose.mainClock.advanceTimeBy(2_500)
+        compose.onNodeWithText(storyText(R.string.tear_fixed)).assertExists()
+
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithText(storyText(R.string.tear_fixed)).assertDoesNotExist()
         tapRight(thenWait = 2_000)
         assertEquals(tornAt + 1, pagesSettled.last())
     }
@@ -213,7 +239,7 @@ class PageTearTest {
         flickThrough()
 
         compose.onNodeWithText("Too fast! The page tore.").assertExists()
-        compose.onNodeWithText("Tap the glue bottle!").assertExists()
+        compose.onNodeWithText("Drag the glue bottle onto the tear!").assertExists()
         assertTrue(storyText(R.string.tear_hint, "te") != storyText(R.string.tear_hint, "en"))
     }
 

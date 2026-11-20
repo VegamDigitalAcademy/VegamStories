@@ -149,7 +149,7 @@
     <string name="settings_torn_pages_desc">Turn pages too fast and one tears. Rub on some glue to fix it</string>
     <string name="tear_hint">Too fast! The page tore.</string>
     <string name="tear_fix">Fix it</string>
-    <string name="tear_tap_glue">Tap the glue bottle!</string>
+    <string name="tear_tap_glue">Drag the glue bottle onto the tear!</string>
     <string name="tear_rub_glue">Rub the glue with your finger!</string>
     <string name="tear_fixed">Page fixed! Well done!</string>
     <string name="tear_read_story">Read story</string>

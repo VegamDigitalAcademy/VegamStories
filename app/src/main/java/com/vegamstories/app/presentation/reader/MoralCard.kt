@@ -156,7 +156,7 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
                         lineHeight = 25.sp,
                         textAlign = TextAlign.Center,
                     )
-                } else {
+                } /*else {
                     Text(
                         text = story.summary,
                         color = CardInk,
@@ -165,7 +165,7 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
                         lineHeight = 24.sp,
                         textAlign = TextAlign.Center,
                     )
-                }
+                }*/
                 Spacer(Modifier.height(12.dp))
                 CardSignature(story.language)
             }

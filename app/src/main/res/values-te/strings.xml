@@ -145,7 +145,7 @@
     <string name="settings_torn_pages_desc">పేజీలు చాలా వేగంగా తిప్పితే ఒకటి చిరుగుతుంది. జిగురు రాసి అతికించండి</string>
     <string name="tear_hint">చాలా వేగంగా తిప్పారు! పేజీ చిరిగింది.</string>
     <string name="tear_fix">అతికించు</string>
-    <string name="tear_tap_glue">జిగురు సీసాను తాకండి!</string>
+    <string name="tear_tap_glue">జిగురు సీసాను చిరిగిన చోటకు లాగి వదలండి!</string>
     <string name="tear_rub_glue">వేలితో జిగురును రుద్దండి!</string>
     <string name="tear_fixed">పేజీ అతుక్కుంది! భలే చేశారు!</string>
     <string name="tear_read_story">కథ చదవండి</string>
