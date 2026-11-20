@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+/* Play phone screenshot: 1080x1920 card, caption on top, app screen below. Open as screenshot.html?img=..&t=..&s=.. */
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden}
+body{background:radial-gradient(circle at 50% 20%,#2E2A6B 0%,#1E1B4B 55%,#15123A 100%);font-family:-apple-system,"Helvetica Neue",sans-serif;text-align:center;color:#FFF7E6}
+h1{margin:90px 60px 0;font-size:68px;font-weight:800;line-height:1.12;letter-spacing:-1px}
+p{margin:22px 60px 0;font-size:36px;color:#F59E0B;font-weight:600}
+img{display:block;margin:64px auto 0;width:666px;border-radius:44px;border:10px solid #0B0A24;box-shadow:0 30px 70px rgba(0,0,0,.45)}
+</style></head><body>
+<h1 id="t"></h1><p id="s"></p><img id="i">
+<script>const q=new URLSearchParams(location.search);t.textContent=q.get('t');s.textContent=q.get('s');i.src=q.get('img');</script>
+</body></html>
