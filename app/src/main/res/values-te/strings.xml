@@ -143,8 +143,13 @@
     <string name="settings_page_turn_sound_desc">ప్రతి పేజీ తిప్పినప్పుడు మెల్లని కాగితం శబ్దం. ఫోన్ సైలెంట్‌లో ఉంటే రాదు</string>
     <string name="settings_torn_pages">చిరిగే పేజీలు</string>
     <string name="settings_torn_pages_desc">పేజీలు చాలా వేగంగా తిప్పితే ఒకటి చిరుగుతుంది. జిగురు రాసి అతికించండి</string>
-    <string name="tear_hint">చాలా వేగంగా తిప్పారు! పేజీ చిరిగింది. చిరిగిన చోట జిగురు రాసి అతికించండి</string>
+    <string name="tear_hint">చాలా వేగంగా తిప్పారు! పేజీ చిరిగింది.</string>
     <string name="tear_fix">అతికించు</string>
+    <string name="tear_tap_glue">జిగురు సీసాను తాకండి!</string>
+    <string name="tear_rub_glue">వేలితో జిగురును రుద్దండి!</string>
+    <string name="tear_fixed">పేజీ అతుక్కుంది! భలే చేశారు!</string>
+    <string name="tear_read_story">కథ చదవండి</string>
+    <string name="tear_glue_bottle">జిగురు సీసా</string>
 
     <!-- కొత్త కథల నోటిఫికేషన్లు -->
     <string name="settings_notifications_section">నోటిఫికేషన్లు</string>

@@ -585,7 +585,7 @@ private fun PagedReader(
     // the auto-turn alike. Not for the corner-lift hint or a swipe that springs back, which never
     // get that far. Fast turns get quicker sounds (see pageTurnPlayback).
     // Torn pages (Settings → Reading): the reader turning too many pages too fast tears the page
-    // they reach. It stays there, and nothing turns it, until it's glued back (TearGlue).
+    // they reach. It stays there, and nothing turns it, until it's glued back (TearRepair).
     val sounds by rememberUpdatedState(LocalReaderSounds.current)
     val tornPages by rememberUpdatedState(LocalTornPages.current)
     val tear = remember { PageTear() }
@@ -608,18 +608,16 @@ private fun PagedReader(
     // Once the page has come to rest: the rip, and the loose piece falls.
     LaunchedEffect(tear.page) {
         if (!tear.isTorn) return@LaunchedEffect
+        tear.resetMotion()
         snapshotFlow { pagerState.isScrollInProgress }.first { !it }
         sounds.tear()
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         tear.drop.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessLow))
     }
-    val mend: () -> Unit = {
-        scope.launch {
-            tear.mend {
-                sounds.glued()
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-            }
-        }
+    // Glued back (TearRepair): the squish, and a firm tick.
+    val onTearFixed: () -> Unit = {
+        sounds.glued()
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
     }
 
     // Auto-advance (Settings → Reading): each comic page turns to the next after autoTurnMillis.
@@ -739,7 +737,7 @@ private fun PagedReader(
                 if (!isCover) pageOverlay(index - first)
             }
             // Over the torn page, not part of it: it stays put while the loose piece hangs.
-            if (tear.page == index) TearGlue(tear, onGlued = mend)
+            if (tear.page == index) TearRepair(tear, onFixed = onTearFixed, onDone = tear::finish)
         }
     }
 }

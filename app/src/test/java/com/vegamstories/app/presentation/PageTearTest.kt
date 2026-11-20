@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -25,7 +26,8 @@ import com.vegamstories.app.presentation.reader.FastTurns
 import com.vegamstories.app.presentation.reader.ReaderScreenContent
 import com.vegamstories.app.presentation.reader.ReaderSounds
 import com.vegamstories.app.presentation.reader.ReaderUiState
-import com.vegamstories.app.presentation.reader.glueCoverage
+import com.vegamstories.app.presentation.reader.pointAt
+import com.vegamstories.app.presentation.reader.rubbedAfter
 import com.vegamstories.app.presentation.reader.tearLine
 import com.vegamstories.app.presentation.settings.SettingsContent
 import com.vegamstories.app.testutil.testStory
@@ -37,7 +39,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.GraphicsMode
 
-/** Torn pages: turning too fast tears a page, and it turns again only once glued back. */
+/**
+ * Torn pages: turning too fast tears a page; the glue bottle pours glue along the tear, it's rubbed
+ * in (or Fix it), and the page turns again only once it's whole.
+ */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PageTearTest {
@@ -132,14 +137,24 @@ class PageTearTest {
     }
 
     @Test
-    fun `glue counts where it touches the tear`() {
+    fun `rubbing fills the stretch of tear under the finger, a bit each pass`() {
+        // Three stretches, their middles at x = 50, 150 and 250.
         val line = listOf(Offset(0f, 100f), Offset(300f, 100f))
+        val fresh = listOf(0f, 0f, 0f)
 
-        assertEquals(0f, glueCoverage(line, emptyList(), reach = 20f))
-        assertEquals(1f, glueCoverage(line, (0..30).map { Offset(it * 10f, 105f) }, reach = 20f))
-        val half = glueCoverage(line, (0..15).map { Offset(it * 10f, 95f) }, reach = 20f)
-        assertTrue(half in 0.45f..0.65f)
-        assertEquals(0f, glueCoverage(line, (0..30).map { Offset(it * 10f, 300f) }, reach = 20f))
+        assertEquals(listOf(0f, 0.5f, 0f), rubbedAfter(fresh, line, Offset(150f, 105f), moved = 30f, reach = 20f, fillDistance = 60f))
+        assertEquals(listOf(0f, 1f, 0f), rubbedAfter(listOf(0f, 0.9f, 0f), line, Offset(150f, 100f), moved = 30f, reach = 20f, fillDistance = 60f))
+        assertEquals(fresh, rubbedAfter(fresh, line, Offset(150f, 160f), moved = 30f, reach = 20f, fillDistance = 60f))
+    }
+
+    @Test
+    fun `points along the tear follow its jags`() {
+        val line = listOf(Offset(0f, 0f), Offset(100f, 50f), Offset(200f, 0f))
+
+        assertEquals(Offset(0f, 0f), pointAt(line, 0f))
+        assertEquals(Offset(100f, 50f), pointAt(line, 0.5f))
+        assertEquals(Offset(150f, 25f), pointAt(line, 0.75f))
+        assertEquals(Offset(200f, 0f), pointAt(line, 1f))
     }
 
     @Test
@@ -149,10 +164,25 @@ class PageTearTest {
         flickThrough()
 
         compose.onNodeWithText(storyText(R.string.tear_hint)).assertExists()
+        compose.onNodeWithText(storyText(R.string.tear_tap_glue)).assertExists()
         assertEquals(listOf("tear"), heard)
         val tornAt = pagesSettled.last()
         tapRight(thenWait = 2_000)
         assertEquals(tornAt, pagesSettled.last())
+    }
+
+    @Test
+    fun `tapping the glue bottle pours glue along the tear, then asks to rub it in`() {
+        reader()
+        flickThrough()
+
+        compose.onNodeWithContentDescription(storyText(R.string.tear_glue_bottle)).performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithText(storyText(R.string.tear_tap_glue)).assertDoesNotExist()
+        compose.mainClock.advanceTimeBy(3_000)
+
+        compose.onNodeWithText(storyText(R.string.tear_rub_glue)).assertExists()
+        compose.onNodeWithText("0%").assertExists()
     }
 
     @Test
@@ -164,8 +194,14 @@ class PageTearTest {
         compose.onNodeWithText(storyText(R.string.tear_fix)).performClick()
         compose.mainClock.advanceTimeBy(2_000)
 
-        compose.onNodeWithText(storyText(R.string.tear_hint)).assertDoesNotExist()
+        compose.onNodeWithText(storyText(R.string.tear_fixed)).assertExists()
         assertEquals(listOf("tear", "glued"), heard)
+        tapRight(thenWait = 2_000)
+        assertEquals(tornAt, pagesSettled.last()) // still showing Page fixed
+
+        compose.onNodeWithText(storyText(R.string.tear_read_story)).performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithText(storyText(R.string.tear_hint)).assertDoesNotExist()
         tapRight(thenWait = 2_000)
         assertEquals(tornAt + 1, pagesSettled.last())
     }
@@ -176,7 +212,8 @@ class PageTearTest {
 
         flickThrough()
 
-        compose.onNodeWithText("Too fast! The page tore. Rub glue along the tear to fix it").assertExists()
+        compose.onNodeWithText("Too fast! The page tore.").assertExists()
+        compose.onNodeWithText("Tap the glue bottle!").assertExists()
         assertTrue(storyText(R.string.tear_hint, "te") != storyText(R.string.tear_hint, "en"))
     }
 
