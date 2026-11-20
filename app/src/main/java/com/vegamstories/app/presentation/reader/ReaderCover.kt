@@ -18,6 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
@@ -41,9 +45,11 @@ import kotlin.math.roundToInt
 
 /**
  * The story's cover, the page before its first, as big as the pages after it: a cloth-bound book,
- * with the story's picture from its card set into the panel on its front. The card's picture grows
- * into it when the story opens (StoryOpeningOverlay): [onPlaced] says where it is, and
- * [pictureAlpha] keeps it hidden until the growing one has landed.
+ * with the story's picture from its card filling the panel on its front. The page is taller than
+ * the picture, so the picture spans the panel's width and a soft, blurred copy of it fills the
+ * panel above and below: full, with nothing cut off. The card's picture grows into it when the
+ * story opens (StoryOpeningOverlay): [onPlaced] says where it is, and [pictureAlpha] keeps it
+ * hidden until the growing one has landed.
  */
 @Composable
 internal fun ReaderCover(
@@ -60,21 +66,33 @@ internal fun ReaderCover(
         val panelTop = scale * (book.height * BOOK_PANEL_TOP)
         val panelBottom = scale * (book.height * (1f - BOOK_PANEL_BOTTOM))
         Canvas(Modifier.matchParentSize()) { drawStretchedBook(book) }
-        // The panel on the front, with the picture set in it at its own shape.
+        // The panel on the front, filled: the picture across its width, its blurred copy around it.
         Box(
             Modifier
                 .offset(x = maxWidth * BOOK_PANEL_LEFT, y = panelTop)
                 .size(width = maxWidth * (BOOK_PANEL_RIGHT - BOOK_PANEL_LEFT), height = maxHeight - panelTop - panelBottom)
-                .padding(PanelPadding),
+                .clip(PanelShape),
             contentAlignment = Alignment.Center,
         ) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    // Before Android 12 there's no blur: the dimmed, enlarged picture still fills it.
+                    .blur(FillBlur, BlurredEdgeTreatment.Rectangle)
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(Color.Black.copy(alpha = FILL_DIM))
+                    },
+            ) {
+                StoryCover(story = story, contentDescription = null, modifier = Modifier.matchParentSize())
+            }
             Box(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(3f / 4f)
                     .then(if (onPlaced != null) Modifier.onGloballyPositioned { onPlaced(it.boundsInRoot()) } else Modifier)
                     .graphicsLayer { alpha = pictureAlpha() }
-                    .shadow(6.dp, PictureShape)
+                    .shadow(10.dp, PictureShape)
                     .clip(PictureShape),
             ) {
                 StoryCover(story = story, modifier = Modifier.matchParentSize())
@@ -127,8 +145,10 @@ internal const val BOOK_PANEL_BOTTOM = 0.863f
 private const val STRETCH_FROM = 0.25f
 private const val STRETCH_TO = 0.75f
 
-/** Room around the picture inside the panel. */
-private val PanelPadding = 10.dp
+/** The panel's corners, and how soft and how dimmed the picture's copy filling it is. */
+private val PanelShape = RoundedCornerShape(6.dp)
+private val FillBlur = 24.dp
+private const val FILL_DIM = 0.28f
 
 /** The picture's corners in its panel. */
 internal val PictureShape = RoundedCornerShape(4.dp)
