@@ -3,7 +3,11 @@ package com.vegamstories.app.presentation.navigation
 import com.vegamstories.app.presentation.bookmarks.BookmarksScreen
 import com.vegamstories.app.presentation.bookshelf.BookshelfScreen
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -52,7 +56,7 @@ fun VegamNavHost(
         popExitTransition = { popExitTransition() },
     ) {
         composable<HomeRoute> {
-            AboveBottomBar {
+            UnderBottomBar {
                 HomeScreen(
                     onStoryClick = openStory,
                     onSearchClick = { navController.navigate(SearchRoute) },
@@ -61,7 +65,7 @@ fun VegamNavHost(
             }
         }
         composable<FavoritesRoute> {
-            AboveBottomBar { FavoritesScreen(onStoryClick = openStory) }
+            UnderBottomBar { FavoritesScreen(onStoryClick = openStory) }
         }
         composable<DownloadsRoute> {
             AboveBottomBar { DownloadsScreen(onStoryClick = openStory) }
@@ -153,6 +157,18 @@ fun VegamNavHost(
 @Composable
 private fun AboveBottomBar(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().glassBottomBarSpace()) { content() }
+}
+
+/**
+ * For the screens whose stories scroll under the bar, seen through its glass: the whole screen,
+ * with the bar's space handed to their grid (LocalBottomBarSpace) to keep its last row clear.
+ */
+@Composable
+private fun UnderBottomBar(content: @Composable () -> Unit) {
+    val space = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + GlassBottomBarHeight
+    CompositionLocalProvider(LocalBottomBarSpace provides space) {
+        Box(Modifier.fillMaxSize()) { content() }
+    }
 }
 
 /**

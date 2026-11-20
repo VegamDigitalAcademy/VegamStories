@@ -24,6 +24,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -68,12 +71,19 @@ fun VegamApp(
     // A story opening from its card grows over everything (StoryOpeningOverlay).
     val storyOpener = remember { StoryOpener() }
     CompositionLocalProvider(LocalStoryOpener provides storyOpener) {
-    AppBackground {
-        // The bar and snackbar float over the screens instead of resizing them. If the bar's
-        // space were taken from the screen area, every screen would shrink and grow while the
-        // bar animates (the reader visibly squeezing on Back). Tab screens reserve the bar's
-        // space themselves instead (VegamNavHost), so nothing resizes during a transition.
-        Box(Modifier.fillMaxSize()) {
+    // Everything under the bar, recorded as it's drawn, for the bar to blur (GlassBottomBar).
+    val backdrop = rememberGraphicsLayer()
+    // The bar and snackbar float over the screens instead of resizing them. If the bar's space
+    // were taken from the screen area, every screen would shrink and grow while the bar animates
+    // (the reader visibly squeezing on Back). Tab screens keep clear of it themselves instead
+    // (VegamNavHost), so nothing resizes during a transition.
+    Box(Modifier.fillMaxSize()) {
+        AppBackground(
+            Modifier.drawWithContent {
+                backdrop.record { this@drawWithContent.drawContent() }
+                drawLayer(backdrop)
+            },
+        ) {
             VegamNavHost(
                 navController = navController,
                 shortcutTarget = shortcutTarget,
@@ -86,6 +96,7 @@ fun VegamApp(
                 },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
             AnimatedVisibility(
                 visible = showBottomBar,
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -96,6 +107,7 @@ fun VegamApp(
                     // While sliding away, keep the tab we came from highlighted.
                     currentDestination = if (showBottomBar) currentDestination else lastTabDestination,
                     onNavigate = navController::navigateToTopLevel,
+                    backdrop = backdrop,
                 )
             }
             SnackbarHost(
@@ -105,7 +117,6 @@ fun VegamApp(
                     .then(if (showBottomBar) Modifier.glassBottomBarSpace() else Modifier.navigationBarsPadding()),
             )
             StoryOpeningOverlay(storyOpener)
-        }
     }
     }
 }

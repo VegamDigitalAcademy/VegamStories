@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.vegamstories.app.domain.model.Story
+import com.vegamstories.app.presentation.navigation.LocalBottomBarSpace
 
 /** Story grid: 2 columns on phones, more on tablets ([storyGridColumns]). [header] items span the full width (section titles, cards…). */
 @Composable
@@ -22,7 +23,8 @@ fun StoryGrid(
     LazyVerticalGrid(
         columns = StoryGridCells,
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        // Under the bottom bar's glass, the last row scrolls up clear of it.
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + LocalBottomBarSpace.current),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
