@@ -135,7 +135,9 @@ class SettingsRepositoryImpl @Inject constructor(
         val READER_TEXT_SIZE = stringPreferencesKey("reader_text_size")
         val READER_AUTO_TURN = booleanPreferencesKey("reader_auto_turn")
         val READER_PAGE_TURN_SOUND = booleanPreferencesKey("reader_page_turn_sound")
-        val READER_TORN_PAGES = booleanPreferencesKey("reader_torn_pages")
+        // v2 since torn pages went from off to on by default. Older versions saved "off" with every
+        // reader setting, so that value is left behind and everyone starts with them on.
+        val READER_TORN_PAGES = booleanPreferencesKey("reader_torn_pages_v2")
         // v2 since the times went from 5/10/15 s to 10/20/30 s. Older versions saved their 10 s
         // default with every reader setting, so that value is left behind and all start on 30 s.
         val READER_AUTO_TURN_SECONDS = intPreferencesKey("reader_auto_turn_seconds_v2")

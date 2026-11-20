@@ -212,7 +212,7 @@ fun SettingsContent(
     onAutoTurnSecondsChange: (Int) -> Unit = {},
     pageTurnSound: Boolean = true,
     onPageTurnSoundChange: (Boolean) -> Unit = {},
-    tornPages: Boolean = false,
+    tornPages: Boolean = true,
     onTornPagesChange: (Boolean) -> Unit = {},
     onShareLogs: () -> Unit = {},
     /** Settings → API calls; null (release builds) hides the Developer section. */

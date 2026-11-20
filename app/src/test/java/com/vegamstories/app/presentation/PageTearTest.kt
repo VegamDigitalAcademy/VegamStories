@@ -228,8 +228,8 @@ class PageTearTest {
     }
 
     @Test
-    fun `it's off unless switched on in Settings`() {
-        assertFalse(ReaderSettings().tornPages)
+    fun `it's on unless switched off in Settings`() {
+        assertTrue(ReaderSettings().tornPages)
         val changes = mutableListOf<Boolean>()
         compose.setContent {
             PreviewTheme {
@@ -250,6 +250,6 @@ class PageTearTest {
 
         compose.onNodeWithText(text(R.string.settings_torn_pages)).performScrollTo().performClick()
 
-        assertEquals(listOf(true), changes)
+        assertEquals(listOf(false), changes)
     }
 }
