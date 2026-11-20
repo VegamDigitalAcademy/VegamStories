@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -37,12 +39,21 @@ fun VegamNavHost(
     onShortcutHandled: () -> Unit,
     onShowMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Whether a story can be opened now: there's internet, or it's saved on the phone. */
+    canOpenStory: suspend (storyId: String) -> Boolean = { true },
+    /** A story that can't be opened without internet was asked for. */
+    onStoryNeedsInternet: () -> Unit = {},
 ) {
+    // Every way into a story checks it can open first (no internet, not saved: say so instead).
+    val scope = rememberCoroutineScope()
+    val whenOpenable: (storyId: String, open: () -> Unit) -> Unit = { id, open ->
+        scope.launch { if (canOpenStory(id)) open() else onStoryNeedsInternet() }
+    }
     // From its card, the card's picture grows into the reader first (StoryOpener).
     val storyOpener = LocalStoryOpener.current
     val animates = animationsOn()
     val openStory: (String) -> Unit = { id ->
-        storyOpener.open(id, animates) { navController.navigate(ReaderRoute(id)) }
+        whenOpenable(id) { storyOpener.open(id, animates) { navController.navigate(ReaderRoute(id)) } }
     }
 
     NavHost(
@@ -94,7 +105,9 @@ fun VegamNavHost(
             AboveBottomBar {
                 BookmarksScreen(
                     onBack = navController::popBackStack,
-                    onOpenBookmark = { bookmark -> navController.navigate(bookmark.toReaderRoute()) },
+                    onOpenBookmark = { bookmark ->
+                        whenOpenable(bookmark.storyId) { navController.navigate(bookmark.toReaderRoute()) }
+                    },
                 )
             }
         }
@@ -122,8 +135,10 @@ fun VegamNavHost(
             ReaderScreen(
                 onBack = navController::popBackStack,
                 onOpenNextStory = { nextId ->
-                    navController.navigate(ReaderRoute(nextId)) {
-                        popUpTo<ReaderRoute> { inclusive = true }
+                    whenOpenable(nextId) {
+                        navController.navigate(ReaderRoute(nextId)) {
+                            popUpTo<ReaderRoute> { inclusive = true }
+                        }
                     }
                 },
                 onShowMessage = onShowMessage,
@@ -140,8 +155,12 @@ fun VegamNavHost(
             }
             ShortcutTarget.Search -> navController.navigate(SearchRoute) { launchSingleTop = true }
             // From the widget: the story over Home, so Back lands on Home.
-            is ShortcutTarget.Story -> navController.navigate(ReaderRoute(shortcutTarget.storyId)) {
-                popUpTo(navController.graph.findStartDestination().id)
+            is ShortcutTarget.Story -> if (canOpenStory(shortcutTarget.storyId)) {
+                navController.navigate(ReaderRoute(shortcutTarget.storyId)) {
+                    popUpTo(navController.graph.findStartDestination().id)
+                }
+            } else {
+                onStoryNeedsInternet()
             }
             null -> return@LaunchedEffect
         }

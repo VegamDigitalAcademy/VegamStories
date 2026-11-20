@@ -211,6 +211,12 @@
     <string name="share_logs_message">ఏం తప్పు జరిగిందో మాకు చెప్పండి. మీ సందేశం, గత 7 రోజుల యాప్ లాగ్‌లు ఒక zip ఫైల్‌గా WhatsApp, Gmail లేదా మీరు ఎంచుకున్న ఏ యాప్ ద్వారానైనా పంపబడతాయి.</string>
     <string name="share_logs_hint">ఉదాహరణకు: కథలు లోడ్ అవ్వడం లేదు</string>
     <string name="cancel">రద్దు చేయండి</string>
+    <!-- No internet (NoInternetDialog) -->
+    <string name="no_internet_title">ఇంటర్నెట్ లేదు</string>
+    <string name="no_internet_message">కథలు తెరవడానికి మొబైల్ డేటా లేదా Wi-Fi ఆన్ చేయండి. డౌన్‌లోడ్ చేసిన లేదా ఇంతకు ముందు చదివిన కథలు ఇంటర్నెట్ లేకుండానే తెరుచుకుంటాయి.</string>
+    <string name="no_internet_story_message">ఈ కథ ఇంకా మీ ఫోన్‌లో సేవ్ కాలేదు. దీన్ని తెరవడానికి మొబైల్ డేటా లేదా Wi-Fi ఆన్ చేయండి.</string>
+    <string name="no_internet_turn_on">ఇంటర్నెట్ ఆన్ చేయండి</string>
+    <string name="no_internet_ok">సరే</string>
     <string name="share_logs_action">పంపండి</string>
     <string name="share_logs_failed">లాగ్‌లను సిద్ధం చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి.</string>
     <string name="share_logs_subject">వేగం కథలు – యాప్ లాగ్‌లు</string>

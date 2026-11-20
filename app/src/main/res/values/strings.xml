@@ -215,6 +215,12 @@
     <string name="share_logs_message">Tell us what went wrong. Your note and the app\'s logs from the last 7 days are shared as a zip file, through WhatsApp, Gmail or any app you choose.</string>
     <string name="share_logs_hint">For example: stories are not loading</string>
     <string name="cancel">Cancel</string>
+    <!-- No internet (NoInternetDialog) -->
+    <string name="no_internet_title">No internet</string>
+    <string name="no_internet_message">Turn on mobile data or Wi-Fi to open stories. Stories you\'ve downloaded, or read before, still open without internet.</string>
+    <string name="no_internet_story_message">This story isn\'t saved on your phone yet. Turn on mobile data or Wi-Fi to open it.</string>
+    <string name="no_internet_turn_on">Turn on internet</string>
+    <string name="no_internet_ok">OK</string>
     <string name="share_logs_action">Share</string>
     <string name="share_logs_failed">Couldn\'t prepare the logs. Please try again.</string>
 

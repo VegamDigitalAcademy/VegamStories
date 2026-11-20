@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vegamstories.app.presentation.offline.NoInternetDialog
+import com.vegamstories.app.presentation.offline.NoInternetNotice
+import com.vegamstories.app.presentation.offline.OfflineViewModel
 import com.vegamstories.app.presentation.reader.StoryOpeningOverlay
 import com.vegamstories.app.presentation.navigation.StoryOpener
 import com.vegamstories.app.presentation.navigation.LocalStoryOpener
@@ -68,6 +73,16 @@ fun VegamApp(
     }
 
     // Gradient + arches behind every screen; screens are transparent on top.
+    // No internet: said once each time the phone goes offline (not over a story being read), and
+    // again when a story that isn't saved on the phone is asked for.
+    val offline: OfflineViewModel = hiltViewModel()
+    val online by offline.isOnline.collectAsStateWithLifecycle()
+    var noInternet by remember { mutableStateOf<NoInternetNotice?>(null) }
+    val inReader = currentDestination?.hasRoute(ReaderRoute::class) == true
+    LaunchedEffect(online) {
+        noInternet = if (online) null else if (inReader) noInternet else NoInternetNotice.OFFLINE
+    }
+
     // A story opening from its card grows over everything (StoryOpeningOverlay).
     val storyOpener = remember { StoryOpener() }
     CompositionLocalProvider(LocalStoryOpener provides storyOpener) {
@@ -95,6 +110,8 @@ fun VegamApp(
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+                canOpenStory = offline::canOpen,
+                onStoryNeedsInternet = { noInternet = NoInternetNotice.STORY_NOT_SAVED },
             )
         }
             AnimatedVisibility(
@@ -117,6 +134,7 @@ fun VegamApp(
                     .then(if (showBottomBar) Modifier.glassBottomBarSpace() else Modifier.navigationBarsPadding()),
             )
             StoryOpeningOverlay(storyOpener)
+            noInternet?.let { notice -> NoInternetDialog(notice, onDismiss = { noInternet = null }) }
     }
     }
 }
