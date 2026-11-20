@@ -48,7 +48,6 @@
 
     <!-- Reader -->
     <string name="the_end">ముగింపు</string>
-    <string name="next_story">తదుపరి కథ →</string>
     <string name="back_to_stories">కథలకు తిరిగి వెళ్ళు</string>
     <string name="video_label">వీడియో</string>
     <string name="watch_on_youtube">YouTubeలో చూడండి</string>
@@ -117,8 +116,6 @@
     <!-- Accessibility -->
     <string name="cd_back">వెనుకకు</string>
     <string name="cd_search">వెతకండి</string>
-    <string name="cd_menu">మెనూ</string>
-    <string name="cd_favorite">ఇష్టమైనది</string>
     <string name="cd_download">డౌన్‌లోడ్</string>
     <string name="cd_clear">తొలగించు</string>
     <string name="cd_play_video">వీడియో ప్లే చేయి</string>

@@ -68,7 +68,6 @@ data class ReaderUiState(
     /** The tab the user picked in this reader, if any. */
     val selectedFormat: StoryFormat? = null,
 ) {
-    val hasVideo: Boolean get() = detail?.story?.video != null
     /** The "Did you like this story?" page, right after the last comic page. */
     val likePageIndex: Int get() = detail?.pages?.size ?: 0
     /** Comic pages + the like page. The video has its own Watch tab. */

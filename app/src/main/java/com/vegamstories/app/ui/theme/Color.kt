@@ -26,7 +26,6 @@ val NightInkMuted = Color(0xFFA6A6AD)
 val NightOutline = Color(0xFF34343A)
 
 // Comic reader
-val ComicCaption = Color(0xFFFFE066)
 val ReadGreen = Color(0xFF2E7D32)
 val YouTubeRed = Color(0xFFFF0000)
 

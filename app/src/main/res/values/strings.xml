@@ -48,7 +48,6 @@
 
     <!-- Reader -->
     <string name="the_end">THE END</string>
-    <string name="next_story">Next story →</string>
     <string name="back_to_stories">Back to stories</string>
     <string name="page_of" translatable="false">%1$d / %2$d</string>
     <string name="video_label">VIDEO</string>
@@ -121,8 +120,6 @@
     <!-- Accessibility -->
     <string name="cd_back">Back</string>
     <string name="cd_search">Search</string>
-    <string name="cd_menu">Menu</string>
-    <string name="cd_favorite">Favorite</string>
     <string name="cd_download">Download</string>
     <string name="cd_clear">Clear</string>
     <string name="cd_play_video">Play video</string>

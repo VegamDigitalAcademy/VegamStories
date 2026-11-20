@@ -10,7 +10,6 @@ import com.vegamstories.app.domain.model.StoryPage
 import com.vegamstories.app.presentation.reader.ReaderUiState
 import com.vegamstories.app.testutil.testStory
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -28,7 +27,6 @@ class ReaderUiStateTest {
         val state = ReaderUiState()
         assertEquals(0, state.totalPagerPages)
         assertEquals(0, state.likePageIndex)
-        assertFalse(state.hasVideo)
     }
 
     @Test
@@ -36,7 +34,6 @@ class ReaderUiStateTest {
         val state = ReaderUiState(isLoading = false, detail = detail(pages = 3, withVideo = false))
         assertEquals(3, state.likePageIndex)
         assertEquals(4, state.totalPagerPages) // 3 comic + like
-        assertFalse(state.hasVideo)
     }
 
     @Test
@@ -44,7 +41,6 @@ class ReaderUiStateTest {
         val state = ReaderUiState(isLoading = false, detail = detail(pages = 3, withVideo = true))
         assertEquals(3, state.likePageIndex)
         assertEquals(4, state.totalPagerPages) // 3 comic + like
-        assertTrue(state.hasVideo)
         assertEquals(setOf(StoryFormat.COMIC, StoryFormat.VIDEO), state.formats)
     }
 
