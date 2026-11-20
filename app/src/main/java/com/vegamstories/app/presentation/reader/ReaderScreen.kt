@@ -214,6 +214,7 @@ fun ReaderScreenContent(
         CompositionLocalProvider(
             LocalReaderSounds provides sounds,
             LocalTornPages provides state.settings.tornPages,
+            LocalStoryLanguage provides state.language,
         ) {
         Box(
             modifier

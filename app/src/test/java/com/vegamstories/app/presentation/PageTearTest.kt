@@ -1,6 +1,9 @@
 package com.vegamstories.app.presentation
 
 import android.content.Context
+import com.vegamstories.app.testutil.APP_LANGUAGE
+import java.util.Locale
+import android.content.res.Configuration
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -45,10 +48,16 @@ class PageTearTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private fun text(id: Int) = context.getString(id)
 
+    /** The torn page speaks the story's language, whatever the app's is. */
+    private fun storyText(id: Int, language: String = APP_LANGUAGE): String {
+        val config = Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
+        return context.createConfigurationContext(config).getString(id)
+    }
+
     private val pagesSettled = mutableListOf<Int>()
     private val heard = mutableListOf<String>()
 
-    private fun reader(tornPages: Boolean = true) {
+    private fun reader(tornPages: Boolean = true, language: String = APP_LANGUAGE) {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             PreviewTheme {
@@ -56,7 +65,7 @@ class PageTearTest {
                     state = ReaderUiState(
                         isLoading = false,
                         detail = StoryDetail(
-                            story = testStory(pageCount = 8),
+                            story = testStory(pageCount = 8).copy(language = language),
                             pages = List(8) { StoryPage(index = it, imageUrl = "https://example.com/p$it.webp") },
                         ),
                         settings = ReaderSettings(autoTurnPages = false, pageTurnHintShown = true, tornPages = tornPages),
@@ -139,7 +148,7 @@ class PageTearTest {
 
         flickThrough()
 
-        compose.onNodeWithText(text(R.string.tear_hint)).assertExists()
+        compose.onNodeWithText(storyText(R.string.tear_hint)).assertExists()
         assertEquals(listOf("tear"), heard)
         val tornAt = pagesSettled.last()
         tapRight(thenWait = 2_000)
@@ -152,13 +161,23 @@ class PageTearTest {
         flickThrough()
         val tornAt = pagesSettled.last()
 
-        compose.onNodeWithText(text(R.string.tear_fix)).performClick()
+        compose.onNodeWithText(storyText(R.string.tear_fix)).performClick()
         compose.mainClock.advanceTimeBy(2_000)
 
-        compose.onNodeWithText(text(R.string.tear_hint)).assertDoesNotExist()
+        compose.onNodeWithText(storyText(R.string.tear_hint)).assertDoesNotExist()
         assertEquals(listOf("tear", "glued"), heard)
         tapRight(thenWait = 2_000)
         assertEquals(tornAt + 1, pagesSettled.last())
+    }
+
+    @Test
+    fun `the torn page speaks the story's language`() {
+        reader(language = "en")
+
+        flickThrough()
+
+        compose.onNodeWithText("Too fast! The page tore. Rub glue along the tear to fix it").assertExists()
+        assertTrue(storyText(R.string.tear_hint, "te") != storyText(R.string.tear_hint, "en"))
     }
 
     @Test
@@ -167,7 +186,7 @@ class PageTearTest {
 
         flickThrough()
 
-        compose.onNodeWithText(text(R.string.tear_hint)).assertDoesNotExist()
+        compose.onNodeWithText(storyText(R.string.tear_hint)).assertDoesNotExist()
         assertEquals(emptyList<String>(), heard)
     }
 

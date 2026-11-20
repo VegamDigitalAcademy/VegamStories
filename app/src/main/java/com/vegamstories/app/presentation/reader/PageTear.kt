@@ -63,6 +63,9 @@ import kotlin.random.Random
  */
 internal val LocalTornPages = compositionLocalOf { false }
 
+/** The language of the story being read: the torn page speaks it (see [storyString]). */
+internal val LocalStoryLanguage = compositionLocalOf<String?> { null }
+
 /**
  * Counts quick page turns in a row. A turn less than [FAST_TURN_GAP_MILLIS] after the one before
  * is fast; after [FAST_TURNS_TO_TEAR] of them, [turned] says the page just reached tears.
@@ -288,6 +291,10 @@ internal fun BoxScope.TearGlue(tear: PageTear, onGlued: () -> Unit) {
             },
     )
     if (tear.mending) return
+    // In the story's language, like the rest of what's on its page (the app's, before it's known).
+    val language = LocalStoryLanguage.current
+    val hint = if (language != null) storyString(R.string.tear_hint, language) else stringResource(R.string.tear_hint)
+    val fix = if (language != null) storyString(R.string.tear_fix, language) else stringResource(R.string.tear_fix)
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -312,12 +319,12 @@ internal fun BoxScope.TearGlue(tear: PageTear, onGlued: () -> Unit) {
                 )
             }
             Text(
-                text = stringResource(R.string.tear_hint),
+                text = hint,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = onGlued) {
-                Text(stringResource(R.string.tear_fix), fontWeight = FontWeight.SemiBold)
+                Text(fix, fontWeight = FontWeight.SemiBold)
             }
         }
     }

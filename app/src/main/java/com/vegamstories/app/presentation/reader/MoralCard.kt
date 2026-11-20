@@ -276,8 +276,9 @@ private fun Context.inLanguage(language: String): Context {
     return createConfigurationContext(config)
 }
 
+/** One of the app's words in the story's [language] (see [inLanguage]): the card's, and the torn page's. */
 @Composable
-private fun storyString(@StringRes id: Int, language: String): String {
+internal fun storyString(@StringRes id: Int, language: String): String {
     val context = LocalContext.current
     return remember(context, id, language) { context.inLanguage(language).getString(id) }
 }
