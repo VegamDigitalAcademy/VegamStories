@@ -9,6 +9,13 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -25,13 +32,17 @@ import androidx.compose.ui.unit.dp
 import com.vegamstories.app.R
 import com.vegamstories.app.presentation.components.toggle
 
+/** How hard the ribbon is pushed into its swing (degrees a second). */
+private const val SWING_PUSH = 140f
+
 /** A book's satin ribbon marker: deep red, darker toward its edges. */
 private val RibbonRed = Color(0xFFB3261E)
 private val RibbonRedDark = Color(0xFF7F1C16)
 
 /**
- * The ribbon at the top of a page, as in a book: tap it to mark the page (it drops down, red), tap
- * again to take the mark off. Unmarked, only its short tip shows, outlined in [idleColor].
+ * The ribbon at the top of a page, as in a book: tap it to mark the page (it drops down, red, and
+ * swings a little before it settles), tap again to take the mark off. Unmarked, only its short tip
+ * shows, outlined in [idleColor].
  */
 @Composable
 fun BookmarkRibbon(
@@ -45,6 +56,16 @@ fun BookmarkRibbon(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "ribbon",
     )
+    // Marked: it swings from where it hangs, a little less each time, then hangs still.
+    val swing = remember { Animatable(0f) }
+    var wasMarked by remember { mutableStateOf(marked) }
+    LaunchedEffect(marked) {
+        if (marked && !wasMarked) {
+            swing.snapTo(0f)
+            swing.animateTo(0f, spring(dampingRatio = 0.22f, stiffness = Spring.StiffnessLow), initialVelocity = SWING_PUSH)
+        }
+        wasMarked = marked
+    }
     val label = stringResource(R.string.bookmark_page)
     val haptics = LocalHapticFeedback.current
     Box(
@@ -61,7 +82,11 @@ fun BookmarkRibbon(
                 },
             )
             .semantics { contentDescription = label }
-            .drawBehind { drawRibbon(length.toPx(), marked, idleColor) },
+            .drawBehind {
+                rotate(degrees = swing.value, pivot = Offset(size.width / 2f, 0f)) {
+                    drawRibbon(length.toPx(), marked, idleColor)
+                }
+            },
     )
 }
 

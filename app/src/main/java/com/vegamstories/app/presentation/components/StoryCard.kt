@@ -25,6 +25,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.vegamstories.app.R
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryFormat
+import com.vegamstories.app.presentation.navigation.CardSpot
 import com.vegamstories.app.presentation.navigation.LocalStoryOpener
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewData
@@ -58,6 +60,7 @@ fun StoryCard(
     // Tapped, its picture grows into the reader's cover (StoryOpener): it needs to know where it is.
     val opener = LocalStoryOpener.current
     val pictureBounds = remember { arrayOfNulls<Rect>(1) }
+    DisposableEffect(story.id) { onDispose { opener.cardGone(story.id) } }
     Column(
         modifier = modifier.clickable {
             opener.tapped(story, pictureBounds[0])
@@ -68,9 +71,15 @@ fun StoryCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
-                .onGloballyPositioned { pictureBounds[0] = it.boundsInRoot() }
-                // While its picture is growing over the app, it has left the card.
-                .graphicsLayer { alpha = if (opener.opening?.story?.id == story.id) 0f else 1f }
+                .onGloballyPositioned {
+                    pictureBounds[0] = it.boundsInRoot()
+                    opener.cardPlaced(story.id, CardSpot(it.boundsInRoot(), story.coverImageUrl))
+                }
+                // While its picture is growing over the app, or shrinking back into it, it has left the card.
+                .graphicsLayer {
+                    val away = opener.opening?.story?.id == story.id || opener.closing?.storyId == story.id
+                    alpha = if (away) 0f else 1f
+                }
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {

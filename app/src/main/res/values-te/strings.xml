@@ -149,6 +149,7 @@
     <string name="tear_rub_glue">వేలితో జిగురును రుద్దండి!</string>
     <string name="tear_fixed">పేజీ అతుక్కుంది! భలే చేశారు!</string>
     <string name="tear_read_story">కథ చదవండి</string>
+    <string name="story_finished">కథ పూర్తయింది! మీ పుస్తకాల అరలో చేరింది</string>
     <string name="tear_glue_bottle">జిగురు సీసా</string>
 
     <!-- కొత్త కథల నోటిఫికేషన్లు -->

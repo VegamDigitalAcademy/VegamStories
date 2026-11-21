@@ -18,6 +18,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -87,6 +88,8 @@ class FakeLibraryRepository : LibraryRepository {
 
     override fun observeFavorites(): Flow<List<Story>> = emptyFlow()
     override fun observeDownloads(): Flow<List<Story>> = emptyFlow()
+
+    override fun observeDownloadProgress(storyId: String): Flow<Float?> = flowOf(null)
     override fun observeReadingHistory(): Flow<List<Story>> = history
 
     override fun observeContinueReading(categoryId: String?): Flow<Story?> =

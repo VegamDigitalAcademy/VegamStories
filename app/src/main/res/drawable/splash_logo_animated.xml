@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash logo on Android 12+ (values-v31/themes.xml): the Vegam logo (ic_launcher_foreground)
+     coming in. The book pops open as it rushes in, its speed lines streak out behind it, the lines
+     of writing write themselves, and the sparkle twinkles on last. About 1 s. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+            <group
+                android:scaleX="0.13866"
+                android:scaleY="0.13866"
+                android:translateX="22.9412"
+                android:translateY="19.4748">
+                <!-- Speed lines, streaking out leftwards from behind the book -->
+                <path android:name="speed1" android:trimPathStart="1" android:strokeColor="#FFF59E0B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M58,199.5L149,199.5" />
+                <path android:name="speed2" android:trimPathStart="1" android:strokeColor="#FFBF7D1B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M34,251.5L139,251.5" />
+                <path android:name="speed3" android:trimPathStart="1" android:strokeColor="#FF895D2B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M70,303.5L157,303.5" />
+                <group
+                    android:name="book"
+                    android:pivotX="259"
+                    android:pivotY="265"
+                    android:scaleX="0.6"
+                    android:scaleY="0.6"
+                    android:translateX="-60">
+                    <!-- Book: cream left page, orange right page meeting in a V -->
+                    <path android:fillColor="#FFFFF7E6" android:pathData="M158,131Q206,121 256,157L256,402Z" />
+                    <path android:fillColor="#FFF59E0B" android:pathData="M248,168Q292,121 360,132L256,404Z" />
+                    <!-- Lines of writing on the left page -->
+                    <path android:name="writing1" android:trimPathEnd="0" android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M189,167.5Q222,167 245,185" />
+                    <path android:name="writing2" android:trimPathEnd="0" android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M199,203.5Q228,203 246,219" />
+                    <path android:name="writing3" android:trimPathEnd="0" android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M210,239.5Q236,239 249,258" />
+                </group>
+                <group
+                    android:name="sparkle"
+                    android:pivotX="397.5"
+                    android:pivotY="119.5"
+                    android:scaleX="0"
+                    android:scaleY="0">
+                    <path android:fillColor="#FFFFF7E6" android:pathData="M397.5,94Q401,116 423,119.5Q401,123 397.5,145Q394,123 372,119.5Q394,116 397.5,94Z" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- The book rushes in from the left and pops open. -->
+    <target android:name="book">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0.6" android:valueTo="1" android:duration="450" android:interpolator="@android:anim/overshoot_interpolator" />
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0.6" android:valueTo="1" android:duration="450" android:interpolator="@android:anim/overshoot_interpolator" />
+                <objectAnimator android:propertyName="translateX" android:valueFrom="-60" android:valueTo="0" android:duration="420" android:interpolator="@android:interpolator/fast_out_slow_in" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- The speed lines streak out behind it, one after another. -->
+    <target android:name="speed1">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="trimPathStart" android:valueFrom="1" android:valueTo="0" android:startOffset="120" android:duration="320" android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+    <target android:name="speed2">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="trimPathStart" android:valueFrom="1" android:valueTo="0" android:startOffset="200" android:duration="320" android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+    <target android:name="speed3">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="trimPathStart" android:valueFrom="1" android:valueTo="0" android:startOffset="280" android:duration="320" android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <!-- The writing writes itself, line by line. -->
+    <target android:name="writing1">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="trimPathEnd" android:valueFrom="0" android:valueTo="1" android:startOffset="420" android:duration="180" android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+    <target android:name="writing2">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="trimPathEnd" android:valueFrom="0" android:valueTo="1" android:startOffset="540" android:duration="180" android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+    <target android:name="writing3">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="trimPathEnd" android:valueFrom="0" android:valueTo="1" android:startOffset="660" android:duration="180" android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <!-- And the sparkle twinkles on, with a little turn. -->
+    <target android:name="sparkle">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:startOffset="640" android:duration="360" android:interpolator="@android:anim/overshoot_interpolator" />
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:startOffset="640" android:duration="360" android:interpolator="@android:anim/overshoot_interpolator" />
+                <objectAnimator android:propertyName="rotation" android:valueFrom="-90" android:valueTo="0" android:startOffset="640" android:duration="360" android:interpolator="@android:interpolator/fast_out_slow_in" />
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>

@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.room)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 // Supabase keys are read from local.properties (never committed to git):
@@ -114,6 +115,11 @@ room {
 }
 
 dependencies {
+    // Baseline Profile (baselineprofile module): installs the compiled startup, story opening and
+    // page turning code with the app, so the first run is as smooth as later ones.
+    implementation(libs.androidx.profileinstaller)
+    "baselineProfile"(project(":baselineprofile"))
+
     // Core / Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

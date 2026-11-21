@@ -27,6 +27,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -60,6 +72,23 @@ private val PlankLight = Color(0xFFA0703F)
 private val PlankDark = Color(0xFF6E4524)
 private val BackTop = Color(0xFF3B2716)
 private val BackBottom = Color(0xFF55391F)
+
+/**
+ * Books newly finished: welcomed onto the shelf once each while the app runs, if finished within
+ * [NEW_BOOK_MILLIS].
+ */
+private object NewOnShelf {
+    private val welcomed = mutableSetOf<String>()
+
+    /** True the first time it's asked about [storyId]. */
+    fun welcome(storyId: String): Boolean = welcomed.add(storyId)
+}
+
+private const val NEW_BOOK_MILLIS = 24 * 60 * 60 * 1000L
+private const val NEW_BOOK_DELAY_MILLIS = 350L
+private val NEW_BOOK_DROP = 90.dp
+private val NEW_BOOK_GLOW = 12.dp
+private const val GLOW_RINGS = 5
 
 /** Gold of the spines' bands and of the "series complete" sticker. */
 private val Gold = Color(0xFFE2B865)
@@ -101,7 +130,18 @@ fun BookshelfContent(state: BookshelfUiState, onBack: () -> Unit, onStoryClick: 
                 message = stringResource(R.string.bookshelf_empty_message),
                 modifier = modifier,
             )
-            else -> LazyColumn(
+            else -> {
+                // The book most lately finished, if that was today and it hasn't been welcomed yet.
+                val newest = remember(state.shelves) {
+                    state.shelves.flatMap { it.finished }
+                        .maxByOrNull { it.progress?.updatedAt ?: 0L }
+                        ?.takeIf { story ->
+                            val finishedAt = story.progress?.updatedAt ?: 0L
+                            System.currentTimeMillis() - finishedAt < NEW_BOOK_MILLIS && NewOnShelf.welcome(story.id)
+                        }
+                        ?.id
+                }
+                LazyColumn(
                 modifier = modifier,
                 contentPadding = PaddingValues(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -115,8 +155,9 @@ fun BookshelfContent(state: BookshelfUiState, onBack: () -> Unit, onStoryClick: 
                     )
                 }
                 items(state.shelves, key = { it.categoryId }) { shelf ->
-                    Shelf(shelf = shelf, onStoryClick = onStoryClick)
+                    Shelf(shelf = shelf, newestId = newest, onStoryClick = onStoryClick)
                 }
+            }
             }
         }
     }
@@ -124,7 +165,7 @@ fun BookshelfContent(state: BookshelfUiState, onBack: () -> Unit, onStoryClick: 
 
 /** One series: its name and how far along it is, then its finished books standing on a plank. */
 @Composable
-private fun Shelf(shelf: SeriesShelf, onStoryClick: (String) -> Unit) {
+private fun Shelf(shelf: SeriesShelf, newestId: String?, onStoryClick: (String) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -165,7 +206,7 @@ private fun Shelf(shelf: SeriesShelf, onStoryClick: (String) -> Unit) {
                 verticalAlignment = Alignment.Bottom,
             ) {
                 items(shelf.finished, key = { it.id }) { story ->
-                    BookSpine(story = story, onClick = { onStoryClick(story.id) })
+                    BookSpine(story = story, isNew = story.id == newestId, onClick = { onStoryClick(story.id) })
                 }
             }
         }
@@ -202,11 +243,47 @@ private fun Plank() {
  * episode number at its foot. Books differ a little in shade and height, as on a real shelf.
  */
 @Composable
-private fun BookSpine(story: Story, onClick: () -> Unit) {
+private fun BookSpine(story: Story, isNew: Boolean, onClick: () -> Unit) {
     val base = lerp(BookCloth, Color.Black, (story.episodeNumber % 3) * 0.08f)
     val height = (128 + (story.id.hashCode() and Int.MAX_VALUE) % 4 * 8).dp
+    // Newly finished: it drops onto the shelf from above, leaning, lands upright with a little
+    // bounce, then glows gold twice. (Dropped, not slid, so it never passes behind its neighbours.)
+    val arrived = remember { Animatable(if (isNew) 0f else 1f) }
+    val glow = remember { Animatable(0f) }
+    LaunchedEffect(isNew) {
+        if (!isNew) return@LaunchedEffect
+        delay(NEW_BOOK_DELAY_MILLIS)
+        arrived.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow))
+        repeat(2) {
+            glow.animateTo(1f, tween(durationMillis = 380))
+            glow.animateTo(0f, tween(durationMillis = 520))
+        }
+    }
     Box(
         modifier = Modifier
+            .graphicsLayer {
+                translationY = -(1f - arrived.value) * NEW_BOOK_DROP.toPx()
+                rotationZ = (1f - arrived.value) * -12f
+                transformOrigin = TransformOrigin(0.5f, 1f)
+                alpha = arrived.value.coerceIn(0f, 1f)
+            }
+            // Over its neighbours while it glows, so the glow spills onto them.
+            .zIndex(if (isNew) 1f else 0f)
+            .drawBehind {
+                if (glow.value > 0f) {
+                    // A soft halo: rings ever wider and fainter, so it fades out from the book.
+                    val reach = NEW_BOOK_GLOW.toPx() * glow.value
+                    for (ring in 1..GLOW_RINGS) {
+                        val spread = reach * ring / GLOW_RINGS
+                        drawRoundRect(
+                            color = Gold.copy(alpha = 0.3f * glow.value * (1f - (ring - 1f) / GLOW_RINGS)),
+                            topLeft = Offset(-spread, -spread),
+                            size = Size(size.width + spread * 2, size.height + spread * 2),
+                            cornerRadius = CornerRadius(3.dp.toPx() + spread),
+                        )
+                    }
+                }
+            }
             .size(width = 40.dp, height = height)
             .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
             .background(

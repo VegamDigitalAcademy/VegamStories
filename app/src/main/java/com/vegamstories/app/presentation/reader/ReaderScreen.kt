@@ -10,6 +10,9 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.runtime.withFrameNanos
@@ -158,10 +161,19 @@ fun ReaderScreen(
         withFrameNanos {}
         storyOpener.arrived(viewModel.storyId)
     }
+    // Back (the arrow, Back to stories, or the phone's Back): the reader shrinks into its card,
+    // if that card is on the screen behind (StoryClosingOverlay).
+    val readerBounds = remember { arrayOfNulls<Rect>(1) }
+    val animates = animationsOn()
+    val goBack: () -> Unit = {
+        readerBounds[0]?.takeIf { animates }?.let { storyOpener.closing(viewModel.storyId, it) }
+        onBack()
+    }
+    BackHandler(onBack = goBack)
 
     ReaderScreenContent(
         state = state,
-        onBack = onBack,
+        onBack = goBack,
         onPageChanged = viewModel::onPageChanged,
         onToggleFavorite = viewModel::onToggleFavorite,
         onToggleDownload = viewModel::onToggleDownload,
@@ -178,6 +190,8 @@ fun ReaderScreen(
         onTurnHintShown = viewModel::onPageTurnHintShown,
         openingStory = storyOpener.story?.takeIf { it.id == viewModel.storyId },
         openingFormat = viewModel.preferredFormat.collectAsStateWithLifecycle().value,
+        downloadProgress = viewModel.downloadProgress.collectAsStateWithLifecycle().value,
+        modifier = Modifier.onGloballyPositioned { readerBounds[0] = it.boundsInRoot() },
     )
 }
 
@@ -208,13 +222,35 @@ fun ReaderScreenContent(
     openingStory: Story? = null,
     /** The tab the reader will open on, as far as is known before the story has loaded. */
     openingFormat: StoryFormat? = null,
+    /** The story's download while it saves, 0 … 1 (a ring on the download button); else null. */
+    downloadProgress: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     ReaderPageTheme(background = state.settings.pageBackground) {
+        // Read to the end for the first time: a little celebration (StoryFinished), once.
+        val story = state.detail?.story
+        var finishedBefore by rememberSaveable { mutableStateOf<Boolean?>(null) }
+        LaunchedEffect(story != null) {
+            if (story != null && finishedBefore == null) finishedBefore = story.isRead
+        }
+        var celebrating by rememberSaveable { mutableStateOf(false) }
+        val likeCover = remember { LikeCoverSpot() }
+        var celebrated by rememberSaveable { mutableStateOf(false) }
+        // Remembered: a new one each time would recompose the whole reader (a static local).
+        val onReachedEnd: () -> Unit = remember {
+            {
+                if (finishedBefore == false && !celebrated) {
+                    celebrated = true
+                    celebrating = true
+                }
+            }
+        }
         CompositionLocalProvider(
             LocalReaderSounds provides sounds,
             LocalTornPages provides state.settings.tornPages,
             LocalStoryLanguage provides state.language,
+            LocalOnReachedEnd provides onReachedEnd,
+            LocalLikeCover provides likeCover,
         ) {
         Box(
             modifier
@@ -260,8 +296,10 @@ fun ReaderScreenContent(
                     onRemoveBookmarks = onRemoveBookmarks,
                     onTurnHintShown = onTurnHintShown,
                     openOnCover = openOnCover,
+                    downloadProgress = downloadProgress,
                 )
             }
+            if (celebrating && story != null) StoryFinished(story, onDone = { celebrating = false }, likeCover = likeCover)
         }
         }
     }
@@ -287,6 +325,7 @@ private fun ReaderContent(
     onRemoveBookmarks: (List<Bookmark>) -> Unit,
     onTurnHintShown: () -> Unit,
     openOnCover: Boolean,
+    downloadProgress: Float?,
 ) {
     val story = detail.story
     // Lives above both readers, so switching paged ↔ vertical stays on the same page.
@@ -315,6 +354,7 @@ private fun ReaderContent(
             isFavorite = story.isFavorite,
             likeCount = story.likeCount,
             isDownloaded = story.isDownloaded,
+            downloadProgress = downloadProgress,
             onBack = onBack,
             onToggleFavorite = onToggleFavorite,
             onToggleDownload = onToggleDownload,
@@ -538,6 +578,10 @@ private fun PagedReader(
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { if (it >= first) currentOnPageSettled(it - first) }
+    }
+    val onReachedEnd by rememberUpdatedState(LocalOnReachedEnd.current)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { if (it == likePageIndex + first) onReachedEnd() }
     }
 
     // A story opened at its start: its cover shows once the card has grown into the reader, then
@@ -830,6 +874,48 @@ internal val Story.opensOnCover: Boolean
 /** Room above and below each page in the page-by-page reader. */
 private val DefaultPageMargin = 8.dp
 
+/**
+ * The download button's icon: an arrow; while the story saves, a ring filling around it; once
+ * saved, a tick that pops in.
+ */
+@Composable
+private fun DownloadIcon(isDownloaded: Boolean, progress: Float?) {
+    val primary = MaterialTheme.colorScheme.primary
+    val saving = progress != null
+    val filled by animateFloatAsState(progress ?: 0f, tween(durationMillis = 250), label = "downloadRing")
+    val tick = remember { Animatable(1f) }
+    val showTick = isDownloaded && !saving
+    var hadTick by remember { mutableStateOf(showTick) }
+    LaunchedEffect(showTick) {
+        if (showTick && !hadTick) {
+            tick.snapTo(0.4f)
+            tick.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+        }
+        hadTick = showTick
+    }
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(30.dp)) {
+        if (saving) {
+            CircularProgressIndicator(
+                progress = { filled },
+                modifier = Modifier.matchParentSize(),
+                strokeWidth = 2.5.dp,
+                trackColor = primary.copy(alpha = 0.18f),
+            )
+        }
+        Icon(
+            painter = painterResource(if (showTick) R.drawable.ic_download_done else R.drawable.ic_download),
+            contentDescription = stringResource(R.string.cd_download),
+            tint = if (isDownloaded || saving) primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(if (saving) 16.dp else 22.dp)
+                .graphicsLayer {
+                    scaleX = tick.value
+                    scaleY = tick.value
+                },
+        )
+    }
+}
+
 /** How long the cover stays, once the card has grown into the reader, before it turns by itself. */
 private const val COVER_TURN_DELAY_MILLIS = 1_000L
 
@@ -1029,6 +1115,10 @@ private fun VerticalReader(
     }
 
     val pageOnScreen by remember(listState) { derivedStateOf { listState.pageAtCenter() } }
+    val onReachedEnd by rememberUpdatedState(LocalOnReachedEnd.current)
+    LaunchedEffect(listState) {
+        snapshotFlow { pageOnScreen }.collect { if (it == likePageIndex) onReachedEnd() }
+    }
     AutoAdvance(
         delayMillis = autoTurnMillis,
         timer = timer,
@@ -1310,6 +1400,8 @@ private fun ReaderTopBar(
     isFavorite: Boolean,
     likeCount: Int,
     isDownloaded: Boolean,
+    /** Saving the story for offline reading: how far, 0 … 1; null when not. */
+    downloadProgress: Float? = null,
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
@@ -1352,12 +1444,7 @@ private fun ReaderTopBar(
             )
         }
         IconButton(onClick = onToggleDownload) {
-            Icon(
-                painter = painterResource(if (isDownloaded) R.drawable.ic_download_done else R.drawable.ic_download),
-                contentDescription = stringResource(R.string.cd_download),
-                tint = if (isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp),
-            )
+            DownloadIcon(isDownloaded = isDownloaded, progress = downloadProgress)
         }
         LikeButton(isLiked = isFavorite, likeCount = likeCount, onClick = onToggleFavorite)
     }

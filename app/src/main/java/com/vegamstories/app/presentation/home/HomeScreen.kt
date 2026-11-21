@@ -34,11 +34,16 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import com.vegamstories.app.presentation.components.BookRefreshIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -52,6 +57,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegamstories.app.R
+import com.vegamstories.app.presentation.LocalSplashDone
 import com.vegamstories.app.domain.model.Category
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.presentation.components.EmptyState
@@ -127,10 +133,13 @@ fun HomeContent(
             selectedCategoryId = state.selectedCategoryId,
             onCategorySelected = onCategorySelected,
         )
+        val refreshState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize(),
+            state = refreshState,
+            indicator = { BookRefreshIndicator(refreshState, state.isRefreshing) },
         ) {
             when {
                 state.stories.isEmpty() && (state.isLoading || state.isRefreshing) -> StoryGridSkeleton()
@@ -332,8 +341,16 @@ private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(8.dp))
+            // Fills up to how far it's been read, as Home opens (after the splash, on launch).
+            val readTo = story.progress?.fraction ?: 0f
+            val filled = remember(story.id) { Animatable(0f) }
+            val splashDone = LocalSplashDone.current
+            LaunchedEffect(story.id, readTo, splashDone) {
+                if (!splashDone) return@LaunchedEffect
+                filled.animateTo(readTo, tween(durationMillis = 750, delayMillis = 150, easing = FastOutSlowInEasing))
+            }
             LinearProgressIndicator(
-                progress = { story.progress?.fraction ?: 0f },
+                progress = { filled.value },
                 modifier = Modifier
                     .fillMaxWidth(0.7f)
                     .height(4.dp)

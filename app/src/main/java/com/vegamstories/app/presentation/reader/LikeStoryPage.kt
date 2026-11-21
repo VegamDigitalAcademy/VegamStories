@@ -38,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -53,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.vegamstories.app.R
+import com.vegamstories.app.presentation.components.rememberHeartBurst
+import com.vegamstories.app.presentation.components.heartBurst
 import com.vegamstories.app.core.util.toCompactCount
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.presentation.components.RollingCount
@@ -97,8 +101,10 @@ fun LikeStoryPage(
     val context = LocalContext.current
     val card = rememberGraphicsLayer()
     val scale = remember { Animatable(1f) }
+    val burst = rememberHeartBurst(isLiked)
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val likeCover = LocalLikeCover.current
     val circleColor by animateColorAsState(
         if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         label = "likeCircle",
@@ -124,6 +130,7 @@ fun LikeStoryPage(
                     modifier = Modifier
                         .padding(bottom = 24.dp)
                         .size(width = 120.dp, height = 160.dp)
+                        .onGloballyPositioned { likeCover?.bounds = it.boundsInRoot() }
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 )
@@ -144,6 +151,8 @@ fun LikeStoryPage(
                 Box(
                     modifier = Modifier
                         .size(112.dp)
+                        // Liking, a ring and little hearts burst out around the circle.
+                        .heartBurst(burst, MaterialTheme.colorScheme.primary)
                         .graphicsLayer {
                             scaleX = scale.value
                             scaleY = scale.value

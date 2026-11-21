@@ -15,6 +15,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import com.vegamstories.app.presentation.navigation.STORY_CLOSE_MS
+import com.vegamstories.app.presentation.navigation.CardSpot
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +59,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 /** The reader's look (page colour, last tab), ready before any story is opened. */
 @HiltViewModel
@@ -162,7 +170,77 @@ private fun MovingPicture(opening: StoryOpening, fades: Boolean) {
     }
 }
 
+/**
+ * Back from a story opened from its card: the story's picture shrinks from the whole reader into
+ * its card on the screen behind, while the reader fades away. Nothing if the card isn't there
+ * (opened from Bookmarks, say).
+ */
+@Composable
+fun StoryClosingOverlay(opener: StoryOpener) {
+    val closing = opener.closing ?: return
+    LaunchedEffect(closing) {
+        // The card, once the screen behind is back and laid out.
+        val spot = withTimeoutOrNull(FIND_CARD_MILLIS.milliseconds) {
+            var found: CardSpot? = null
+            while (found == null) {
+                withFrameNanos {}
+                found = opener.cardSpot(closing.storyId)
+            }
+            found
+        }
+        if (spot?.coverUrl != null) {
+            closing.to = spot
+            closing.progress.animateTo(1f, tween(STORY_CLOSE_MS, easing = FastOutSlowInEasing))
+        }
+        opener.closed(closing)
+    }
+    val spot = closing.to ?: return
+    val url = spot.coverUrl ?: return
+    val painter = rememberCoverPainter(url)
+    val cardCorner = with(LocalDensity.current) { CARD_CORNER.toPx() }
+    val origin = remember { arrayOf(Offset.Zero) }
+    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin[0] = it.positionInRoot() }) {
+        val p = closing.progress.value
+        if (p >= 1f) return@Canvas
+        val box = lerp(closing.from, spot.bounds, p).translate(-origin[0])
+        // It appears over the fading reader, then shrinks into the card.
+        drawPictureIn(painter, box, corner = cardCorner * p, alpha = (p / CLOSE_FADE_IN).coerceAtMost(1f))
+    }
+}
+
+/** The card's cover picture, from memory: it's there at once. */
+@Composable
+private fun rememberCoverPainter(url: String): Painter {
+    val context = LocalPlatformContext.current
+    return rememberAsyncImagePainter(
+        model = remember(url) {
+            ImageRequest.Builder(context)
+                .data(url)
+                .memoryCacheKey("cover:$url")
+                .placeholderMemoryCacheKey("cover:$url")
+                .build()
+        },
+    )
+}
+
+/** [painter] filling [box] (cropping the rest, as ContentScale.Crop), with rounded [corner]s. */
+private fun DrawScope.drawPictureIn(painter: Painter, box: Rect, corner: Float, alpha: Float) {
+    val image = painter.intrinsicSize
+    if (image.isUnspecified() || image.width <= 0f || image.height <= 0f) return
+    val scale = maxOf(box.width / image.width, box.height / image.height)
+    val drawn = Size(image.width * scale, image.height * scale)
+    clipPath(Path().apply { addRoundRect(RoundRect(box, CornerRadius(corner))) }) {
+        translate(box.center.x - drawn.width / 2f, box.center.y - drawn.height / 2f) {
+            with(painter) { draw(drawn, alpha = alpha) }
+        }
+    }
+}
+
 private fun Size.isUnspecified() = this == Size.Unspecified
+
+/** Back: how long to wait for the card to be laid out, and how soon the shrinking picture is fully there. */
+private const val FIND_CARD_MILLIS = 250L
+private const val CLOSE_FADE_IN = 0.3f
 
 /** The reader's bars start fading in this far through. */
 private const val BARS_FADE_FROM = 0.35f

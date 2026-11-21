@@ -249,6 +249,10 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { events.send(ReaderEvent.FavoriteChanged(toggleFavorite(storyId))) }
     }
 
+    /** The story's download while it saves, 0 … 1, for the ring on the download button; else null. */
+    val downloadProgress: StateFlow<Float?> = toggleDownload.progress(storyId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     fun onToggleDownload() {
         log.i("$TAG: User: download button on $storyId")
         viewModelScope.launch { events.send(ReaderEvent.DownloadChanged(toggleDownload(storyId))) }

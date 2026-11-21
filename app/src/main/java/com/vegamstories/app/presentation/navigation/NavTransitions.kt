@@ -70,12 +70,13 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnterTransitio
     EnterTransition.None
 
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popExitTransition(): ExitTransition =
-    if (closesStory()) fadeOut(tween(STORY_CLOSE_MS, easing = FastOutLinearInEasing)) else ExitTransition.None
+    if (closesStory()) fadeOut(tween(READER_FADE_MS, easing = FastOutLinearInEasing)) else ExitTransition.None
 
 /*
  * Opening a story: no screen animation of its own. From its card, the card's picture has already
  * grown into the reader's cover over the app (StoryOpeningOverlay), and the reader appears under
- * that, looking the same. Back from a story fades it away quickly.
+ * that, looking the same. Back from a story fades it away quickly, as its picture shrinks back
+ * into its card (StoryClosingOverlay).
  */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.opensStory(): Boolean =
     targetState.destination.hasRoute(ReaderRoute::class)
@@ -83,7 +84,8 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.opensStory(): Bool
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.closesStory(): Boolean =
     initialState.destination.hasRoute(ReaderRoute::class)
 
-private const val STORY_CLOSE_MS = 200
+/** Back from a story: the reader fades this quickly, as its picture shrinks into its card (StoryClosingOverlay). */
+private const val READER_FADE_MS = 200
 
 /** Both ends are bottom-bar tabs (Home, Favorites, Downloads, Menu). */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean =

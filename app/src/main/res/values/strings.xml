@@ -153,6 +153,7 @@
     <string name="tear_rub_glue">Rub the glue with your finger!</string>
     <string name="tear_fixed">Page fixed! Well done!</string>
     <string name="tear_read_story">Read story</string>
+    <string name="story_finished">Story finished! Added to your bookshelf</string>
     <string name="tear_glue_bottle">Glue bottle</string>
 
     <!-- New-story notifications -->

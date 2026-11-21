@@ -8,11 +8,18 @@ import android.os.SystemClock
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import com.vegamstories.app.presentation.LocalSplashDone
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -45,9 +52,23 @@ class MainActivity : AppCompatActivity() {
         // story-language choice aren't read yet, so the first screen follows with no blank frame.
         // Not when the screen is only recreated (theme/language change): that would freeze it.
         val splashUntil = SystemClock.uptimeMillis() + if (savedInstanceState == null) SPLASH_MIN_MS else 0L
-        installSplashScreen().setKeepOnScreenCondition {
-            SystemClock.uptimeMillis() < splashUntil ||
-                viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
+        installSplashScreen().apply {
+            setKeepOnScreenCondition {
+                SystemClock.uptimeMillis() < splashUntil ||
+                    viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
+            }
+            // It goes gently: the logo grows a little as the splash fades into the app.
+            setOnExitAnimationListener { splash ->
+                val icon = runCatching { splash.iconView }.getOrNull() // missing on some Android 12 phones
+                icon?.animate()?.scaleX(SPLASH_EXIT_SCALE)?.scaleY(SPLASH_EXIT_SCALE)
+                    ?.setDuration(SPLASH_EXIT_MS)?.setInterpolator(AccelerateInterpolator())?.start()
+                splash.view.animate()
+                    .alpha(0f)
+                    .setDuration(SPLASH_EXIT_MS)
+                    .setInterpolator(DecelerateInterpolator())
+                    .withEndAction { splash.remove() }
+                    .start()
+            }
         }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -55,6 +76,12 @@ class MainActivity : AppCompatActivity() {
         // has already restored it.
         if (savedInstanceState == null) handleShortcut(intent)
         setContent {
+            // When the splash goes: after its time, and once the saved choices are read (below).
+            var splashDone by remember { mutableStateOf(savedInstanceState != null) }
+            LaunchedEffect(Unit) {
+                delay((splashUntil - SystemClock.uptimeMillis()).coerceAtLeast(0L))
+                splashDone = true
+            }
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
             val needsStoryLanguage by viewModel.needsStoryLanguage.collectAsStateWithLifecycle()
             // Wait for the saved choices so a "Dark" user never sees a light flash, and the
@@ -78,6 +105,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 MyApplicationTheme(darkTheme = darkTheme) {
+                    CompositionLocalProvider(LocalSplashDone provides splashDone) {
                     if (firstLaunch) {
                         // Once, before Home. A shortcut tapped meanwhile stays pending and opens after.
                         StoryLanguageScreen()
@@ -86,6 +114,7 @@ class MainActivity : AppCompatActivity() {
                             shortcutTarget = shortcutTarget,
                             onShortcutHandled = { shortcutTarget = null },
                         )
+                    }
                     }
                 }
             }
@@ -111,6 +140,10 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         /** The logo splash stays at least this long. */
         const val SPLASH_MIN_MS = 2_000L
+
+        /** The splash fading into the app: how long, and how much the logo grows meanwhile. */
+        private const val SPLASH_EXIT_MS = 320L
+        private const val SPLASH_EXIT_SCALE = 1.18f
 
         // Same scrims the platform uses for 3-button navigation bars.
         val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)

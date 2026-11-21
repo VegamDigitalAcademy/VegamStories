@@ -19,6 +19,7 @@ import com.vegamstories.app.domain.repository.LibraryRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -84,6 +85,9 @@ class LibraryRepositoryImpl @Inject constructor(
         return liked
     }
 
+    override fun observeDownloadProgress(storyId: String): Flow<Float?> =
+        imagePrefetcher.saving.map { it[storyId] }.distinctUntilChanged()
+
     override suspend fun toggleDownload(storyId: String): Boolean {
         if (libraryDao.isDownloaded(storyId)) {
             libraryDao.deleteDownload(storyId)
@@ -97,7 +101,7 @@ class LibraryRepositoryImpl @Inject constructor(
         story?.coverImageUrl?.let { urls.add(it) }
         story?.videoThumbnailUrl?.let { urls.add(it) }
         pages.forEach { page -> urls.add(page.imageUrl) }
-        imagePrefetcher.prefetch(urls)
+        imagePrefetcher.prefetch(storyId, urls)
         libraryDao.upsertDownload(DownloadEntity(storyId, now()))
         log.i(
             "$TAG: Downloaded $storyId for offline reading",

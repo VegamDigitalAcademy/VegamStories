@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegamstories.app.presentation.offline.NoInternetDialog
 import com.vegamstories.app.presentation.offline.NoInternetNotice
 import com.vegamstories.app.presentation.offline.OfflineViewModel
+import com.vegamstories.app.presentation.reader.StoryClosingOverlay
 import com.vegamstories.app.presentation.reader.StoryOpeningOverlay
 import com.vegamstories.app.presentation.navigation.StoryOpener
 import com.vegamstories.app.presentation.navigation.LocalStoryOpener
@@ -134,6 +135,7 @@ fun VegamApp(
                     .then(if (showBottomBar) Modifier.glassBottomBarSpace() else Modifier.navigationBarsPadding()),
             )
             StoryOpeningOverlay(storyOpener)
+            StoryClosingOverlay(storyOpener)
             noInternet?.let { notice -> NoInternetDialog(notice, onDismiss = { noInternet = null }) }
     }
     }

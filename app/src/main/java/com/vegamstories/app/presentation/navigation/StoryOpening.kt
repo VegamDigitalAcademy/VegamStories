@@ -60,6 +60,44 @@ class StoryOpener {
     fun done(opening: StoryOpening) {
         if (this.opening === opening) this.opening = null
     }
+
+    /** The story cards on the screen now, by story: where each one's picture is. */
+    private val cards = mutableMapOf<String, CardSpot>()
+
+    fun cardPlaced(storyId: String, spot: CardSpot) {
+        cards[storyId] = spot
+    }
+
+    fun cardGone(storyId: String) {
+        cards.remove(storyId)
+    }
+
+    fun cardSpot(storyId: String): CardSpot? = cards[storyId]
+
+    /** Back from a story: the reader shrinking into its card, if it's on the screen behind. */
+    var closing by mutableStateOf<StoryClosing?>(null)
+        private set
+
+    /** Story [storyId] is being closed from a reader at [from] on the screen. */
+    fun closing(storyId: String, from: Rect) {
+        closing = StoryClosing(storyId, from)
+    }
+
+    fun closed(closing: StoryClosing) {
+        if (this.closing === closing) this.closing = null
+    }
+}
+
+/** A story card on the screen: its picture's place, and the picture. */
+class CardSpot(val bounds: Rect, val coverUrl: String?)
+
+/** One story closing: the reader's picture shrinking [from] the reader into its card ([to], once found). */
+@Stable
+class StoryClosing(val storyId: String, val from: Rect) {
+    /** 0 the whole reader … 1 the card. */
+    val progress = Animatable(0f)
+
+    var to by mutableStateOf<CardSpot?>(null)
 }
 
 /** One story opening: the picture moving [from] its card [to] the reader's cover. */
@@ -77,8 +115,9 @@ class StoryOpening(val story: Story, val from: Rect, val navigate: () -> Unit) {
 
 val LocalStoryOpener = staticCompositionLocalOf { StoryOpener() }
 
-/** How long a card's picture takes to grow into the reader's cover. */
+/** How long a card's picture takes to grow into the reader's cover, and to shrink back on Back. */
 const val STORY_OPEN_MS = 450
+const val STORY_CLOSE_MS = 420
 
 /** A quick, smooth start that settles gently into place. */
 val StoryOpenEasing = CubicBezierEasing(0.3f, 0f, 0.2f, 1f)

@@ -918,7 +918,7 @@ private fun DrawScope.drawFourPointStar(center: Offset, radius: Float, color: Co
 
 /** A burst of confetti and stars from [origin], falling away. */
 @Composable
-private fun BoxScope.Confetti(origin: Offset, seed: Int) {
+internal fun BoxScope.Confetti(origin: Offset, seed: Int) {
     val progress = remember { Animatable(0f) }
     LaunchedEffect(Unit) { progress.animateTo(1f, tween(durationMillis = CONFETTI_MILLIS, easing = LinearEasing)) }
     val pieces = remember(seed) {

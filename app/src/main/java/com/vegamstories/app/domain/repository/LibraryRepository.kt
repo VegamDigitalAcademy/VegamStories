@@ -11,6 +11,9 @@ interface LibraryRepository {
 
     fun observeDownloads(): Flow<List<Story>>
 
+    /** A download of [storyId] under way: how much is saved, 0 … 1; null when none is. */
+    fun observeDownloadProgress(storyId: String): Flow<Float?>
+
     fun observeReadingHistory(): Flow<List<Story>>
 
     /** Most recently opened, unfinished story (optionally within one category). */

@@ -27,6 +27,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlin.math.sin
+import kotlin.math.floor
+import kotlin.math.ceil
+import kotlin.math.PI
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -81,7 +93,7 @@ fun Modifier.glassBottomBarSpace(): Modifier = navigationBarsPadding().padding(b
  * Floating glass bottom bar, like iPhone's: what scrolls behind it shows through, blurred and a
  * little more colourful, under a light tint, with a bright highlight along its top edge and a
  * hairline border. The selected tab gets a soft lens behind its icon (pink by day, frosted white
- * by night), which fades in while the icon pops.
+ * by night), which slides over from the last tab while the icon pops.
  *
  * [backdrop] is everything under the bar, as drawn (VegamApp). Android before 12 can't blur it:
  * there the bar is a plain translucent pill.
@@ -141,12 +153,27 @@ fun GlassBottomBar(
                     },
             )
         }
+        // The selected tab's lens: one drop of glass that slides from tab to tab, stretching a little
+        // on the way, rather than one fading out and another in.
+        val selectedIndex = TopLevelDestination.entries.indexOfFirst { destination ->
+            currentDestination?.hierarchy?.any { it.hasRoute(destination.route::class) } == true
+        }
+        val lensSpots = remember { arrayOfNulls<Rect>(TopLevelDestination.entries.size) }
+        val rowOrigin = remember { arrayOf(Offset.Zero) }
+        val lensAt = remember { Animatable(selectedIndex.coerceAtLeast(0).toFloat()) }
+        val lensShown by animateFloatAsState(if (selectedIndex >= 0) 1f else 0f, label = "lensShown")
+        LaunchedEffect(selectedIndex) {
+            if (selectedIndex >= 0) lensAt.animateTo(selectedIndex.toFloat(), spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow))
+        }
+        val lensStretch = with(LocalDensity.current) { LensStretch.toPx() }
         Row(
             modifier = Modifier
                 .matchParentSize()
+                .onGloballyPositioned { rowOrigin[0] = it.positionInRoot() }
                 .background(Brush.verticalGradient(listOf(glass.fillTop, glass.fillBottom)))
                 .border(1.dp, Brush.verticalGradient(listOf(glass.edgeTop, glass.edgeBottom)), shape)
                 .drawWithContent {
+                    drawLens(lensSpots, rowOrigin[0], lensAt.value, lensShown, lensStretch, glass.lens)
                     drawContent()
                     // Light catching the upper edge of the glass.
                     drawRect(
@@ -164,12 +191,11 @@ fun GlassBottomBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceAround,
         ) {
-        TopLevelDestination.entries.forEach { destination ->
-            val selected = currentDestination?.hierarchy?.any { it.hasRoute(destination.route::class) } == true
+        TopLevelDestination.entries.forEachIndexed { index, destination ->
             GlassBarItem(
                 destination = destination,
-                selected = selected,
-                lens = glass.lens,
+                selected = index == selectedIndex,
+                onLensPlaced = { lensSpots[index] = it },
                 // Over the colours seen through the glass, the full text colour reads better than grey.
                 idleColor = if (blurs) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = { onNavigate(destination) },
@@ -178,6 +204,25 @@ fun GlassBottomBar(
         }
         }
     }
+}
+
+/**
+ * The lens at [at] (a tab's index, or between two while sliding), behind the tabs' icons: between
+ * two tabs it's drawn between their spots, a little wider mid-way ([stretch]), like a drop moving.
+ */
+private fun DrawScope.drawLens(spots: Array<Rect?>, origin: Offset, at: Float, shown: Float, stretch: Float, color: Color) {
+    if (shown <= 0f) return
+    val from = spots.getOrNull(floor(at).toInt()) ?: return
+    val to = spots.getOrNull(ceil(at).toInt()) ?: from
+    val t = at - floor(at)
+    val spot = lerp(from, to, t).translate(-origin)
+    val extra = stretch * sin(PI.toFloat() * t)
+    drawRoundRect(
+        color = color.copy(alpha = color.alpha * shown),
+        topLeft = Offset(spot.left - extra / 2f, spot.top),
+        size = Size(spot.width + extra, spot.height),
+        cornerRadius = CornerRadius(spot.height / 2f),
+    )
 }
 
 /** Blur, then a little more colour (as iPhone's glass does, so what's behind doesn't turn grey). */
@@ -195,6 +240,9 @@ private fun frostedGlass(radius: Float): RenderEffect {
  * about twice its radius), and how much more colourful it is (a little: more makes moving blobs).
  */
 private val BlurRadius = 26.dp
+
+/** How much wider the lens gets half-way between two tabs. */
+private val LensStretch = 18.dp
 private val BlurReach = BlurRadius * 2
 private const val GLASS_SATURATION = 1.25f
 
@@ -202,7 +250,8 @@ private const val GLASS_SATURATION = 1.25f
 private fun GlassBarItem(
     destination: TopLevelDestination,
     selected: Boolean,
-    lens: Color,
+    /** Where the lens goes behind this tab's icon, on the screen. */
+    onLensPlaced: (Rect) -> Unit,
     idleColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -211,10 +260,6 @@ private fun GlassBarItem(
     val contentColor by animateColorAsState(
         if (selected) primary else idleColor,
         label = "tabContent",
-    )
-    val lensColor by animateColorAsState(
-        if (selected) lens else Color.Transparent,
-        label = "tabLens",
     )
     val iconScale by animateFloatAsState(
         targetValue = if (selected) 1.12f else 1f,
@@ -231,8 +276,7 @@ private fun GlassBarItem(
     ) {
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(lensColor)
+                .onGloballyPositioned { onLensPlaced(it.boundsInRoot()) }
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
