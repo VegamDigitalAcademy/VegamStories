@@ -35,7 +35,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import com.vegamstories.app.presentation.components.BookRefreshIndicator
+import com.vegamstories.app.presentation.components.HandRefreshIndicator
+import com.vegamstories.app.presentation.components.followsPull
+import com.vegamstories.app.presentation.components.rememberHandRefresh
+import androidx.compose.ui.draw.clipToBounds
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -134,13 +138,28 @@ fun HomeContent(
             onCategorySelected = onCategorySelected,
         )
         val refreshState = rememberPullToRefreshState()
+        // After a pull, the hand shows for a moment even if the stories come back at once, so it's
+        // seen; longer while they're still loading.
+        var pulled by remember { mutableStateOf(false) }
+        LaunchedEffect(pulled) {
+            if (pulled) {
+                delay(REFRESH_SHOWN_MILLIS)
+                pulled = false
+            }
+        }
+        val hand = rememberHandRefresh(refreshState, loading = state.isRefreshing || pulled)
         PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.fillMaxSize(),
+            isRefreshing = hand.showing,
+            onRefresh = {
+                pulled = true
+                onRefresh()
+            },
+            // The hand stays in the gap below the tabs, never over them.
+            modifier = Modifier.fillMaxSize().clipToBounds(),
             state = refreshState,
-            indicator = { BookRefreshIndicator(refreshState, state.isRefreshing) },
+            indicator = { HandRefreshIndicator(refreshState, hand) },
         ) {
+            Box(Modifier.fillMaxSize().followsPull(refreshState, hand)) {
             when {
                 state.stories.isEmpty() && (state.isLoading || state.isRefreshing) -> StoryGridSkeleton()
                 state.stories.isEmpty() -> EmptyState(
@@ -170,6 +189,7 @@ fun HomeContent(
                         )
                     }
                 }
+            }
             }
         }
     }
@@ -426,3 +446,6 @@ private fun HomeEmptyPreview() = PreviewTheme {
         onSearchClick = {}, onLanguageSelected = {},
     )
 }
+
+/** After a pull to refresh, the hand shows at least this long. */
+private const val REFRESH_SHOWN_MILLIS = 1_200L
