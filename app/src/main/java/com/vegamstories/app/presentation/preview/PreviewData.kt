@@ -35,6 +35,8 @@ object PreviewData {
     fun story(
         index: Int = 0,
         isFavorite: Boolean = false,
+        /** Liked (the heart); in previews, a favorite is liked too unless said otherwise. */
+        isLiked: Boolean = isFavorite,
         isDownloaded: Boolean = false,
         progress: ReadingProgress? = null,
     ): Story {
@@ -52,6 +54,7 @@ object PreviewData {
             publishedAt = 0L,
             video = if (index % 2 == 0) video else null,
             isFavorite = isFavorite,
+            isLiked = isLiked,
             likeCount = listOf(0, 7, 128, 1_540)[index % 4],
             isDownloaded = isDownloaded,
             progress = progress,

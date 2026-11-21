@@ -91,7 +91,7 @@ fun LikeStoryPage(
     /** The story's moral, for the card at the top (its summary is shown if there is none). */
     moral: String? = null,
 ) {
-    val isLiked = story.isFavorite
+    val isLiked = story.isLiked
     // What the page shows. Opened already liked: the card straight away. Liked here: the big heart
     // fills and pops first, then folds away.
     var showLiked by remember { mutableStateOf(isLiked) }

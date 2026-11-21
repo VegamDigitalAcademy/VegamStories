@@ -59,7 +59,7 @@
 
     <!-- Library screens -->
     <string name="favorites_empty_title">ఇంకా ఇష్టమైనవి లేవు</string>
-    <string name="favorites_empty_message">కథ చదువుతున్నప్పుడు హార్ట్‌ను నొక్కితే అది ఇక్కడ ఉంటుంది.</string>
+    <string name="favorites_empty_message">కథ చదువుతున్నప్పుడు నక్షత్రాన్ని నొక్కితే అది ఇక్కడ ఉంటుంది.</string>
     <string name="downloads_empty_title">డౌన్‌లోడ్‌లు లేవు</string>
     <string name="downloads_empty_message">ఆఫ్‌లైన్‌లో చదవడానికి కథను తెరిచి డౌన్‌లోడ్ చేయండి.</string>
     <string name="history_title">చదివిన కథలు</string>
@@ -133,6 +133,8 @@
     <string name="skip_to_next_story">తదుపరి కథకు వెళ్ళండి</string>
     <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
     <string name="cd_like">లైక్</string>
+    <string name="cd_add_favorite">ఇష్టమైనవాటికి జోడించు</string>
+    <string name="cd_remove_favorite">ఇష్టమైనవాటి నుండి తీసివేయి</string>
 
     <!-- సెట్టింగ్‌లు: చదవడం -->
     <string name="settings_reading_section">చదవడం</string>

@@ -68,6 +68,7 @@ class ReaderScreenTest {
     private val bookmarksRemoved = mutableListOf<List<Bookmark>>()
     private var backs = 0
     private var hearts = 0
+    private var stars = 0
     private var downloads = 0
     private var turnHints = 0
 
@@ -77,7 +78,8 @@ class ReaderScreenTest {
                 state = state,
                 onBack = { backs++ },
                 onPageChanged = { pagesSettled += it },
-                onToggleFavorite = { hearts++ },
+                onToggleFavorite = { stars++ },
+                onToggleLike = { hearts++ },
                 onToggleDownload = { downloads++ },
                 onOpenNextStory = { nextOpened += it },
                 openOnCover = false,
@@ -131,14 +133,15 @@ class ReaderScreenTest {
     }
 
     @Test
-    fun `the top bar goes back, likes and downloads`() {
+    fun `the top bar goes back, saves to favorites, likes and downloads, each on its own`() {
         show(reading())
 
         compose.onNodeWithContentDescription(text(R.string.cd_back)).performClick()
+        compose.onNodeWithContentDescription(text(R.string.cd_add_favorite)).performClick()
         compose.onNodeWithContentDescription(text(R.string.cd_like)).performClick()
         compose.onNodeWithContentDescription(text(R.string.cd_download)).performClick()
 
-        assertEquals(listOf(1, 1, 1), listOf(backs, hearts, downloads))
+        assertEquals(listOf(1, 1, 1, 1), listOf(backs, stars, hearts, downloads))
     }
 
     @Test

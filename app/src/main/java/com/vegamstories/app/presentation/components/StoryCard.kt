@@ -159,7 +159,7 @@ fun StoryCard(
                 )
             }
             LikeCount(
-                isLiked = story.isFavorite,
+                isLiked = story.isLiked,
                 likeCount = story.likeCount,
                 modifier = Modifier.padding(start = 8.dp, top = 8.dp),
             )

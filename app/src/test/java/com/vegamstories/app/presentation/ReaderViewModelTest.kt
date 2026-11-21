@@ -22,6 +22,7 @@ import com.vegamstories.app.domain.usecase.RemoveBookmarksUseCase
 import com.vegamstories.app.domain.usecase.SaveReadingProgressUseCase
 import com.vegamstories.app.domain.usecase.ToggleDownloadUseCase
 import com.vegamstories.app.domain.usecase.ToggleFavoriteUseCase
+import com.vegamstories.app.domain.usecase.ToggleLikeUseCase
 import com.vegamstories.app.domain.usecase.UpdateReaderSettingsUseCase
 import com.vegamstories.app.presentation.navigation.ReaderRoute
 import com.vegamstories.app.presentation.navigation.toReaderRoute
@@ -96,6 +97,7 @@ class ReaderViewModelTest {
         updateReaderSettings = UpdateReaderSettingsUseCase(settings),
         saveReadingProgress = SaveReadingProgressUseCase(library),
         toggleFavorite = ToggleFavoriteUseCase(library),
+        toggleLike = ToggleLikeUseCase(library),
         toggleDownload = ToggleDownloadUseCase(library),
         getStoryBookmarks = GetStoryBookmarksUseCase(library),
         addBookmark = AddBookmarkUseCase(library),
@@ -237,7 +239,7 @@ class ReaderViewModelTest {
     }
 
     @Test
-    fun `the heart and the download button say what they did`() = runTest {
+    fun `the star and the download button say what they did`() = runTest {
         saved(story())
         val viewModel = readerViewModel()
 
@@ -247,6 +249,17 @@ class ReaderViewModelTest {
         assertEquals(ReaderEvent.FavoriteChanged(isFavorite = false), viewModel.eventFlow.first())
         viewModel.onToggleDownload()
         assertEquals(ReaderEvent.DownloadChanged(isDownloaded = true), viewModel.eventFlow.first())
+    }
+
+    @Test
+    fun `the heart likes the story, apart from Favorites`() = runTest {
+        saved(story())
+        val viewModel = readerViewModel()
+
+        viewModel.onToggleLike()
+
+        assertEquals(setOf(viewModel.storyId), library.likes)
+        assertTrue(library.favorites.isEmpty())
     }
 
     @Test

@@ -110,3 +110,15 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         )
     }
 }
+
+/**
+ * 8 → 9: likes (the heart) apart from favorites (the star). Until now liking a story also put it
+ * in Favorites, so every favorite so far was also a like the server counts: each one is copied
+ * into likes, and stays in Favorites too. Nobody loses a like or a favorite.
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `likes` (`storyId` TEXT NOT NULL, `likedAt` INTEGER NOT NULL, PRIMARY KEY(`storyId`))")
+        db.execSQL("INSERT OR IGNORE INTO `likes` (`storyId`, `likedAt`) SELECT `storyId`, `addedAt` FROM `favorites`")
+    }
+}

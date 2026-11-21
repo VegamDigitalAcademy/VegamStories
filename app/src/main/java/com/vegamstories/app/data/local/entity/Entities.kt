@@ -110,10 +110,21 @@ data class LanguageEntity(
 
 // ---------- User state (kept separate so a server refresh never wipes it) ----------
 
+/** A story saved in Favorites (the star): the user's own list, never sent anywhere. */
 @Entity(tableName = "favorites")
 data class FavoriteEntity(
     @PrimaryKey val storyId: String,
     val addedAt: Long,
+)
+
+/**
+ * A story this device likes (the heart): counted in the story's likes on the server (see
+ * [PendingLikeEntity]). Separate from [FavoriteEntity]: liking doesn't save to Favorites.
+ */
+@Entity(tableName = "likes")
+data class LikeEntity(
+    @PrimaryKey val storyId: String,
+    val likedAt: Long,
 )
 
 /**

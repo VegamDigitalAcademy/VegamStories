@@ -190,6 +190,28 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun upgradeFrom8_likesEveryFavoriteAndKeepsIt() {
+        createDatabase(
+            version = 8,
+            schema = VERSION_8_SCHEMA,
+            "INSERT INTO favorites (storyId, addedAt) VALUES ('moral-1', 1700000000000)",
+            "INSERT INTO pending_likes (storyId, liked) VALUES ('moral-1', 1)",
+        )
+
+        withMigratedDatabase { db ->
+            val library = db.libraryDao()
+            // Every favorite so far was also a like the server counts: it stays a favorite and is liked.
+            assertTrue(library.isFavorite("moral-1"))
+            assertTrue(library.isLiked("moral-1"))
+            assertFalse(library.isLiked("moral-2"))
+            assertEquals(listOf(PendingLikeEntity("moral-1", liked = true)), library.getPendingLikes())
+            // From now on the star and the heart are apart.
+            assertFalse(library.toggleFavorite("moral-1", addedAt = 2L))
+            assertTrue(library.isLiked("moral-1"))
+        }
+    }
+
     private suspend fun assertStoryCacheRebuiltEmpty(db: VegamDatabase) {
         // Story content is a cache of the server: rebuilt empty in the per-language shape, refilled on refresh.
         assertTrue(db.storyDao().observeAllStories("te").first().isEmpty())
@@ -221,7 +243,7 @@ class MigrationTest {
      */
     private fun withMigratedDatabase(block: suspend (VegamDatabase) -> Unit) {
         val db = Room.databaseBuilder(context, VegamDatabase::class.java, TEST_DB)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .build()
         try {
             runBlocking { block(db) }
@@ -324,6 +346,13 @@ class MigrationTest {
                 "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
             "CREATE TABLE IF NOT EXISTS `languages` (`code` TEXT NOT NULL, `name` TEXT NOT NULL, " +
                 "`nativeName` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`code`))",
+        )
+
+        /** Version 8: version 7 and the bookmarks table, as MIGRATION_7_8 made it (app/schemas/.../8.json). */
+        val VERSION_8_SCHEMA = VERSION_7_SCHEMA + listOf(
+            "CREATE TABLE IF NOT EXISTS `bookmarks` (`storyId` TEXT NOT NULL, `language` TEXT NOT NULL, " +
+                "`format` TEXT NOT NULL, `position` INTEGER NOT NULL, `textOffset` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`storyId`, `language`, `format`, `position`, `textOffset`))",
         )
     }
 }

@@ -24,6 +24,7 @@ class SaveReadingProgressUseCaseTest {
         override fun observeReadingHistory(): Flow<List<Story>> = emptyFlow()
         override fun observeContinueReading(categoryId: String?): Flow<Story?> = emptyFlow()
         override suspend fun toggleFavorite(storyId: String) = true
+        override suspend fun toggleLike(storyId: String) = true
         override suspend fun toggleDownload(storyId: String) = true
         override suspend fun saveProgress(storyId: String, pageIndex: Int, totalPages: Int) {
             saved = Triple(storyId, pageIndex, totalPages)

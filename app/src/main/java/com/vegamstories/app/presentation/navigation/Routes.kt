@@ -63,7 +63,7 @@ enum class TopLevelDestination(
     @StringRes val labelRes: Int,
 ) {
     HOME(HomeRoute(), R.drawable.ic_home, R.drawable.ic_home, R.string.nav_home),
-    FAVORITES(FavoritesRoute, R.drawable.ic_favorite, R.drawable.ic_favorite_border, R.string.nav_favorites),
+    FAVORITES(FavoritesRoute, R.drawable.ic_star, R.drawable.ic_star_border, R.string.nav_favorites),
     DOWNLOADS(DownloadsRoute, R.drawable.ic_download, R.drawable.ic_download, R.string.nav_downloads),
     MENU(MenuRoute, R.drawable.ic_menu, R.drawable.ic_menu, R.string.nav_menu),
 }

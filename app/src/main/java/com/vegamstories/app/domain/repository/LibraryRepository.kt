@@ -20,7 +20,11 @@ interface LibraryRepository {
     fun observeContinueReading(categoryId: String?): Flow<Story?>
 
     /** @return the new favorite state. */
+    /** The star: saves the story in Favorites, or takes it out. @return whether it's a favorite now. */
     suspend fun toggleFavorite(storyId: String): Boolean
+
+    /** The heart: likes the story (counted on the server), or unlikes it. @return whether it's liked now. */
+    suspend fun toggleLike(storyId: String): Boolean
 
     /** @return the new downloaded state. */
     suspend fun toggleDownload(storyId: String): Boolean

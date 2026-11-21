@@ -10,6 +10,7 @@ import com.vegamstories.app.data.local.entity.CategoryNameEntity
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.FavoriteEntity
 import com.vegamstories.app.data.local.entity.LanguageEntity
+import com.vegamstories.app.data.local.entity.LikeEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
 import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.local.entity.StoryEntity
@@ -29,6 +30,7 @@ import com.vegamstories.app.data.local.entity.StoryTranslationEntity
         CategoryNameEntity::class,
         LanguageEntity::class,
         BookmarkEntity::class,
+        LikeEntity::class,
     ],
     // 2: story_pages holds one image per page instead of a JSON list of panels.
     // 3: stories.likeCount + pending_likes (see MIGRATION_2_3).
@@ -37,7 +39,7 @@ import com.vegamstories.app.data.local.entity.StoryTranslationEntity
     // 6: everything per language: story_translations, story_pages.language, category_names (MIGRATION_5_6).
     // 7: story_translations.coverImageUrl optional (MIGRATION_6_7).
     // 8: bookmarks (MIGRATION_7_8).
-    version = 8,
+    version = 9,
     // Schemas go to app/schemas/ (see the room {} block in app/build.gradle.kts).
     exportSchema = true,
 )

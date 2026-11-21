@@ -28,11 +28,13 @@ data class Story(
     val video: StoryVideo?,
     /** This version can also be read as text. */
     val hasText: Boolean = false,
-    /** The heart: [isFavorite] is this device's like, [likeCount] is everyone's. */
+    /** The star: saved in this device's Favorites. Separate from liking it. */
     val isFavorite: Boolean,
+    /** The heart: [isLiked] is this device's like, [likeCount] is everyone's. */
     val likeCount: Int,
     val isDownloaded: Boolean,
     val progress: ReadingProgress?,
+    val isLiked: Boolean = false,
 ) {
     val isRead: Boolean get() = progress?.isCompleted == true
     val isInProgress: Boolean get() = progress != null && !progress.isCompleted

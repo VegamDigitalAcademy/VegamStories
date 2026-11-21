@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Shared SELECT: each story in ONE language version, with its category name and the user's
- * favorite, download and progress rows. The version is the one in `:lang` if the story has it,
+ * favorite (star), like (heart), download and progress rows. The version is the one in `:lang` if the story has it,
  * else its first language in the server's order. Queries that want only stories that really are
  * in `:lang` (Home, Search) add [ONLY_IN_LANG]; the library (Favorites, Downloads, History) doesn't,
  * so saved stories never disappear when the language changes.
@@ -45,6 +45,7 @@ internal const val STORY_WITH_STATE_SELECT = """
                 ORDER BY cl.sortOrder IS NULL, cl.sortOrder, cn.language LIMIT 1)
         ) AS categoryName,
         (f.storyId IS NOT NULL) AS isFavorite,
+        (lk.storyId IS NOT NULL) AS isLiked,
         (d.storyId IS NOT NULL) AS isDownloaded,
         p.lastPageIndex AS progressLastPageIndex,
         p.totalPages AS progressTotalPages,
@@ -57,6 +58,7 @@ internal const val STORY_WITH_STATE_SELECT = """
         ORDER BY (bt.language = :lang) DESC, bl.sortOrder IS NULL, bl.sortOrder, bt.language
         LIMIT 1)
     LEFT JOIN favorites f ON f.storyId = s.id
+    LEFT JOIN likes lk ON lk.storyId = s.id
     LEFT JOIN downloads d ON d.storyId = s.id
     LEFT JOIN reading_progress p ON p.storyId = s.id
 """

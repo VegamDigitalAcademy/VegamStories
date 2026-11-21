@@ -119,6 +119,7 @@ import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
 import com.vegamstories.app.domain.model.Language
 import com.vegamstories.app.presentation.components.EmptyState
+import com.vegamstories.app.presentation.components.FavoriteButton
 import com.vegamstories.app.presentation.components.LikeButton
 import com.vegamstories.app.presentation.components.LoadingBox
 import com.vegamstories.app.presentation.components.windowIsWideLandscape
@@ -177,6 +178,7 @@ fun ReaderScreen(
         onBack = goBack,
         onPageChanged = viewModel::onPageChanged,
         onToggleFavorite = viewModel::onToggleFavorite,
+        onToggleLike = viewModel::onToggleLike,
         onToggleDownload = viewModel::onToggleDownload,
         onOpenNextStory = onOpenNextStory,
         onScrollModeChange = viewModel::onScrollModeChange,
@@ -202,6 +204,7 @@ fun ReaderScreenContent(
     state: ReaderUiState,
     onBack: () -> Unit,
     onPageChanged: (Int) -> Unit,
+    /** The star: saves the story in Favorites, or takes it out. */
     onToggleFavorite: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenNextStory: (String) -> Unit,
@@ -215,6 +218,8 @@ fun ReaderScreenContent(
     onAddBookmark: (format: StoryFormat, position: Int, offset: Int) -> Unit = { _, _, _ -> },
     onRemoveBookmarks: (List<Bookmark>) -> Unit = {},
     onTurnHintShown: () -> Unit = {},
+    /** The heart: likes the story (counted on the server), or unlikes it. Separate from Favorites. */
+    onToggleLike: () -> Unit = {},
     /** Page turns, tears and glue (Settings → Reading → Page turn sound). */
     sounds: ReaderSounds = rememberReaderSounds(enabled = state.settings.pageTurnSound),
     /** A story opened at its start opens on its cover and turns it; false goes straight to its first page. */
@@ -304,6 +309,7 @@ fun ReaderScreenContent(
                     onBack = onBack,
                     onPageChanged = onPageChanged,
                     onToggleFavorite = onToggleFavorite,
+                    onToggleLike = onToggleLike,
                     onToggleDownload = toggleDownload,
                     onOpenNextStory = onOpenNextStory,
                     onScrollModeChange = onScrollModeChange,
@@ -334,6 +340,7 @@ private fun ReaderContent(
     onBack: () -> Unit,
     onPageChanged: (Int) -> Unit,
     onToggleFavorite: () -> Unit,
+    onToggleLike: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenNextStory: (String) -> Unit,
     onScrollModeChange: (ReaderScrollMode) -> Unit,
@@ -374,11 +381,13 @@ private fun ReaderContent(
         ReaderTopBar(
             title = story.title,
             isFavorite = story.isFavorite,
+            isLiked = story.isLiked,
             likeCount = story.likeCount,
             isDownloaded = story.isDownloaded,
             downloadProgress = downloadProgress,
             onBack = onBack,
             onToggleFavorite = onToggleFavorite,
+            onToggleLike = onToggleLike,
             onToggleDownload = onToggleDownload,
             onOpenOptions = { showOptions = true },
         )
@@ -398,7 +407,7 @@ private fun ReaderContent(
             LikeStoryPage(
                 story = story,
                 nextStory = state.nextStory,
-                onToggleLike = onToggleFavorite,
+                onToggleLike = onToggleLike,
                 onOpenNextStory = onOpenNextStory,
                 onBack = onBack,
                 moral = state.moral,
@@ -449,15 +458,15 @@ private fun ReaderContent(
                 // Paged mode shows comic pages edge to edge (see PagedReader); the strip keeps its frame.
                 edgeToEdge = state.settings.scrollMode == ReaderScrollMode.PAGED,
                 onContinue = onContinue,
-                onToggleFavorite = onToggleFavorite,
+                onToggleLike = onToggleLike,
                 onOpenNextStory = onOpenNextStory,
                 onBack = onBack,
             )
         }
         // Double-tapping a comic page likes the story (never unlikes it): see doubleTapToLike.
         val currentStory by rememberUpdatedState(story)
-        val currentOnToggleFavorite by rememberUpdatedState(onToggleFavorite)
-        val likeOnDoubleTap: () -> Unit = remember { { if (!currentStory.isFavorite) currentOnToggleFavorite() } }
+        val currentOnToggleLike by rememberUpdatedState(onToggleLike)
+        val likeOnDoubleTap: () -> Unit = remember { { if (!currentStory.isLiked) currentOnToggleLike() } }
         CompositionLocalProvider(LocalLikeOnDoubleTap provides likeOnDoubleTap) {
             when (state.settings.scrollMode) {
                 ReaderScrollMode.PAGED if spreads != null -> BoxWithConstraints(readerModifier) {
@@ -856,10 +865,12 @@ internal fun ReaderOpening(
         ReaderTopBar(
             title = story.title,
             isFavorite = story.isFavorite,
+            isLiked = story.isLiked,
             likeCount = story.likeCount,
             isDownloaded = story.isDownloaded,
             onBack = onBack,
             onToggleFavorite = {},
+            onToggleLike = {},
             onToggleDownload = {},
             onOpenOptions = {},
         )
@@ -1368,7 +1379,7 @@ private fun ReaderPage(
     detail: StoryDetail,
     edgeToEdge: Boolean,
     onContinue: () -> Unit,
-    onToggleFavorite: () -> Unit,
+    onToggleLike: () -> Unit,
     onOpenNextStory: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -1386,7 +1397,7 @@ private fun ReaderPage(
         index == state.likePageIndex -> LikeStoryPage(
             story = detail.story,
             nextStory = state.nextStory,
-            onToggleLike = onToggleFavorite,
+            onToggleLike = onToggleLike,
             onOpenNextStory = onOpenNextStory,
             onBack = onBack,
             moral = state.moral,
@@ -1397,13 +1408,17 @@ private fun ReaderPage(
 @Composable
 private fun ReaderTopBar(
     title: String,
+    /** The star: in Favorites. */
     isFavorite: Boolean,
+    /** The heart: liked; [likeCount] is everyone's likes. */
+    isLiked: Boolean,
     likeCount: Int,
     isDownloaded: Boolean,
     /** Saving the story for offline reading: how far, 0 … 1; null when not. */
     downloadProgress: Float? = null,
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onToggleLike: () -> Unit,
     onToggleDownload: () -> Unit,
     onOpenOptions: () -> Unit,
 ) {
@@ -1446,7 +1461,8 @@ private fun ReaderTopBar(
         IconButton(onClick = onToggleDownload) {
             DownloadIcon(isDownloaded = isDownloaded, progress = downloadProgress)
         }
-        LikeButton(isLiked = isFavorite, likeCount = likeCount, onClick = onToggleFavorite)
+        FavoriteButton(isFavorite = isFavorite, onClick = onToggleFavorite)
+        LikeButton(isLiked = isLiked, likeCount = likeCount, onClick = onToggleLike)
     }
 }
 

@@ -79,6 +79,7 @@ class FakeLibraryRepository : LibraryRepository {
     val continueReading = MutableStateFlow<Story?>(null)
 
     val favorites = mutableSetOf<String>()
+    val likes = mutableSetOf<String>()
     val downloads = mutableSetOf<String>()
 
     /** Each saveProgress call: story, page, total pages. */
@@ -96,6 +97,7 @@ class FakeLibraryRepository : LibraryRepository {
         continueReading.map { story -> story?.takeIf { categoryId == null || it.categoryId == categoryId } }
 
     override suspend fun toggleFavorite(storyId: String): Boolean = toggle(favorites, storyId)
+    override suspend fun toggleLike(storyId: String): Boolean = toggle(likes, storyId)
     override suspend fun toggleDownload(storyId: String): Boolean = toggle(downloads, storyId)
 
     override suspend fun saveProgress(storyId: String, pageIndex: Int, totalPages: Int) {

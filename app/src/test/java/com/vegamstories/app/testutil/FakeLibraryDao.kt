@@ -4,6 +4,7 @@ import com.vegamstories.app.data.local.dao.LibraryDao
 import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.FavoriteEntity
+import com.vegamstories.app.data.local.entity.LikeEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
 import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
@@ -12,11 +13,12 @@ import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * In-memory [LibraryDao] for the favorite/like methods. The DAO's own logic (toggleFavorite,
- * confirmLike) runs for real on top of these; the SQL itself isn't tested here.
+ * toggleLike, confirmLike) runs for real on top of these; the SQL itself isn't tested here.
  * Like counts only change for stories in [likeCounts], as an SQL UPDATE only touches existing rows.
  */
 class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     val favorites = mutableMapOf<String, FavoriteEntity>()
+    val likes = mutableMapOf<String, LikeEntity>()
     /** Keyed by storyId, like the table's primary key. */
     val pending = linkedMapOf<String, PendingLikeEntity>()
     val likeCounts = likeCounts.toMutableMap()
@@ -24,6 +26,10 @@ class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     override suspend fun isFavorite(storyId: String) = storyId in favorites
     override suspend fun upsertFavorite(entity: FavoriteEntity) { favorites[entity.storyId] = entity }
     override suspend fun deleteFavorite(storyId: String) { favorites.remove(storyId) }
+
+    override suspend fun isLiked(storyId: String) = storyId in likes
+    override suspend fun upsertLike(entity: LikeEntity) { likes[entity.storyId] = entity }
+    override suspend fun deleteLike(storyId: String) { likes.remove(storyId) }
 
     override suspend fun getPendingLikes() = pending.values.toList()
     override suspend fun upsertPendingLike(entity: PendingLikeEntity) { pending[entity.storyId] = entity }

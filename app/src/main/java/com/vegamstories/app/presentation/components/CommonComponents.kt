@@ -254,7 +254,7 @@ fun VegamSwitch(
 private fun EmptyStatePreview() = PreviewTheme {
     Box(Modifier.size(width = 360.dp, height = 320.dp)) {
         EmptyState(
-            icon = R.drawable.ic_favorite_border,
+            icon = R.drawable.ic_star_border,
             title = stringResource(R.string.favorites_empty_title),
             message = stringResource(R.string.favorites_empty_message),
         )

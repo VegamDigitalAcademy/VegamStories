@@ -78,7 +78,13 @@ class LibraryRepositoryImpl @Inject constructor(
         }
 
     override suspend fun toggleFavorite(storyId: String): Boolean {
-        val liked = libraryDao.toggleFavorite(storyId, now())
+        val favorite = libraryDao.toggleFavorite(storyId, now())
+        log.i("$TAG: ${if (favorite) "Added to" else "Removed from"} Favorites: $storyId")
+        return favorite
+    }
+
+    override suspend fun toggleLike(storyId: String): Boolean {
+        val liked = libraryDao.toggleLike(storyId, now())
         log.i("$TAG: ${if (liked) "Liked" else "Unliked"} $storyId (saved; the like goes to the server next)")
         // The heart and count update at once; the server catches up in the background
         // (and survives the screen closing).

@@ -108,7 +108,7 @@ class StoryFormatsTest {
         language = "te", title = "కథ", summary = "", coverImageUrl = cover, firstPageUrl = firstPage,
         pageCount = if (firstPage == null) 0 else 1, hasText = true,
         videoTitle = null, videoDescription = null, videoThumbnailUrl = null, videoUrl = null,
-        categoryName = "నీతి కథలు", isFavorite = false, isDownloaded = false,
+        categoryName = "నీతి కథలు", isFavorite = false, isLiked = false, isDownloaded = false,
         progressLastPageIndex = null, progressTotalPages = null, progressIsCompleted = null, progressUpdatedAt = null,
     )
 

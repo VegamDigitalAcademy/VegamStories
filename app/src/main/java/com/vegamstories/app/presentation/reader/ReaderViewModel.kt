@@ -27,6 +27,7 @@ import com.vegamstories.app.domain.usecase.RemoveBookmarksUseCase
 import com.vegamstories.app.domain.usecase.SaveReadingProgressUseCase
 import com.vegamstories.app.domain.usecase.ToggleDownloadUseCase
 import com.vegamstories.app.domain.usecase.ToggleFavoriteUseCase
+import com.vegamstories.app.domain.usecase.ToggleLikeUseCase
 import com.vegamstories.app.domain.usecase.UpdateReaderSettingsUseCase
 import com.vegamstories.app.presentation.navigation.ReaderRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -109,6 +110,7 @@ class ReaderViewModel @Inject constructor(
     private val updateReaderSettings: UpdateReaderSettingsUseCase,
     private val saveReadingProgress: SaveReadingProgressUseCase,
     private val toggleFavorite: ToggleFavoriteUseCase,
+    private val toggleLike: ToggleLikeUseCase,
     private val toggleDownload: ToggleDownloadUseCase,
     getStoryBookmarks: GetStoryBookmarksUseCase,
     private val addBookmark: AddBookmarkUseCase,
@@ -244,9 +246,16 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch { updateReaderSettings { it.copy(textSize = size) } }
     }
 
+    /** The star: Favorites. Said in a message ("Added to favorites"). */
     fun onToggleFavorite() {
-        log.i("$TAG: User: heart on $storyId")
+        log.i("$TAG: User: star on $storyId")
         viewModelScope.launch { events.send(ReaderEvent.FavoriteChanged(toggleFavorite(storyId))) }
+    }
+
+    /** The heart: a like, counted on the server. The heart and its count show it; no message. */
+    fun onToggleLike() {
+        log.i("$TAG: User: heart on $storyId")
+        viewModelScope.launch { toggleLike(storyId) }
     }
 
     /** The story's download while it saves, 0 … 1, for the ring on the download button; else null. */

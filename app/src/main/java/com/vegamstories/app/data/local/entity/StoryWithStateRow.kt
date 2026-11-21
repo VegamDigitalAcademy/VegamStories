@@ -24,6 +24,7 @@ data class StoryWithStateRow(
     val videoUrl: String?,
     val categoryName: String?,
     val isFavorite: Boolean,
+    val isLiked: Boolean,
     val isDownloaded: Boolean,
     val progressLastPageIndex: Int?,
     val progressTotalPages: Int?,
