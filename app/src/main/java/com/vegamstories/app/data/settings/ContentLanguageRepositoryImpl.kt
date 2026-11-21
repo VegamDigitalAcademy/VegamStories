@@ -53,7 +53,9 @@ class ContentLanguageRepositoryImpl @Inject constructor(
                 // Several screens watch the language at once: log a change once, not once per screen.
                 if (languages != lastLogged) {
                     lastLogged = languages
-                    log.d("$TAG: Story language: ${languages.selected}", data = mapOf("chosen" to picked(languages), "in the app" to languages.all.map { it.code }))
+                    log.d("$TAG: Story language: ${languages.selected}",
+                        data = mapOf("chosen" to picked(languages),
+                            "in the app" to languages.all.map { it.code }))
                 }
             }
 

@@ -69,6 +69,7 @@ import com.vegamstories.app.presentation.preview.PreviewData
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * The page after the last comic page.
@@ -95,7 +96,7 @@ fun LikeStoryPage(
     // fills and pops first, then folds away.
     var showLiked by remember { mutableStateOf(isLiked) }
     LaunchedEffect(isLiked) {
-        if (isLiked && !showLiked) delay(LIKED_FOLD_DELAY_MILLIS)
+        if (isLiked && !showLiked) delay(LIKED_FOLD_DELAY_MILLIS.milliseconds)
         showLiked = isLiked
     }
     val context = LocalContext.current
