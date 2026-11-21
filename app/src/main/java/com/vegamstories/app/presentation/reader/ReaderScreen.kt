@@ -109,6 +109,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vegamstories.app.R
+import com.vegamstories.app.presentation.navigation.LocalNewDownloads
 import com.vegamstories.app.domain.model.PageBackground
 import com.vegamstories.app.domain.model.ReaderScrollMode
 import com.vegamstories.app.domain.model.ReaderSettings
@@ -222,7 +223,7 @@ fun ReaderScreenContent(
     openingStory: Story? = null,
     /** The tab the reader will open on, as far as is known before the story has loaded. */
     openingFormat: StoryFormat? = null,
-    /** The story's download while it saves, 0 … 1 (a ring on the download button); else null. */
+    /** The story's download while it saves, 0 … 1 (the download button's jar fills); else null. */
     downloadProgress: Float? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -235,6 +236,25 @@ fun ReaderScreenContent(
         }
         var celebrating by rememberSaveable { mutableStateOf(false) }
         val likeCover = remember { LikeCoverSpot() }
+        // Download tapped: the story's book drops into the download button (DownloadDrop), and the
+        // Downloads tab hops once the bottom bar is back.
+        val downloadSpot = remember { DownloadSpot() }
+        var dropping by remember { mutableStateOf(false) }
+        val newDownloads = LocalNewDownloads.current
+        val animated = animationsOn()
+        val currentOnToggleDownload by rememberUpdatedState(onToggleDownload)
+        val currentStory by rememberUpdatedState(story)
+        // Remembered, like onReachedEnd: a new one each time would recompose the whole reader.
+        val toggleDownload: () -> Unit = remember {
+            {
+                val saving = currentStory
+                if (saving != null && !saving.isDownloaded) {
+                    newDownloads.added()
+                    if (animated) dropping = true
+                }
+                currentOnToggleDownload()
+            }
+        }
         var celebrated by rememberSaveable { mutableStateOf(false) }
         // Remembered: a new one each time would recompose the whole reader (a static local).
         val onReachedEnd: () -> Unit = remember {
@@ -251,6 +271,7 @@ fun ReaderScreenContent(
             LocalStoryLanguage provides state.language,
             LocalOnReachedEnd provides onReachedEnd,
             LocalLikeCover provides likeCover,
+            LocalDownloadSpot provides downloadSpot,
         ) {
         Box(
             modifier
@@ -283,7 +304,7 @@ fun ReaderScreenContent(
                     onBack = onBack,
                     onPageChanged = onPageChanged,
                     onToggleFavorite = onToggleFavorite,
-                    onToggleDownload = onToggleDownload,
+                    onToggleDownload = toggleDownload,
                     onOpenNextStory = onOpenNextStory,
                     onScrollModeChange = onScrollModeChange,
                     onKeepScreenOnChange = onKeepScreenOnChange,
@@ -300,6 +321,7 @@ fun ReaderScreenContent(
                 )
             }
             if (celebrating && story != null) StoryFinished(story, onDone = { celebrating = false }, likeCover = likeCover)
+            if (dropping && story != null) DownloadDrop(story, downloadSpot, onDone = { dropping = false })
         }
         }
     }
@@ -873,48 +895,6 @@ internal val Story.opensOnCover: Boolean
 
 /** Room above and below each page in the page-by-page reader. */
 private val DefaultPageMargin = 8.dp
-
-/**
- * The download button's icon: an arrow; while the story saves, a ring filling around it; once
- * saved, a tick that pops in.
- */
-@Composable
-private fun DownloadIcon(isDownloaded: Boolean, progress: Float?) {
-    val primary = MaterialTheme.colorScheme.primary
-    val saving = progress != null
-    val filled by animateFloatAsState(progress ?: 0f, tween(durationMillis = 250), label = "downloadRing")
-    val tick = remember { Animatable(1f) }
-    val showTick = isDownloaded && !saving
-    var hadTick by remember { mutableStateOf(showTick) }
-    LaunchedEffect(showTick) {
-        if (showTick && !hadTick) {
-            tick.snapTo(0.4f)
-            tick.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
-        }
-        hadTick = showTick
-    }
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(30.dp)) {
-        if (saving) {
-            CircularProgressIndicator(
-                progress = { filled },
-                modifier = Modifier.matchParentSize(),
-                strokeWidth = 2.5.dp,
-                trackColor = primary.copy(alpha = 0.18f),
-            )
-        }
-        Icon(
-            painter = painterResource(if (showTick) R.drawable.ic_download_done else R.drawable.ic_download),
-            contentDescription = stringResource(R.string.cd_download),
-            tint = if (isDownloaded || saving) primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .size(if (saving) 16.dp else 22.dp)
-                .graphicsLayer {
-                    scaleX = tick.value
-                    scaleY = tick.value
-                },
-        )
-    }
-}
 
 /** How long the cover stays, once the card has grown into the reader, before it turns by itself. */
 private const val COVER_TURN_DELAY_MILLIS = 1_000L

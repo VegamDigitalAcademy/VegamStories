@@ -4,7 +4,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -54,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -191,10 +197,14 @@ fun GlassBottomBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceAround,
         ) {
+        // Stories downloaded in the reader: the Downloads tab hops once the bar is back, to show where they went.
+        val newDownloads = LocalNewDownloads.current
         TopLevelDestination.entries.forEachIndexed { index, destination ->
             GlassBarItem(
                 destination = destination,
                 selected = index == selectedIndex,
+                hop = destination == TopLevelDestination.DOWNLOADS && newDownloads.count > 0,
+                onHopped = newDownloads::shown,
                 onLensPlaced = { lensSpots[index] = it },
                 // Over the colours seen through the glass, the full text colour reads better than grey.
                 idleColor = if (blurs) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -243,6 +253,11 @@ private val BlurRadius = 26.dp
 
 /** How much wider the lens gets half-way between two tabs. */
 private val LensStretch = 18.dp
+
+/** A new download's hops on the Downloads tab: after the bar has slid in, how many, and how high. */
+private const val TAB_HOP_DELAY_MILLIS = NAV_ANIM_MS + 150L
+private const val TAB_HOPS = 2
+private val TabHopHeight = 9.dp
 private val BlurReach = BlurRadius * 2
 private const val GLASS_SATURATION = 1.25f
 
@@ -255,8 +270,22 @@ private fun GlassBarItem(
     idleColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Something new is in this tab: its icon hops twice, with a dot, once the bar has slid in; then [onHopped]. */
+    hop: Boolean = false,
+    onHopped: () -> Unit = {},
 ) {
     val primary = MaterialTheme.colorScheme.primary
+    val hopUp = remember { Animatable(0f) }
+    val currentOnHopped by rememberUpdatedState(onHopped)
+    LaunchedEffect(hop) {
+        if (!hop) return@LaunchedEffect
+        delay(TAB_HOP_DELAY_MILLIS)
+        repeat(TAB_HOPS) {
+            hopUp.animateTo(1f, tween(durationMillis = 170, easing = FastOutSlowInEasing))
+            hopUp.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium))
+        }
+        currentOnHopped()
+    }
     val contentColor by animateColorAsState(
         if (selected) primary else idleColor,
         label = "tabContent",
@@ -287,10 +316,22 @@ private fun GlassBarItem(
                 modifier = Modifier
                     .size(22.dp)
                     .graphicsLayer {
-                        scaleX = iconScale
-                        scaleY = iconScale
+                        // Up and a little bigger on each hop; the spring back squashes it slightly.
+                        translationY = -TabHopHeight.toPx() * hopUp.value
+                        scaleX = iconScale * (1f + 0.22f * hopUp.value)
+                        scaleY = iconScale * (1f + 0.22f * hopUp.value)
                     },
             )
+            if (hop) {
+                // A dot on the icon's top right corner, just outside it.
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 5.dp, y = 1.dp)
+                        .size(8.dp)
+                        .background(primary, CircleShape),
+                )
+            }
         }
         Spacer(Modifier.height(2.dp))
         Text(

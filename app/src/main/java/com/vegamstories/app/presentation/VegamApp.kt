@@ -38,6 +38,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.vegamstories.app.presentation.navigation.EmphasizedEasing
 import com.vegamstories.app.presentation.navigation.GlassBottomBar
+import com.vegamstories.app.presentation.navigation.LocalNewDownloads
+import com.vegamstories.app.presentation.navigation.NewDownloads
 import com.vegamstories.app.presentation.navigation.NAV_ANIM_MS
 import com.vegamstories.app.presentation.navigation.ReaderRoute
 import com.vegamstories.app.presentation.navigation.SearchRoute
@@ -86,7 +88,9 @@ fun VegamApp(
 
     // A story opening from its card grows over everything (StoryOpeningOverlay).
     val storyOpener = remember { StoryOpener() }
-    CompositionLocalProvider(LocalStoryOpener provides storyOpener) {
+    // Stories downloaded in the reader, for the Downloads tab to hop about when the bar is back.
+    val newDownloads = remember { NewDownloads() }
+    CompositionLocalProvider(LocalStoryOpener provides storyOpener, LocalNewDownloads provides newDownloads) {
     // Everything under the bar, recorded as it's drawn, for the bar to blur (GlassBottomBar).
     val backdrop = rememberGraphicsLayer()
     // The bar and snackbar float over the screens instead of resizing them. If the bar's space
