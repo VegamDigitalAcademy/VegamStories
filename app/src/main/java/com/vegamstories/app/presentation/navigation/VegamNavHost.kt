@@ -122,11 +122,12 @@ fun VegamNavHost(
                 )
             }
         }
-//        if (BuildConfig.DEBUG) {
+        // Settings → Developer → API calls: debug builds only (release builds don't count the calls).
+        if (BuildConfig.DEBUG) {
             composable<ApiCallsRoute> {
                 AboveBottomBar { ApiCallsScreen(onBack = navController::popBackStack) }
             }
-//        }
+        }
         composable<InfoRoute> { entry ->
             val page = InfoPage.valueOf(entry.toRoute<InfoRoute>().page)
             AboveBottomBar { InfoScreen(page = page, onBack = navController::popBackStack) }

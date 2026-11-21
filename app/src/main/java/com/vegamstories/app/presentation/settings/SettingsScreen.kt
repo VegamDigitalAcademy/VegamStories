@@ -61,6 +61,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vegamstories.app.BuildConfig
 import com.vegamstories.app.R
 import com.vegamstories.app.domain.model.AUTO_TURN_SECONDS_OPTIONS
 import com.vegamstories.app.domain.model.AppLanguage
@@ -150,7 +151,8 @@ fun SettingsScreen(
         tornPages = readerSettings.tornPages,
         onTornPagesChange = viewModel::onTornPagesChange,
         onShareLogs = { showShareLogs = true },
-        onOpenApiCalls = onOpenApiCalls/*.takeIf { BuildConfig.DEBUG }*/,
+        // The Developer section (API calls) is for debug builds only.
+        onOpenApiCalls = onOpenApiCalls.takeIf { BuildConfig.DEBUG },
         onBack = onBack,
     )
 }
