@@ -3,6 +3,7 @@ package com.vegamstories.app
 import com.vegamstories.app.core.logging.AppLogger
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.SystemBarStyle
@@ -57,17 +58,22 @@ class MainActivity : AppCompatActivity() {
                 SystemClock.uptimeMillis() < splashUntil ||
                     viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
             }
-            // It goes gently: the logo grows a little as the splash fades into the app.
-            setOnExitAnimationListener { splash ->
-                val icon = runCatching { splash.iconView }.getOrNull() // missing on some Android 12 phones
-                icon?.animate()?.scaleX(SPLASH_EXIT_SCALE)?.scaleY(SPLASH_EXIT_SCALE)
-                    ?.setDuration(SPLASH_EXIT_MS)?.setInterpolator(AccelerateInterpolator())?.start()
-                splash.view.animate()
-                    .alpha(0f)
-                    .setDuration(SPLASH_EXIT_MS)
-                    .setInterpolator(DecelerateInterpolator())
-                    .withEndAction { splash.remove() }
-                    .start()
+            // Android 12+ takes the splash away itself, with its own short exit. Asking to do it here
+            // (setOnExitAnimationListener) makes Android hand the app a copy of the splash, and in the
+            // hand-over there's a frame with neither: the screen blinks dark. Older Android draws the
+            // splash inside the app, so there it goes gently: the logo grows a little as it fades.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                setOnExitAnimationListener { splash ->
+                    val icon = runCatching { splash.iconView }.getOrNull()
+                    icon?.animate()?.scaleX(SPLASH_EXIT_SCALE)?.scaleY(SPLASH_EXIT_SCALE)
+                        ?.setDuration(SPLASH_EXIT_MS)?.setInterpolator(AccelerateInterpolator())?.start()
+                    splash.view.animate()
+                        .alpha(0f)
+                        .setDuration(SPLASH_EXIT_MS)
+                        .setInterpolator(DecelerateInterpolator())
+                        .withEndAction { splash.remove() }
+                        .start()
+                }
             }
         }
         super.onCreate(savedInstanceState)
@@ -141,7 +147,7 @@ class MainActivity : AppCompatActivity() {
         /** The logo splash stays at least this long. */
         const val SPLASH_MIN_MS = 2_000L
 
-        /** The splash fading into the app: how long, and how much the logo grows meanwhile. */
+        /** The splash fading into the app on Android 11 and older: how long, and how much the logo grows. */
         private const val SPLASH_EXIT_MS = 320L
         private const val SPLASH_EXIT_SCALE = 1.18f
 
