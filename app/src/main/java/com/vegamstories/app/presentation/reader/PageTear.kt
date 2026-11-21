@@ -1,9 +1,11 @@
 package com.vegamstories.app.presentation.reader
 
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloat
@@ -11,6 +13,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -28,8 +34,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -75,6 +84,7 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -89,10 +99,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vegamstories.app.R
 import com.vegamstories.app.core.logging.AppLogger
+import com.vegamstories.app.presentation.components.drawPointingHand
+import com.vegamstories.app.presentation.components.withAlpha
 import com.vegamstories.app.ui.theme.VegamRed
+import com.vegamstories.app.ui.theme.VegamRedDark
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -185,6 +199,9 @@ internal class PageTear {
     /** The page's happy bounce once it's fixed: 1 = its own size. */
     val bounce = Animatable(1f)
 
+    /** How wet the glue still looks: 1 while it's being poured and rubbed in … 0 dried clear (once fixed). */
+    val wet = Animatable(1f)
+
     /** How much each of the tear's [RUB_STRETCHES] stretches has been rubbed in, 0 … 1. */
     val rubbed = mutableStateListOf<Float>()
 
@@ -211,6 +228,7 @@ internal class PageTear {
         pour.snapTo(0f)
         splash.snapTo(0f)
         bounce.snapTo(1f)
+        wet.snapTo(1f)
         pourFrom = 0.5f
     }
 
@@ -450,24 +468,23 @@ private fun paperFibres(seed: Int, line: List<Offset>): Fibres {
 
 /**
  * The glue: a puddle where the bottle landed, and from it a glossy light blue run of liquid along
- * the tear, slightly wobbly, with round, wet ends where it's still flowing. Each stretch spreads
- * and clears as it's rubbed in.
+ * the tear, slightly wobbly, with round, wet ends where it's still flowing. Rubbed in, each stretch
+ * spreads out wider and the glue thins; once the page is fixed it dries clear ([PageTear.wet]).
  */
 private fun DrawScope.drawGlue(tear: PageTear, line: List<Offset>) {
     val poured = tear.pour.value
     if (poured <= 0f && tear.splash.value <= 0f) return
+    val strength = glueStrength(tear)
+    if (strength <= 0.01f) return
     val range = pouredRange(tear.pourFrom, poured)
     val wobble = 1.8.dp.toPx()
     val width = GLUE_WIDTH.toPx()
-    fun stroke(w: Float) = Stroke(width = w, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val runs = mutableListOf<GlueStroke>()
     val stretches = tear.rubbed.size.coerceAtLeast(1)
     for (k in 0 until stretches) {
         val from = maxOf(k / stretches.toFloat(), range.start)
         val to = minOf((k + 1) / stretches.toFloat(), range.endInclusive)
         if (to <= from) continue
-        val rubbed = tear.rubbed.getOrElse(k) { 0f }
-        val wet = 1f - rubbed
-        if (wet <= 0.01f) continue
         val path = Path()
         val steps = 6
         for (i in 0..steps) {
@@ -476,57 +493,98 @@ private fun DrawScope.drawGlue(tear: PageTear, line: List<Offset>) {
             val y = p.y + sin(f * 40f + tear.seed) * wobble
             if (i == 0) path.moveTo(p.x, y) else path.lineTo(p.x, y)
         }
-        val spread = width * (1f + rubbed * 0.8f)
-        drawPath(path, GlueRim.copy(alpha = 0.35f * wet), style = stroke(spread + 2.5.dp.toPx()))
-        drawPath(path, GlueLiquid.copy(alpha = 0.62f * wet), style = stroke(spread))
-        translate(top = -spread * 0.2f) {
-            drawPath(path, Color.White.copy(alpha = 0.85f * wet), style = stroke(spread * 0.2f))
-        }
+        runs += GlueStroke(path, width * (1f + tear.rubbed.getOrElse(k) { 0f } * GLUE_SPREAD))
     }
+    val blobs = mutableListOf<Path>()
+    val shines = mutableListOf<Pair<Offset, Float>>()
     // Still flowing: round, wet fronts at both ends.
     if (poured in 0.001f..0.999f) {
         listOf(range.start, range.endInclusive).forEach { f ->
             val c = pointAt(line, f)
-            drawLiquidDrop(c, width * 0.9f, alpha = 1f - tear.rubbedAt(f))
+            val r = width * 0.9f
+            blobs += Path().apply { addOval(Rect(c, r)) }
+            shines += (c - Offset(r * 0.3f, r * 0.3f)) to r * 0.3f
         }
     }
     // The puddle where it landed.
     val splash = tear.splash.value
     if (splash > 0f) {
         val c = pointAt(line, tear.pourFrom)
-        val wet = 1f - tear.rubbedAt(tear.pourFrom)
-        if (wet > 0.01f) {
-            val r = width * 2.4f * splash
-            val puddle = Path().apply {
-                val lobes = 7
-                for (i in 0..64) {
-                    val a = i / 64f * 2f * PI.toFloat()
-                    val rr = r * (1f + 0.16f * sin(a * lobes + tear.seed)) * (if (sin(a) > 0f) 0.7f else 0.55f)
-                    val p = c + Offset(cos(a) * rr * 1.5f, sin(a) * rr)
-                    if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
-                }
-                close()
+        val r = width * 2.4f * splash
+        blobs += Path().apply {
+            val lobes = 7
+            for (i in 0..64) {
+                val a = i / 64f * 2f * PI.toFloat()
+                val rr = r * (1f + 0.16f * sin(a * lobes + tear.seed)) * (if (sin(a) > 0f) 0.7f else 0.55f)
+                val p = c + Offset(cos(a) * rr * 1.5f, sin(a) * rr)
+                if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
             }
-            drawPath(puddle, GlueRim.copy(alpha = 0.3f * wet), style = Stroke(width = 2.dp.toPx()))
-            drawPath(puddle, GlueLiquid.copy(alpha = 0.55f * wet))
-            drawCircle(Color.White.copy(alpha = 0.8f * wet), radius = r * 0.18f, center = c - Offset(r * 0.45f, r * 0.2f))
+            close()
         }
+        shines += (c - Offset(r * 0.45f, r * 0.2f)) to r * 0.18f
+    }
+    drawGlueLiquid(runs, blobs, shines, strength)
+}
+
+/** How strongly the glue shows: clearer as more of it is rubbed in, and gone once it has dried. */
+private fun glueStrength(tear: PageTear): Float = tear.wet.value * (1f - GLUE_RUBBED_CLEAR * tear.progress)
+
+/** A stroke of glue along [path], [width] wide. */
+private class GlueStroke(val path: Path, val width: Float)
+
+/**
+ * Glue as one clear, glossy liquid: a soft shadow under it, a darker blue rim so it shows on pale
+ * paper and dark alike, the light blue liquid with a paler middle, and shine along its top. The
+ * [strokes], [blobs] (filled shapes) and [shines] (round glints) merge into one, [strength] (0 … 1)
+ * opaque as a whole, so overlapping bits never show as darker beads.
+ */
+private fun DrawScope.drawGlueLiquid(
+    strokes: List<GlueStroke>,
+    blobs: List<Path>,
+    shines: List<Pair<Offset, Float>>,
+    strength: Float,
+) {
+    if (strength <= 0.01f || (strokes.isEmpty() && blobs.isEmpty())) return
+    fun round(w: Float) = Stroke(width = w, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val rim = 2.dp.toPx()
+    withAlpha(0.3f * strength) {
+        translate(top = 2.5.dp.toPx()) {
+            strokes.forEach { drawPath(it.path, Color.Black, style = round(it.width + rim)) }
+            blobs.forEach { drawPath(it, Color.Black) }
+        }
+    }
+    withAlpha(0.92f * strength) {
+        strokes.forEach { drawPath(it.path, GlueRim, style = round(it.width + 2f * rim)) }
+        blobs.forEach { drawPath(it, GlueRim, style = round(2f * rim)) }
+        strokes.forEach { drawPath(it.path, GlueLiquid, style = round(it.width)) }
+        blobs.forEach { drawPath(it, GlueLiquid) }
+        strokes.forEach { drawPath(it.path, GlueCore, style = round(it.width * 0.45f)) }
+    }
+    withAlpha(0.9f * strength) {
+        strokes.forEach { s -> translate(top = -s.width * 0.22f) { drawPath(s.path, Color.White, style = round(s.width * 0.16f)) } }
+        shines.forEach { (c, r) -> drawCircle(Color.White, radius = r, center = c) }
     }
 }
 
-/** A round drop of glue, with its shine. */
-private fun DrawScope.drawLiquidDrop(center: Offset, radius: Float, alpha: Float) {
-    if (alpha <= 0.01f) return
-    drawCircle(GlueRim.copy(alpha = 0.35f * alpha), radius = radius + 1.dp.toPx(), center = center)
-    drawCircle(GlueLiquid.copy(alpha = 0.7f * alpha), radius = radius, center = center)
-    drawCircle(Color.White.copy(alpha = 0.9f * alpha), radius = radius * 0.3f, center = center - Offset(radius * 0.3f, radius * 0.3f))
+/** Glue spread by the finger: the points it passed through near the tear, in px. */
+@Stable
+private class Smear {
+    val points = mutableStateListOf<Offset>()
+
+    fun path(): Path = Path().apply {
+        points.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
+    }
 }
 
 /**
- * Over a torn page: the glue bottle pops up. Dropped on the page (or tapped), it tips over the tear
- * there and the glue pools and runs along the tear both ways; then rubbing a finger back and forth
- * along the tear rubs it in, closing the tear where it's done, with sparkles under the finger. Once it's all in, [onFixed]: confetti, and Read story ([onDone]). Fix it skips
- * straight there, for anyone who can't or won't rub. Everything is in the story's language.
+ * Over a torn page: the glue bottle pops up, and a hand shows what to do: pick the bottle up and
+ * drop it on the tear. Dropped there (or tapped), it tips over the tear and the glue pools and runs
+ * along it both ways; then the hand shows rubbing it in, back and forth along the tear. The glue
+ * spreads under the finger as it rubs, the tear closes where it's done, with sparkles under the
+ * finger. Once it's all in, [onFixed]: the glue dries clear, confetti, and Read story ([onDone]).
+ * Fix it skips straight there for anyone who can't or won't rub; it comes after [FIX_AFTER_MILLIS],
+ * once the reader has had a go (at once with TalkBack, which can't drag). Everything is in the
+ * story's language.
  */
 @Composable
 internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: () -> Unit) {
@@ -542,6 +600,7 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
             Offset(width - CornerEnd.toPx() - bottleWidth / 2f, height - CornerBottom.toPx() - bottleHeight / 2f)
         }
         val line = tear.line.map { Offset(it.x * width, it.y * height) }
+        val currentLine by rememberUpdatedState(line)
         // Turned over to pour, nozzle down onto the tear, leaning towards the middle of the page so it
         // stays on screen. Where its middle has to be for the nozzle to touch [point]:
         fun pourTilt(at: Float) = if (at > 0.5f) POUR_TILT else -POUR_TILT
@@ -554,7 +613,19 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
         val haptics = LocalHapticFeedback.current
         val bottle = remember(tear.page) { BottleMotion(corner) }
         val sparkles = remember(tear.page) { mutableStateListOf<Sparkle>() }
+        val smears = remember(tear.page) { mutableStateListOf<Smear>() }
         var now by remember { mutableLongStateOf(0L) }
+        // While the reader is at it (holding the bottle, or a finger on the page), the hand doesn't show how.
+        var bottleHeld by remember(tear.page) { mutableStateOf(false) }
+        var fingerDown by remember(tear.page) { mutableStateOf(false) }
+
+        // Fix it: after a while, once the reader has had a go; at once with TalkBack.
+        val context = LocalContext.current
+        var showFix by remember(tear.page) { mutableStateOf(isTouchExploring(context)) }
+        LaunchedEffect(tear.page) {
+            delay(FIX_AFTER_MILLIS)
+            showFix = true
+        }
 
         // The bottle pops in once the page has torn.
         LaunchedEffect(tear.page) {
@@ -563,8 +634,22 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
             bottle.scale.animateTo(1.15f, tween(durationMillis = 220, easing = FastOutSlowInEasing))
             bottle.scale.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessMediumLow))
         }
-        // Fixed: the page gives a little hop of joy, and "Page fixed!" goes by itself after a moment
-        // (or sooner, with Read story).
+        // Showing how: dragging the bottle to the tear, a moment after it pops up; then rubbing, as
+        // soon as the glue is on, and again whenever the finger has been off the page a while.
+        var showDrag by remember(tear.page) { mutableStateOf(false) }
+        LaunchedEffect(tear.page) {
+            delay(DRAG_DEMO_AFTER_MILLIS)
+            showDrag = true
+        }
+        var showRub by remember(tear.page) { mutableStateOf(false) }
+        LaunchedEffect(tear.stage, fingerDown) {
+            showRub = false
+            if (tear.stage != TearStage.RUBBING || fingerDown) return@LaunchedEffect
+            delay(if (tear.progress == 0f) RUB_DEMO_AFTER_MILLIS else RUB_DEMO_AGAIN_MILLIS)
+            showRub = true
+        }
+        // Fixed: the glue dries clear, the page gives a little hop of joy, and "Page fixed!" goes by
+        // itself after a moment (or sooner, with Read story).
         val currentOnDone by rememberUpdatedState(onDone)
         LaunchedEffect(tear.stage) {
             if (tear.stage != TearStage.FIXED) return@LaunchedEffect
@@ -572,6 +657,10 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
             launch {
                 tear.bounce.animateTo(1.04f, tween(durationMillis = 140, easing = FastOutSlowInEasing))
                 tear.bounce.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium))
+            }
+            launch {
+                delay(GLUE_DRY_DELAY_MILLIS)
+                tear.wet.animateTo(0f, tween(durationMillis = GLUE_DRY_MILLIS, easing = LinearEasing))
             }
             delay(FIXED_SHOWN_MILLIS)
             currentOnDone()
@@ -622,28 +711,55 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
                         val down = awaitFirstDown()
                         down.consume()
                         if (tear.stage != TearStage.RUBBING) return@awaitEachGesture
-                        drag(down.id) { change ->
-                            change.consume()
-                            if (tear.stage != TearStage.RUBBING) return@drag
-                            val moved = (change.position - change.previousPosition).getDistance()
-                            tear.rub(change.position, moved, line, reach, fillDistance)
-                            val at = change.uptimeMillis
-                            if (at - lastSparkle >= SPARKLE_EVERY_MILLIS && moved > 0f) {
-                                lastSparkle = at
-                                sparkles += Sparkle(change.position, born = at, seed = sparkles.size + at.toInt())
+                        fingerDown = true
+                        var smear: Smear? = null
+                        try {
+                            drag(down.id) { change ->
+                                change.consume()
+                                if (tear.stage != TearStage.RUBBING) return@drag
+                                val moved = (change.position - change.previousPosition).getDistance()
+                                tear.rub(change.position, moved, currentLine, reach, fillDistance)
+                                // The glue spreads wherever the finger goes near the tear.
+                                val onTear = pointAt(currentLine, change.position.x / width)
+                                if (moved > 0f && abs(change.position.y - onTear.y) <= reach) {
+                                    val current = smear?.takeIf { it.points.size < SMEAR_POINTS }
+                                        ?: Smear().also { new ->
+                                            new.points += change.previousPosition
+                                            smears += new
+                                            if (smears.size > MAX_SMEARS) smears.removeAt(0)
+                                            smear = new
+                                        }
+                                    current.points += change.position
+                                } else if (moved > 0f) {
+                                    smear = null
+                                }
+                                val at = change.uptimeMillis
+                                if (at - lastSparkle >= SPARKLE_EVERY_MILLIS && moved > 0f) {
+                                    lastSparkle = at
+                                    sparkles += Sparkle(change.position, born = at, seed = sparkles.size + at.toInt())
+                                }
+                                if (at - lastTick >= HAPTIC_EVERY_MILLIS && moved > 0f) {
+                                    lastTick = at
+                                    haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                }
                             }
-                            if (at - lastTick >= HAPTIC_EVERY_MILLIS && moved > 0f) {
-                                lastTick = at
-                                haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            }
+                        } finally {
+                            fingerDown = false
                         }
                         log.d("$TAG: Rubbed in: ${(tear.progress * 100).toInt()}% of the tear")
                     }
                 },
         )
 
-        // Sparkles under the finger, and the confetti once fixed.
+        // The glue spread by the finger, sparkles under it, and the confetti once fixed.
         Canvas(Modifier.matchParentSize()) {
+            val smearWidth = SmearWidth.toPx()
+            drawGlueLiquid(
+                strokes = smears.map { GlueStroke(it.path(), smearWidth) },
+                blobs = emptyList(),
+                shines = emptyList(),
+                strength = SMEAR_STRENGTH * glueStrength(tear),
+            )
             sparkles.forEach { drawSparkle(it, now) }
         }
         if (tear.stage == TearStage.FIXED) Confetti(origin = pointAt(line, 0.5f), seed = tear.seed)
@@ -681,13 +797,18 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
                         awaitEachGesture {
                             val down = awaitFirstDown()
                             down.consume()
+                            bottleHeld = true
                             var dragged = false
                             scope.launch { bottle.scale.animateTo(1.12f, tween(durationMillis = 120)) }
-                            drag(down.id) { change ->
-                                val delta = change.position - change.previousPosition
-                                change.consume()
-                                if (!dragged && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) dragged = true
-                                if (dragged) scope.launch { bottle.position.snapTo(bottle.position.value + delta) }
+                            try {
+                                drag(down.id) { change ->
+                                    val delta = change.position - change.previousPosition
+                                    change.consume()
+                                    if (!dragged && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) dragged = true
+                                    if (dragged) scope.launch { bottle.position.snapTo(bottle.position.value + delta) }
+                                }
+                            } finally {
+                                bottleHeld = false
                             }
                             // Picked up and dropped: pour where it is. Just tapped: pour mid-tear.
                             if (dragged) dropAt(bottle.position.value.x) else pourAt(0.5f)
@@ -705,27 +826,41 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
             }
         }
 
-        // What to do next.
+        // The hand showing what to do: drag the bottle onto the tear, then rub the glue in.
+        if (tear.stage == TearStage.TORN && showDrag && !bottleHeld) {
+            val target = pointAt(line, 0.5f)
+            DragDemo(from = corner, to = target + Offset(0f, -bottleHeight * 0.12f), target = target, bottleHeight = bottleHeight)
+        }
+        if (tear.stage == TearStage.RUBBING && showRub) RubDemo(line)
+
+        // What to do next, in words.
         when (tear.stage) {
             TearStage.TORN -> HintBubble(
+                step = 1,
                 title = words(R.string.tear_hint),
                 hint = words(R.string.tear_tap_glue),
                 fix = words(R.string.tear_fix),
+                showFix = showFix,
                 onFix = { scope.launch { tear.fixNow() } },
                 progress = null,
+                appearAfterMillis = BUBBLE_AFTER_MILLIS,
             )
             TearStage.POURING -> Unit
             TearStage.RUBBING -> HintBubble(
+                step = 2,
                 title = null,
                 hint = words(R.string.tear_rub_glue),
                 fix = words(R.string.tear_fix),
+                showFix = showFix,
                 onFix = { scope.launch { tear.fixNow() } },
                 progress = { tear.progress },
             )
             TearStage.FIXED -> Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shadowElevation = 8.dp,
+                shape = RoundedCornerShape(24.dp),
+                color = BubblePaper,
+                contentColor = BubbleInk,
+                shadowElevation = 10.dp,
+                border = BorderStroke(2.dp, GlueRim),
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(24.dp)
@@ -747,6 +882,10 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
     }
 }
 
+/** Whether TalkBack (or another screen reader) is exploring by touch: no dragging or rubbing then. */
+private fun isTouchExploring(context: Context): Boolean =
+    (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
+
 /** The bottle's place (its middle, in px), tilt and size. */
 @Stable
 private class BottleMotion(corner: Offset) {
@@ -755,51 +894,222 @@ private class BottleMotion(corner: Offset) {
     val scale = Animatable(0f)
 }
 
-/** The hint next to the bottle, with how far the rubbing has got and Fix it. */
+/**
+ * Showing how to pour, over and over: the hand comes to the bottle, presses on it, and drags a
+ * see-through copy of it along a dotted path [from] its corner [to] the tear, where a ring pulses on
+ * the [target] spot; there it lets go, and both fade. All in px.
+ */
 @Composable
-private fun BoxScope.HintBubble(title: String?, hint: String, fix: String, onFix: () -> Unit, progress: (() -> Float)?) {
-    val pulse by rememberInfiniteTransition(label = "hintPulse").animateFloat(
-        initialValue = 1f,
-        targetValue = 1.25f,
-        animationSpec = infiniteRepeatable(tween(durationMillis = 520), RepeatMode.Reverse),
-        label = "finger",
+private fun BoxScope.DragDemo(from: Offset, to: Offset, target: Offset, bottleHeight: Float) {
+    val clock = rememberInfiniteTransition(label = "dragDemo").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(durationMillis = DRAG_DEMO_MILLIS, easing = LinearEasing)),
+        label = "dragDemoClock",
     )
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { shown.animateTo(1f, tween(durationMillis = 300)) }
+    // A gentle curve: up first, then across.
+    val bend = Offset(from.x + (to.x - from.x) * 0.2f, from.y + (to.y - from.y) * 0.85f)
+    fun along(f: Float): Offset {
+        val a = 1f - f
+        return from * (a * a) + bend * (2f * a * f) + to * (f * f)
+    }
+
+    // The see-through copy of the bottle, carried by the hand.
+    Box(
+        Modifier
+            .offset {
+                val frame = DragDemoFrame(clock.value)
+                val at = along(frame.move)
+                IntOffset((at.x - BottleWidth.toPx() / 2f).roundToInt(), (at.y - BottleHeight.toPx() / 2f).roundToInt())
+            }
+            .size(BottleWidth, BottleHeight)
+            .graphicsLayer {
+                val frame = DragDemoFrame(clock.value)
+                alpha = GHOST_BOTTLE_ALPHA * frame.ghost * shown.value
+                val plop = 1f + 0.08f * sin(frame.landed * PI.toFloat())
+                scaleX = plop
+                scaleY = plop
+            },
+    ) {
+        Canvas(Modifier.matchParentSize()) { drawGlueBottle(tilt = 0f, level = 1f, slosh = 0f) }
+    }
+    Canvas(Modifier.matchParentSize()) {
+        val frame = DragDemoFrame(clock.value)
+        val fade = shown.value
+        // Where to drop it: a ring pulsing on the tear.
+        drawDropTarget(target, phase = (clock.value * 2f) % 1f, alpha = fade)
+        // The way there: dots ahead of the bottle.
+        val gap = 14.dp.toPx()
+        val length = (to - from).getDistance() * 1.1f
+        val dots = (length / gap).toInt().coerceAtLeast(2)
+        for (i in 1 until dots) {
+            val f = i / dots.toFloat()
+            if (f <= frame.move) continue
+            val p = along(f)
+            drawCircle(GuideInk.copy(alpha = 0.5f * fade), radius = 4.dp.toPx(), center = p)
+            drawCircle(Color.White.copy(alpha = 0.9f * fade), radius = 2.6.dp.toPx(), center = p)
+        }
+        // The hand, its fingertip on the bottle's label.
+        val tip = along(frame.move) + Offset(0f, bottleHeight * 0.12f) +
+            Offset(30.dp.toPx(), 40.dp.toPx()) * frame.coming + Offset(18.dp.toPx(), -14.dp.toPx()) * frame.leaving
+        drawPressRipple(tip, frame.press, alpha = fade * frame.hand)
+        drawPointingHand(tip = tip, unit = HandUnit.toPx(), press = frame.press, alpha = fade * frame.hand)
+    }
+}
+
+/** Where [DragDemo] is at [t] (0 … 1 through one showing): each part's progress, 0 … 1. */
+private class DragDemoFrame(t: Float) {
+    /** The hand coming in to the bottle (1 → 0), and leaving once it has let go (0 → 1). */
+    val coming = 1f - FastOutSlowInEasing.transform(share(t, 0f, 0.12f))
+    val leaving = share(t, 0.78f, 0.9f)
+    val hand = share(t, 0f, 0.08f) * (1f - share(t, 0.8f, 0.9f))
+    val press = share(t, 0.12f, 0.2f) * (1f - share(t, 0.7f, 0.78f))
+    val move = FastOutSlowInEasing.transform(share(t, 0.22f, 0.68f))
+    val ghost = share(t, 0.16f, 0.22f) * (1f - share(t, 0.78f, 0.88f))
+    val landed = share(t, 0.68f, 0.76f)
+}
+
+/** How far [t] is through [from] … [to], 0 … 1. */
+private fun share(t: Float, from: Float, to: Float): Float = ((t - from) / (to - from)).coerceIn(0f, 1f)
+
+/**
+ * Showing how to rub, over and over: the hand's finger on the tear, rubbing back and forth along
+ * it, under a ⟷ arrow.
+ */
+@Composable
+private fun BoxScope.RubDemo(line: List<Offset>) {
+    val clock = rememberInfiniteTransition(label = "rubDemo").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(durationMillis = RUB_DEMO_MILLIS, easing = LinearEasing)),
+        label = "rubDemoClock",
+    )
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { shown.animateTo(1f, tween(durationMillis = 300)) }
+    Canvas(Modifier.matchParentSize()) {
+        val fade = shown.value
+        val swing = 0.5f - 0.5f * cos(clock.value * 2f * PI.toFloat())
+        val left = pointAt(line, RUB_DEMO_FROM)
+        val right = pointAt(line, RUB_DEMO_TO)
+        val above = Offset(0f, -ARROW_ABOVE.toPx())
+        drawBackAndForth(left + above, right + above, alpha = fade)
+        val tip = pointAt(line, RUB_DEMO_FROM + (RUB_DEMO_TO - RUB_DEMO_FROM) * swing)
+        drawPressRipple(tip, press = 1f, alpha = fade)
+        drawPointingHand(tip = tip, unit = HandUnit.toPx(), press = 1f, alpha = fade)
+    }
+}
+
+/** A ring pulsing out from [center] ([phase] 0 … 1), round a white dot: drop it here. */
+private fun DrawScope.drawDropTarget(center: Offset, phase: Float, alpha: Float) {
+    val r = 12.dp.toPx() + 16.dp.toPx() * phase
+    drawCircle(GuideInk.copy(alpha = 0.5f * (1f - phase) * alpha), radius = r, center = center, style = Stroke(width = 5.dp.toPx()))
+    drawCircle(Color.White.copy(alpha = 0.95f * (1f - phase) * alpha), radius = r, center = center, style = Stroke(width = 2.5.dp.toPx()))
+    drawCircle(GuideInk.copy(alpha = 0.6f * alpha), radius = 8.dp.toPx(), center = center)
+    drawCircle(Color.White.copy(alpha = alpha), radius = 5.5.dp.toPx(), center = center)
+}
+
+/** A soft ring round a fingertip pressing the screen. */
+private fun DrawScope.drawPressRipple(tip: Offset, press: Float, alpha: Float) {
+    if (press <= 0.01f || alpha <= 0.01f) return
+    drawCircle(Color.White.copy(alpha = 0.55f * press * alpha), radius = 15.dp.toPx() * press, center = tip)
+    drawCircle(GuideInk.copy(alpha = 0.45f * press * alpha), radius = 15.dp.toPx() * press, center = tip, style = Stroke(width = 1.5.dp.toPx()))
+}
+
+/** A white ⟷ arrow from [from] to [to], outlined so it shows on any page. */
+private fun DrawScope.drawBackAndForth(from: Offset, to: Offset, alpha: Float) {
+    if (alpha <= 0.01f) return
+    val head = 11.dp.toPx()
+    val along = (to - from) / (to - from).getDistance().coerceAtLeast(1f)
+    val side = Offset(-along.y, along.x)
+    fun arrow(color: Color, width: Float) {
+        drawLine(color, from, to, strokeWidth = width, cap = StrokeCap.Round)
+        listOf(from to along, to to -along).forEach { (tipAt, dir) ->
+            drawLine(color, tipAt, tipAt + dir * head + side * head * 0.75f, strokeWidth = width, cap = StrokeCap.Round)
+            drawLine(color, tipAt, tipAt - side * head * 0.75f + dir * head, strokeWidth = width, cap = StrokeCap.Round)
+        }
+    }
+    withAlpha(alpha) {
+        arrow(GuideInk.copy(alpha = 0.7f), 7.dp.toPx())
+        arrow(Color.White, 3.5.dp.toPx())
+    }
+}
+
+/**
+ * What to do next, in words, next to the bottle: a numbered step, the words, how far the rubbing
+ * has got, and Fix it once [showFix]. A cream card with dark writing and a glue-blue border, so it
+ * stands out over any page in light and dark. It rises in after [appearAfterMillis].
+ */
+@Composable
+private fun BoxScope.HintBubble(
+    step: Int,
+    title: String?,
+    hint: String,
+    fix: String,
+    showFix: Boolean,
+    onFix: () -> Unit,
+    progress: (() -> Float)?,
+    appearAfterMillis: Long = 0L,
+) {
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(appearAfterMillis)
+        appear.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow))
+    }
     Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 6.dp,
+        shape = RoundedCornerShape(22.dp),
+        color = BubblePaper,
+        contentColor = BubbleInk,
+        shadowElevation = 10.dp,
+        border = BorderStroke(2.dp, GlueRim),
         modifier = Modifier
             .align(Alignment.BottomStart)
             .padding(start = 16.dp, end = CornerEnd + BottleWidth + 8.dp, bottom = CornerBottom)
-            .widthIn(max = 420.dp),
+            .widthIn(max = 420.dp)
+            .graphicsLayer {
+                alpha = appear.value.coerceIn(0f, 1f)
+                translationY = (1f - appear.value) * 28.dp.toPx()
+            },
     ) {
-        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
-            if (title != null) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(2.dp))
+        Row(Modifier.padding(start = 12.dp, end = 14.dp, top = 12.dp, bottom = if (showFix) 2.dp else 14.dp)) {
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .background(GlueRim, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("$step", color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(hint, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = if (progress == null) "👉" else "👆",
-                    fontSize = 18.sp,
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = pulse
-                        scaleY = pulse
-                    },
-                )
-            }
-            if (progress != null) {
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    LinearProgressIndicator(progress = progress, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(8.dp))
-                    Text("${(progress() * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f, fill = false)) {
+                if (title != null) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(2.dp))
                 }
-            }
-            TextButton(onClick = onFix, modifier = Modifier.align(Alignment.End)) {
-                Text(fix, fontWeight = FontWeight.SemiBold)
+                Text(hint, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                if (progress != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LinearProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier.weight(1f),
+                            color = GlueRim,
+                            trackColor = BubbleInk.copy(alpha = 0.15f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("${(progress() * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    }
+                }
+                AnimatedVisibility(
+                    visible = showFix,
+                    enter = fadeIn(tween(durationMillis = 400)) + expandVertically(tween(durationMillis = 400)),
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    TextButton(onClick = onFix, colors = ButtonDefaults.textButtonColors(contentColor = VegamRedDark)) {
+                        Text(fix, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
@@ -978,8 +1288,20 @@ internal const val RUB_STRETCHES = 24
 /** Paper fibres and bits along each torn edge. */
 private const val FIBRES_PER_EDGE = 46
 
-/** The glue run's width, before it's rubbed in and spreads. */
-private val GLUE_WIDTH = 8.dp
+/** The glue run's width, before it's rubbed in and spreads; rubbed in, it spreads to (1 + [GLUE_SPREAD]) times that. */
+private val GLUE_WIDTH = 11.dp
+private const val GLUE_SPREAD = 1.3f
+
+/** Rubbed all the way in, the glue is this much clearer; once fixed it dries clear over [GLUE_DRY_MILLIS]. */
+private const val GLUE_RUBBED_CLEAR = 0.5f
+private const val GLUE_DRY_DELAY_MILLIS = 250L
+private const val GLUE_DRY_MILLIS = 1_000
+
+/** Glue spread by the finger: this wide, this strong next to the run along the tear, kept this long. */
+private val SmearWidth = 22.dp
+private const val SMEAR_STRENGTH = 0.75f
+private const val SMEAR_POINTS = 120
+private const val MAX_SMEARS = 30
 
 /** A stretch counts as rubbed when the finger passes this near its middle; this much rubbing fills it. */
 private val RubReach = 32.dp
@@ -1003,6 +1325,28 @@ private const val SPARKLE_MILLIS = 480L
 private const val SPARKLE_EVERY_MILLIS = 40L
 private const val HAPTIC_EVERY_MILLIS = 90L
 
+/** Fix it shows only after this long, once the reader has had a go at gluing it. */
+internal const val FIX_AFTER_MILLIS = 10_000L
+
+/** The hint card rises in once the bottle has popped up. */
+private const val BUBBLE_AFTER_MILLIS = 700L
+
+/**
+ * The hand showing how: dragging the bottle to the tear (starting this long after the tear, one
+ * showing this long), then rubbing (as soon as the glue is on, and again after the finger has been
+ * off the page a while), back and forth between these shares of the tear, under a ⟷ arrow this far above it.
+ */
+private const val DRAG_DEMO_AFTER_MILLIS = 1_200L
+private const val DRAG_DEMO_MILLIS = 2_800
+private const val RUB_DEMO_AFTER_MILLIS = 300L
+private const val RUB_DEMO_AGAIN_MILLIS = 3_000L
+private const val RUB_DEMO_MILLIS = 1_400
+private const val RUB_DEMO_FROM = 0.3f
+private const val RUB_DEMO_TO = 0.7f
+private val ARROW_ABOVE = 44.dp
+private val HandUnit = 1.25.dp
+private const val GHOST_BOTTLE_ALPHA = 0.9f
+
 /** How long "Page fixed!" stays, unless Read story is tapped first. */
 private const val FIXED_SHOWN_MILLIS = 3_000L
 
@@ -1014,6 +1358,7 @@ private val EdgeColor = Color(0xFFF7F1E3)
 /** The glue: clear light blue, with a deeper rim so it shows on pale paper. */
 private val GlueLiquid = Color(0xFFA9DCF7)
 private val GlueRim = Color(0xFF3D8FC4)
+private val GlueCore = Color(0xFFE1F4FF)
 private val GlueInsideTop = Color(0xCC8FD0F2)
 private val GlueInsideBottom = Color(0xE65AB0E2)
 
@@ -1026,4 +1371,11 @@ private val BottleCap = Color(0xFF2E86C1)
 private val BottleSmile = Color(0xFFFFE07A)
 private val SmileInk = Color(0xFF5A3A12)
 private val SparkleGold = Color(0xFFFFD54F)
+
+/** The hand's guides (target ring, dots, arrow) are white, edged with this so they show on white paper. */
+private val GuideInk = Color(0xFF1B3A57)
+
+/** The hint card: cream paper and dark brown writing, in light and dark alike. */
+private val BubblePaper = Color(0xFFFFF8EC)
+private val BubbleInk = Color(0xFF2A1E12)
 private val ConfettiColors = listOf(VegamRed, Color(0xFFFFC94D), Color(0xFF4FC3F7), Color(0xFF81C784), Color(0xFFF48FB1), Color(0xFFB39DDB))

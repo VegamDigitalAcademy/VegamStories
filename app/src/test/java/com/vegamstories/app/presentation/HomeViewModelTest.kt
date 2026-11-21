@@ -154,6 +154,37 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `on a first launch Home shows placeholders while the stories download, not No stories`() = runTest {
+        stories.stories.value = emptyList()
+        val gate = CompletableDeferred<Unit>().also { stories.refreshGate = it }
+        val viewModel = homeViewModel()
+        watch(viewModel)
+
+        viewModel.onShown()
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertFalse("the quiet check on opening still has no spinner", viewModel.uiState.value.isRefreshing)
+
+        stories.stories.value = listOf(testStory("moral-1"))
+        gate.complete(Unit)
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(listOf("moral-1"), viewModel.storyIds)
+    }
+
+    @Test
+    fun `a first launch that couldn't download stops showing placeholders`() = runTest {
+        stories.stories.value = emptyList()
+        stories.refreshResult = Result.failure(IOException("offline"))
+        val viewModel = homeViewModel()
+        watch(viewModel)
+
+        viewModel.onShown()
+
+        assertFalse("Home shows No stories with Retry", viewModel.uiState.value.isLoading)
+        assertTrue(viewModel.uiState.value.stories.isEmpty())
+    }
+
+    @Test
     fun `a failed pull to refresh says so, and the saved stories stay`() = runTest {
         stories.refreshResult = Result.failure(IOException("offline"))
         val viewModel = homeViewModel()

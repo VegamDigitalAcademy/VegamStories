@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.vegamstories.app.data.local.dao.StoryDao
 import com.vegamstories.app.data.mapper.toDomain
 import com.vegamstories.app.domain.model.ContentLanguages
+import com.vegamstories.app.domain.model.isOfferedStoryLanguage
+import com.vegamstories.app.domain.model.offeredOnly
 import com.vegamstories.app.domain.model.resolveContentLanguage
 import com.vegamstories.app.domain.repository.ContentLanguageRepository
 import com.vegamstories.app.domain.repository.LanguageRepository
@@ -42,10 +44,16 @@ class ContentLanguageRepositoryImpl @Inject constructor(
 
     override val contentLanguages: Flow<ContentLanguages> =
         combine(storyDao.observeLanguages(), saved) { languages, picked ->
-            val all = languages.map { it.toDomain() }
+            // Only the languages the app offers; an earlier pick of another (English, say) or a
+            // phone in another language falls back to the first offered one.
+            val all = languages.map { it.toDomain() }.offeredOnly()
             ContentLanguages(
                 all = all,
-                selected = resolveContentLanguage(picked, deviceLanguage(), all),
+                selected = resolveContentLanguage(
+                    saved = picked?.takeIf(::isOfferedStoryLanguage),
+                    deviceCode = deviceLanguage().takeIf(::isOfferedStoryLanguage),
+                    available = all,
+                ),
                 isChosen = picked != null,
             )
         }.distinctUntilChanged()

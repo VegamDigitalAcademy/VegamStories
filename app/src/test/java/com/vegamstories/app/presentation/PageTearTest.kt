@@ -22,6 +22,7 @@ import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.StoryPage
 import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.preview.PreviewTheme
+import com.vegamstories.app.presentation.reader.FIX_AFTER_MILLIS
 import com.vegamstories.app.presentation.reader.FastTurns
 import com.vegamstories.app.presentation.reader.ReaderScreenContent
 import com.vegamstories.app.presentation.reader.ReaderSounds
@@ -196,10 +197,23 @@ class PageTearTest {
     }
 
     @Test
+    fun `Fix it shows only after 10 seconds, once the reader has had a go at gluing`() {
+        reader()
+        flickThrough()
+
+        compose.onNodeWithText(storyText(R.string.tear_hint)).assertExists()
+        compose.onNodeWithText(storyText(R.string.tear_fix)).assertDoesNotExist()
+
+        compose.mainClock.advanceTimeBy(FIX_AFTER_MILLIS)
+        compose.onNodeWithText(storyText(R.string.tear_fix)).assertExists()
+    }
+
+    @Test
     fun `Fix it glues the page, and it turns again`() {
         reader()
         flickThrough()
         val tornAt = pagesSettled.last()
+        compose.mainClock.advanceTimeBy(FIX_AFTER_MILLIS)
 
         compose.onNodeWithText(storyText(R.string.tear_fix)).performClick()
         compose.mainClock.advanceTimeBy(1_000)
@@ -221,6 +235,7 @@ class PageTearTest {
         reader()
         flickThrough()
         val tornAt = pagesSettled.last()
+        compose.mainClock.advanceTimeBy(FIX_AFTER_MILLIS)
 
         compose.onNodeWithText(storyText(R.string.tear_fix)).performClick()
         compose.mainClock.advanceTimeBy(2_500)

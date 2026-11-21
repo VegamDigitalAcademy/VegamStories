@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.onEach
 import com.vegamstories.app.core.logging.AppLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vegamstories.app.domain.model.OFFERED_STORY_LANGUAGES
 import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.domain.usecase.GetContentLanguagesUseCase
 import com.vegamstories.app.domain.usecase.GetThemeModeUseCase
@@ -30,9 +31,13 @@ class MainViewModel @Inject constructor(
         .onEach { log.d("$TAG: Theme: $it") }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** true until the user picks a story language (first launch); null while being read. */
+    /**
+     * true until the user picks a story language (first launch); null while being read. Never while
+     * the app offers just one language (only Telugu for now): there's nothing to choose, so the app
+     * opens straight on Home, which shows placeholders while the first stories download.
+     */
     val needsStoryLanguage: StateFlow<Boolean?> = getContentLanguages()
-        .map { !it.isChosen }
+        .map { !it.isChosen && OFFERED_STORY_LANGUAGES.size > 1 }
         .onEach { needsChoice -> log.d(if (needsChoice) "$TAG: No story language chosen yet: showing the first-launch screen" else "$TAG: Story language already chosen") }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 }

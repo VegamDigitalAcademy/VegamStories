@@ -27,3 +27,17 @@ fun resolveContentLanguage(saved: String?, deviceCode: String?, available: List<
 
 /** Used only before the app has ever loaded the language list and the phone's language is unknown. */
 const val DEFAULT_CONTENT_LANGUAGE = "te"
+
+/**
+ * The story languages the app offers: for now only Telugu, even for stories that are in other
+ * languages too. The others are still downloaded and saved, just not shown: not on the first-launch
+ * screen or Home's language button, not in the reader's language chips, not in Bookmarks. Add a code
+ * here to offer that language again.
+ */
+val OFFERED_STORY_LANGUAGES: Set<String> = setOf("te")
+
+/** Whether stories are shown in [code] (see [OFFERED_STORY_LANGUAGES]). */
+fun isOfferedStoryLanguage(code: String?): Boolean = code in OFFERED_STORY_LANGUAGES
+
+/** Only the languages the app offers ([OFFERED_STORY_LANGUAGES]), in the same order. */
+fun List<Language>.offeredOnly(): List<Language> = filter { isOfferedStoryLanguage(it.code) }

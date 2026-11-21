@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -50,6 +51,9 @@ class HomeViewModel @Inject constructor(
     private val selectedCategoryId = MutableStateFlow(savedStateHandle.toRoute<HomeRoute>().categoryId)
     private val isRefreshing = MutableStateFlow(false)
 
+    /** How many checks for stories are running, with the spinner or quietly (on opening). */
+    private val checksRunning = MutableStateFlow(0)
+
     private val events = Channel<HomeEvent>(Channel.BUFFERED)
     val eventFlow = events.receiveAsFlow()
 
@@ -61,8 +65,8 @@ class HomeViewModel @Inject constructor(
         selectedCategoryId,
         storiesFlow,
         continueReadingFlow,
-        combine(isRefreshing, getContentLanguages(), ::Pair),
-    ) { categories, selectedId, stories, continueReading, (refreshing, languages) ->
+        combine(isRefreshing, checksRunning, getContentLanguages(), ::Triple),
+    ) { categories, selectedId, stories, continueReading, (refreshing, checking, languages) ->
         val shown = "${stories.size} stories in ${languages?.selected}, tab ${selectedId ?: "ALL"} of ${categories.size}" +
             (continueReading?.let { ", continue reading ${it.id}" } ?: "")
         if (shown != lastShown) {
@@ -75,7 +79,7 @@ class HomeViewModel @Inject constructor(
             stories = stories,
             continueReading = continueReading,
             isRefreshing = refreshing,
-            isLoading = false,
+            isLoading = checking > 0,
             contentLanguages = languages,
         )
     }.stateIn(
@@ -122,6 +126,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             // The spinner only for a refresh the reader asked for; the daily one updates the list quietly.
             if (force) isRefreshing.value = true
+            checksRunning.update { it + 1 }
             refreshContent(force)
                 .onSuccess { downloaded ->
                     log.d(if (downloaded) "$TAG: Home: stories downloaded" else "$TAG: Home: stories up to date, nothing downloaded")
@@ -133,6 +138,7 @@ class HomeViewModel @Inject constructor(
                     // Only when the reader asked: a check on opening fails quietly (offline, say).
                     if (force) events.send(HomeEvent.RefreshFailed)
                 }
+            checksRunning.update { it - 1 }
             isRefreshing.value = false
         }
     }

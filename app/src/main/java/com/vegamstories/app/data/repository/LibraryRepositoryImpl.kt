@@ -13,6 +13,7 @@ import com.vegamstories.app.domain.model.BookmarkItem
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryFormat
 import com.vegamstories.app.domain.model.StoryText
+import com.vegamstories.app.domain.model.isOfferedStoryLanguage
 import com.vegamstories.app.di.ApplicationScope
 import com.vegamstories.app.domain.repository.ContentLanguageRepository
 import com.vegamstories.app.domain.repository.LibraryRepository
@@ -135,8 +136,10 @@ class LibraryRepositoryImpl @Inject constructor(
     }
 
     override fun observeBookmarks(): Flow<List<BookmarkItem>> =
-        libraryDao.observeBookmarks().flatMapLatest { entities ->
-            log.v("$TAG: Bookmarks: ${entities.size}")
+        libraryDao.observeBookmarks().flatMapLatest { all ->
+            // Bookmarks in a language the app doesn't offer now stay saved, for when it's back.
+            val entities = all.filter { isOfferedStoryLanguage(it.language) }
+            log.v("$TAG: Bookmarks: ${entities.size}" + if (entities.size < all.size) " (${all.size - entities.size} in other languages, hidden)" else "")
             if (entities.isEmpty()) {
                 flowOf(emptyList())
             } else {

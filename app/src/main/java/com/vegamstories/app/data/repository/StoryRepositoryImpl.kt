@@ -17,6 +17,8 @@ import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.model.StoryDetail
 import com.vegamstories.app.domain.model.StoryText
 import com.vegamstories.app.domain.model.isContentRefreshDue
+import com.vegamstories.app.domain.model.isOfferedStoryLanguage
+import com.vegamstories.app.domain.model.offeredOnly
 import com.vegamstories.app.domain.repository.ContentLanguageRepository
 import com.vegamstories.app.domain.repository.StoryRepository
 import kotlinx.coroutines.CancellationException
@@ -81,7 +83,8 @@ class StoryRepositoryImpl @Inject constructor(
         }
 
     override fun observeStoryDetail(storyId: String, language: String?): Flow<StoryDetail?> {
-        val lang = if (language != null) flowOf(language) else contentLanguage.contentLanguage
+        // A language the app doesn't offer now (an old bookmark in English, say): the story language instead.
+        val lang = language?.takeIf(::isOfferedStoryLanguage)?.let { flowOf(it) } ?: contentLanguage.contentLanguage
         return lang.flatMapLatest { requested ->
             // The version shown: [requested] if the story has it, else another language it's in.
             storyDao.observeStory(storyId, requested).flatMapLatest { row ->
@@ -108,7 +111,7 @@ class StoryRepositoryImpl @Inject constructor(
                             story = row.toDomain(),
                             pages = pages.map { it.toDomain() },
                             text = body?.let { StoryText(languageCode = row.language, body = it) },
-                            languages = languages.map { it.toDomain() },
+                            languages = languages.map { it.toDomain() }.offeredOnly(),
                         )
                     }
                 }
