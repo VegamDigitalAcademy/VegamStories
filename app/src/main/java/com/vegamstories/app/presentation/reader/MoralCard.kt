@@ -64,6 +64,7 @@ import com.vegamstories.app.presentation.preview.PreviewTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
 import java.util.Locale
 
@@ -74,6 +75,7 @@ private const val TAG = "MoralCard"
  * the same on every phone. Warm paper and ink, like the Read tab's pages, on the story's book.
  */
 private val CardPaper = Color(0xFFF6EDD8)
+
 /** The book's cloth: behind the shared picture, which can't have clear parts (WhatsApp turns them black). */
 private val BookCloth = android.graphics.Color.rgb(0x1D, 0x1D, 0x4F)
 private val CardInk = Color(0xFF1B1712)
@@ -103,73 +105,76 @@ fun MoralCard(story: Story, moral: String?, layer: GraphicsLayer, modifier: Modi
             },
     ) {
         // The book, as tall as the page in it needs: its plain middle stretches (drawStretchedBook).
-        BoxWithConstraints(Modifier.fillMaxWidth().drawBehind { drawStretchedBook(book) }) {
-        val bookHeight = maxWidth * (book.height.toFloat() / book.width)
-        Column(
-            Modifier
-                .fillMaxWidth()
-                // Into the panel on the book's front.
-                .padding(
-                    start = maxWidth * BOOK_PANEL_LEFT + PanelInset,
-                    end = maxWidth * (1f - BOOK_PANEL_RIGHT) + PanelInset,
-                    top = bookHeight * BOOK_PANEL_TOP + PanelInset,
-                    bottom = bookHeight * (1f - BOOK_PANEL_BOTTOM) + PanelInset,
-                )
-                .clip(RoundedCornerShape(6.dp))
-                .background(CardPaper)
-                .border(1.dp, CardRule.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            CardCover(story)
+        BoxWithConstraints(Modifier
+            .fillMaxWidth()
+            .drawBehind { drawStretchedBook(book) }) {
+            val bookHeight = maxWidth * (book.height.toFloat() / book.width)
             Column(
-                Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
+                Modifier
+                    .fillMaxWidth()
+                    // Into the panel on the book's front.
+                    .padding(
+                        start = maxWidth * BOOK_PANEL_LEFT + PanelInset,
+                        end = maxWidth * (1f - BOOK_PANEL_RIGHT) + PanelInset,
+                        top = bookHeight * BOOK_PANEL_TOP + PanelInset,
+                        bottom = bookHeight * (1f - BOOK_PANEL_BOTTOM) + PanelInset,
+                    )
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(CardPaper)
+                    .border(1.dp, CardRule.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = story.title,
-                    color = CardInk,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    lineHeight = 26.sp,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(8.dp))
-                if (moral != null) {
-                    val label = storyString(R.string.moral_label, story.language)
-                    // Spaced capitals in Latin script; Telugu and Odia letters are set as written.
-                    val latin = label.all { it.code < 0x250 }
+                Timber.d("MoralCard: $moral summary ${story.summary}")
+                CardCover(story)
+                Column(
+                    Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Text(
-                        text = if (latin) label.uppercase() else label,
-                        color = CardRule,
-                        fontSize = if (latin) 11.sp else 13.sp,
+                        text = story.title,
+                        color = CardInk,
+                        fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = if (latin) 1.5.sp else 0.sp,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "“$moral”",
-                        color = CardInk,
-                        fontFamily = FontFamily.Serif,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 17.sp,
-                        lineHeight = 25.sp,
+                        fontSize = 20.sp,
+                        lineHeight = 26.sp,
                         textAlign = TextAlign.Center,
                     )
-                } /*else {
-                    Text(
-                        text = story.summary,
-                        color = CardInk,
-                        fontFamily = FontFamily.Serif,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }*/
-                Spacer(Modifier.height(12.dp))
-                CardSignature(story.language)
+                    Spacer(Modifier.height(8.dp))
+                    if (moral != null) {
+                        val label = storyString(R.string.moral_label, story.language)
+                        // Spaced capitals in Latin script; Telugu and Odia letters are set as written.
+                        val latin = label.all { it.code < 0x250 }
+                        Text(
+                            text = if (latin) label.uppercase() else label,
+                            color = CardRule,
+                            fontSize = if (latin) 11.sp else 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = if (latin) 1.5.sp else 0.sp,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "“$moral”",
+                            color = CardInk,
+                            fontFamily = FontFamily.Serif,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 17.sp,
+                            lineHeight = 25.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }/* else {
+                        Text(
+                            text = story.summary,
+                            color = CardInk,
+                            fontFamily = FontFamily.Serif,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }*/
+                    Spacer(Modifier.height(12.dp))
+                    CardSignature(story.language)
+                }
             }
-        }
         }
     }
 }
@@ -192,7 +197,8 @@ private fun CardCover(story: Story) {
         AsyncImage(
             // A software bitmap: the card is copied into a picture for sharing, and older Android
             // can't copy hardware bitmaps.
-            model = ImageRequest.Builder(LocalContext.current).data(cover).allowHardware(false).build(),
+            model = ImageRequest.Builder(LocalContext.current).data(cover).allowHardware(false)
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = modifier
@@ -200,7 +206,13 @@ private fun CardCover(story: Story) {
                 .clip(shape),
         )
     } else {
-        TitleCard(title = story.title, categoryId = story.categoryId, modifier = modifier.height(140.dp).clip(shape))
+        TitleCard(
+            title = story.title,
+            categoryId = story.categoryId,
+            modifier = modifier
+                .height(140.dp)
+                .clip(shape)
+        )
     }
 }
 
@@ -212,7 +224,10 @@ private val CoverMaxHeight = 220.dp
 private fun CardSignature(language: String) {
     // The tagline on a line of its own: the page in the book is narrow.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             VegamLogoMark(size = 24)
             Spacer(Modifier.width(8.dp))
             Text(
@@ -272,7 +287,8 @@ suspend fun shareMoralCard(context: Context, card: GraphicsLayer, story: Story, 
  * and its message read in the story's language, whatever language the app is in.
  */
 private fun Context.inLanguage(language: String): Context {
-    val config = Configuration(resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
+    val config =
+        Configuration(resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
     return createConfigurationContext(config)
 }
 
@@ -289,11 +305,12 @@ private val shareLog = AppLogger(TAG)
 private fun saveForSharing(context: Context, bitmap: Bitmap, storyId: String): Uri {
     val dir = File(context.cacheDir, "shared").apply { mkdirs() }
     val file = File(dir, "story-${storyId.filter { it.isLetterOrDigit() || it == '-' }}.png")
-    val readable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bitmap.config == Bitmap.Config.HARDWARE) {
-        bitmap.copy(Bitmap.Config.ARGB_8888, false)
-    } else {
-        bitmap
-    }
+    val readable =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            bitmap
+        }
     file.outputStream().use { bookOnly(readable).compress(Bitmap.CompressFormat.PNG, 100, it) }
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
