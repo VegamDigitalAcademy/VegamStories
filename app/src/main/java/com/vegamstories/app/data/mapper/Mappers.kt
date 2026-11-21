@@ -117,6 +117,7 @@ fun StoryWithStateRow.toDomain(): Story {
         hasText = hasText,
         isFavorite = isFavorite,
         isLiked = isLiked,
+        firstPageUrl = firstPageUrl,
         likeCount = story.likeCount,
         isDownloaded = isDownloaded,
         progress = progress,

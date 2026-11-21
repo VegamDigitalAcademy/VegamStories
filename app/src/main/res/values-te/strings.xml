@@ -134,6 +134,7 @@
     <string name="all_episodes_read">ఈ సిరీస్‌లో తాజా ఎపిసోడ్ వరకు చదివేశారు.</string>
     <string name="cd_like">లైక్</string>
     <string name="cd_add_favorite">ఇష్టమైనవాటికి జోడించు</string>
+    <string name="cd_peek_story">మొదటి పేజీని చూడండి</string>
     <string name="cd_remove_favorite">ఇష్టమైనవాటి నుండి తీసివేయి</string>
 
     <!-- సెట్టింగ్‌లు: చదవడం -->

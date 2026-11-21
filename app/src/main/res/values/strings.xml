@@ -138,6 +138,7 @@
     <string name="all_episodes_read">You\'ve reached the latest episode in this series.</string>
     <string name="cd_like">Like</string>
     <string name="cd_add_favorite">Add to favorites</string>
+    <string name="cd_peek_story">Peek at the first page</string>
     <string name="cd_remove_favorite">Remove from favorites</string>
 
     <!-- Settings: reading -->

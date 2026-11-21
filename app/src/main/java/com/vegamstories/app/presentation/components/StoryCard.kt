@@ -2,6 +2,10 @@ package com.vegamstories.app.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.zIndex
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +54,9 @@ import com.vegamstories.app.ui.theme.ReadGreen
 /**
  * Grid card used on Home, Favorites and Search: cover, episode badge, title, category, and the
  * like count. The heart here only shows likes; liking happens in the reader.
+ *
+ * Tapped, it opens the story. Held, it leans towards the finger and lifts with a shadow, and its
+ * cover swings open a little on the story's first page, a peek; let go, it closes (see [CoverPress]).
  */
 @Composable
 fun StoryCard(
@@ -61,28 +68,47 @@ fun StoryCard(
     val opener = LocalStoryOpener.current
     val pictureBounds = remember { arrayOfNulls<Rect>(1) }
     DisposableEffect(story.id) { onDispose { opener.cardGone(story.id) } }
+    val press = rememberCoverPress()
+    // Lifted, it's drawn over its neighbours, so its shadow and lean aren't cut off by them.
+    val lifted by remember { derivedStateOf { press.lift.value > 0.01f || press.peek.value > 0.01f } }
     Column(
-        modifier = modifier.clickable {
-            opener.tapped(story, pictureBounds[0])
-            onClick()
-        },
+        modifier = modifier
+            .zIndex(if (lifted) 1f else 0f)
+            .coverPress(press) { width -> width * COVER_ASPECT }
+            .combinedClickable(
+                onLongClickLabel = stringResource(R.string.cd_peek_story),
+                onLongClick = press::open,
+                onClick = {
+                    opener.tapped(story, pictureBounds[0])
+                    onClick()
+                },
+            ),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(3f / 4f)
+                .aspectRatio(1f / COVER_ASPECT)
                 .onGloballyPositioned {
                     pictureBounds[0] = it.boundsInRoot()
                     opener.cardPlaced(story.id, CardSpot(it.boundsInRoot(), story.coverImageUrl))
                 }
-                // While its picture is growing over the app, or shrinking back into it, it has left the card.
                 .graphicsLayer {
+                    // While its picture is growing over the app, or shrinking back into it, it has left the card.
                     val away = opener.opening?.story?.id == story.id || opener.closing?.storyId == story.id
                     alpha = if (away) 0f else 1f
-                }
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                    leanAndLift(press)
+                },
         ) {
+            // Under the cover, from the moment it's held: the first page (loading while the cover's shut).
+            if (press.touched) FirstPage(story, press)
+            // The cover and its badges, swinging open from the left like a book's.
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .graphicsLayer { coverOpening(press) }
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .coverShade(press),
+            ) {
             StoryCover(
                 story = story,
                 contentDescription = story.title,
@@ -135,6 +161,7 @@ fun StoryCard(
                     trackColor = Color.White.copy(alpha = 0.5f),
                     drawStopIndicator = {},
                 )
+            }
             }
         }
         Row(verticalAlignment = Alignment.Top) {
@@ -194,6 +221,9 @@ private fun FormatBadge(formats: Set<StoryFormat>, modifier: Modifier = Modifier
         }
     }
 }
+
+/** A cover's height for its width (3 : 4). */
+private const val COVER_ASPECT = 4f / 3f
 
 private val StoryFormat.iconRes: Int
     get() = when (this) {

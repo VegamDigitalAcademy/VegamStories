@@ -35,6 +35,8 @@ data class Story(
     val isDownloaded: Boolean,
     val progress: ReadingProgress?,
     val isLiked: Boolean = false,
+    /** The first comic page's picture, for the peek under a held card's cover; null = no comic pages. */
+    val firstPageUrl: String? = null,
 ) {
     val isRead: Boolean get() = progress?.isCompleted == true
     val isInProgress: Boolean get() = progress != null && !progress.isCompleted
