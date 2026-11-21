@@ -454,78 +454,84 @@ private fun ReaderContent(
                 onBack = onBack,
             )
         }
-        when (state.settings.scrollMode) {
-            ReaderScrollMode.PAGED if spreads != null -> BoxWithConstraints(readerModifier) {
-                // A page's room: the reader's height less the pager's margins above and below.
-                val pageRoom = maxHeight - SpreadPageMargin * 2
-                PagedReader(
-                    startPage = spreads.spreadOf(currentPage),
+        // Double-tapping a comic page likes the story (never unlikes it): see doubleTapToLike.
+        val currentStory by rememberUpdatedState(story)
+        val currentOnToggleFavorite by rememberUpdatedState(onToggleFavorite)
+        val likeOnDoubleTap: () -> Unit = remember { { if (!currentStory.isFavorite) currentOnToggleFavorite() } }
+        CompositionLocalProvider(LocalLikeOnDoubleTap provides likeOnDoubleTap) {
+            when (state.settings.scrollMode) {
+                ReaderScrollMode.PAGED if spreads != null -> BoxWithConstraints(readerModifier) {
+                    // A page's room: the reader's height less the pager's margins above and below.
+                    val pageRoom = maxHeight - SpreadPageMargin * 2
+                    PagedReader(
+                        startPage = spreads.spreadOf(currentPage),
+                        autoTurnMillis = state.settings.autoTurnMillis,
+                        timer = pageTimer,
+                        pageCount = spreads.pagerPageCount,
+                        comicPageCount = spreads.spreadCount,
+                        likePageIndex = spreads.likeSpread,
+                        onPageSettled = { spread -> onPageSettled(spreads.readTo(spread)) },
+                        page = { spread, onContinue ->
+                            if (spread < spreads.spreadCount) {
+                                ComicSpread(
+                                    pages = spreads.pagesOn(spread),
+                                    state = state,
+                                    detail = detail,
+                                    maxPageHeight = pageRoom,
+                                    onContinue = onContinue,
+                                    onAddBookmark = onAddBookmark,
+                                    onRemoveBookmarks = onRemoveBookmarks,
+                                )
+                            } else {
+                                page(state.likePageIndex, onContinue)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        pageMargin = SpreadPageMargin,
+                        showTurnHint = !state.settings.pageTurnHintShown,
+                        onTurnHintShown = onTurnHintShown,
+                    )
+                }
+                ReaderScrollMode.PAGED -> PagedReader(
+                    cover = cover,
+                    openOnCover = coverToTurn,
+                    onCoverTurned = { coverToTurn = false },
+                    startPage = currentPage,
                     autoTurnMillis = state.settings.autoTurnMillis,
                     timer = pageTimer,
-                    pageCount = spreads.pagerPageCount,
-                    comicPageCount = spreads.spreadCount,
-                    likePageIndex = spreads.likeSpread,
-                    onPageSettled = { spread -> onPageSettled(spreads.readTo(spread)) },
-                    page = { spread, onContinue ->
-                        if (spread < spreads.spreadCount) {
-                            ComicSpread(
-                                pages = spreads.pagesOn(spread),
-                                state = state,
-                                detail = detail,
-                                maxPageHeight = pageRoom,
-                                onContinue = onContinue,
-                                onAddBookmark = onAddBookmark,
-                                onRemoveBookmarks = onRemoveBookmarks,
-                            )
-                        } else {
-                            page(state.likePageIndex, onContinue)
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    pageMargin = SpreadPageMargin,
+                    pageCount = state.totalPagerPages,
+                    comicPageCount = detail.pages.size,
+                    likePageIndex = state.likePageIndex,
+                    onPageSettled = onPageSettled,
+                    page = page,
+                    modifier = readerModifier,
                     showTurnHint = !state.settings.pageTurnHintShown,
                     onTurnHintShown = onTurnHintShown,
+                    pageOverlay = { index ->
+                        if (index < detail.pages.size) {
+                            ComicBookmarkRibbon(
+                                index = index,
+                                state = state,
+                                onAddBookmark = onAddBookmark,
+                                onRemoveBookmarks = onRemoveBookmarks,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(end = 12.dp),
+                            )
+                        }
+                    },
+                )
+                ReaderScrollMode.VERTICAL -> VerticalReader(
+                    startPage = currentPage,
+                    autoTurnMillis = state.settings.autoTurnMillis,
+                    timer = pageTimer,
+                    pageCount = state.totalPagerPages,
+                    likePageIndex = state.likePageIndex,
+                    onPageSettled = onPageSettled,
+                    page = page,
+                    modifier = readerModifier,
                 )
             }
-            ReaderScrollMode.PAGED -> PagedReader(
-                cover = cover,
-                openOnCover = coverToTurn,
-                onCoverTurned = { coverToTurn = false },
-                startPage = currentPage,
-                autoTurnMillis = state.settings.autoTurnMillis,
-                timer = pageTimer,
-                pageCount = state.totalPagerPages,
-                comicPageCount = detail.pages.size,
-                likePageIndex = state.likePageIndex,
-                onPageSettled = onPageSettled,
-                page = page,
-                modifier = readerModifier,
-                showTurnHint = !state.settings.pageTurnHintShown,
-                onTurnHintShown = onTurnHintShown,
-                pageOverlay = { index ->
-                    if (index < detail.pages.size) {
-                        ComicBookmarkRibbon(
-                            index = index,
-                            state = state,
-                            onAddBookmark = onAddBookmark,
-                            onRemoveBookmarks = onRemoveBookmarks,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(end = 12.dp),
-                        )
-                    }
-                },
-            )
-            ReaderScrollMode.VERTICAL -> VerticalReader(
-                startPage = currentPage,
-                autoTurnMillis = state.settings.autoTurnMillis,
-                timer = pageTimer,
-                pageCount = state.totalPagerPages,
-                likePageIndex = state.likePageIndex,
-                onPageSettled = onPageSettled,
-                page = page,
-                modifier = readerModifier,
-            )
         }
         // Two pages side by side fill one bar between them.
         PageIndicator(
@@ -723,11 +729,17 @@ private fun PagedReader(
         }
     }
 
+    val hearts = rememberTapHearts()
     HorizontalPager(
         state = pagerState,
         // The curl's shadows stay inside the reader area.
         modifier = modifier
             .clipToBounds()
+            // Double-tapping the middle of a comic page likes the story; its sides turn pages.
+            .doubleTapToLike(hearts) { at, size ->
+                pagerState.currentPage - first in 0 until comicPageCount &&
+                    at.x > size.width / 3f && at.x < size.width * 2f / 3f
+            }
             .leanWithFinger(lean, pagerState)
             .holdToPauseAutoTurn(timer)
             // Tapping the left or right third of a page turns back or on, like an e-reader.
@@ -1107,9 +1119,17 @@ private fun VerticalReader(
         lastAutoPage = likePageIndex,
     ) { listState.animateScrollToItem(pageOnScreen + 1) }
 
+    val hearts = rememberTapHearts()
     LazyColumn(
         state = listState,
-        modifier = modifier.holdToPauseAutoTurn(timer),
+        modifier = modifier
+            // Double-tapping a comic page likes the story.
+            .doubleTapToLike(hearts) { at, _ ->
+                listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { at.y >= it.offset && at.y < it.offset + it.size }
+                    ?.let { it.index != likePageIndex } == true
+            }
+            .holdToPauseAutoTurn(timer),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
