@@ -1,14 +1,17 @@
 package com.vegamstories.app.presentation.home
 
+import com.vegamstories.app.core.logging.AppLogger
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.vegamstories.app.domain.usecase.CheckForNewStoryUseCase
 import com.vegamstories.app.domain.usecase.GetCategoriesUseCase
+import com.vegamstories.app.domain.usecase.GetContentLanguagesUseCase
 import com.vegamstories.app.domain.usecase.GetContinueReadingUseCase
 import com.vegamstories.app.domain.usecase.GetStoriesUseCase
 import com.vegamstories.app.domain.usecase.RefreshContentUseCase
+import com.vegamstories.app.domain.usecase.SetContentLanguageUseCase
 import com.vegamstories.app.presentation.navigation.HomeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,8 +23,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val TAG = "HomeViewModel"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -32,11 +38,21 @@ class HomeViewModel @Inject constructor(
     private val getContinueReading: GetContinueReadingUseCase,
     private val refreshContent: RefreshContentUseCase,
     private val checkForNewStory: CheckForNewStoryUseCase,
+    getContentLanguages: GetContentLanguagesUseCase,
+    private val setContentLanguage: SetContentLanguageUseCase,
 ) : ViewModel() {
+
+    private val log = AppLogger(TAG)
+
+    /** What Home showed last, so a like or a page turn elsewhere doesn't log the same list again. */
+    private var lastShown: String? = null
 
     // Opened from an app-icon shortcut → start on that category's tab.
     private val selectedCategoryId = MutableStateFlow(savedStateHandle.toRoute<HomeRoute>().categoryId)
     private val isRefreshing = MutableStateFlow(false)
+
+    /** How many checks for stories are running, with the spinner or quietly (on opening). */
+    private val checksRunning = MutableStateFlow(0)
 
     private val events = Channel<HomeEvent>(Channel.BUFFERED)
     val eventFlow = events.receiveAsFlow()
@@ -49,15 +65,22 @@ class HomeViewModel @Inject constructor(
         selectedCategoryId,
         storiesFlow,
         continueReadingFlow,
-        isRefreshing,
-    ) { categories, selectedId, stories, continueReading, refreshing ->
+        combine(isRefreshing, checksRunning, getContentLanguages(), ::Triple),
+    ) { categories, selectedId, stories, continueReading, (refreshing, checking, languages) ->
+        val shown = "${stories.size} stories in ${languages?.selected}, tab ${selectedId ?: "ALL"} of ${categories.size}" +
+            (continueReading?.let { ", continue reading ${it.id}" } ?: "")
+        if (shown != lastShown) {
+            lastShown = shown
+            log.d("$TAG: Home shows $shown", data = stories.take(5).map { "${it.id}: ${it.title}" })
+        }
         HomeUiState(
             categories = categories,
             selectedCategoryId = selectedId,
             stories = stories,
             continueReading = continueReading,
             isRefreshing = refreshing,
-            isLoading = false,
+            isLoading = checking > 0,
+            contentLanguages = languages,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -66,21 +89,56 @@ class HomeViewModel @Inject constructor(
     )
 
     init {
-        refresh()
+        log.i("$TAG: Home opened" + (selectedCategoryId.value?.let { " on tab $it (app icon shortcut)" } ?: ""))
+    }
+
+    /**
+     * Home came into view: the app was opened, or the reader came back to it. Checks the catalogue
+     * (a small file; the stories download only when they changed), unless it was checked a few minutes ago.
+     */
+    fun onShown() {
+        runRefresh(force = false)
     }
 
     fun onCategorySelected(categoryId: String?) {
+        log.i("$TAG: User: tab ${categoryId ?: "ALL"}")
         selectedCategoryId.value = categoryId
     }
 
+    /** Shows Home (and Search, the reader, the widget…) in another language. Categories differ, so back to ALL. */
+    fun onLanguageSelected(code: String) {
+        log.i("$TAG: User: story language $code")
+        selectedCategoryId.value = null
+        viewModelScope.launch { setContentLanguage(code) }
+    }
+
+    /** Pull to refresh, or Retry: always downloads. */
     fun refresh() {
-        if (isRefreshing.value) return
+        log.i("$TAG: User: pull to refresh")
+        runRefresh(force = true)
+    }
+
+    private fun runRefresh(force: Boolean) {
+        if (isRefreshing.value) {
+            log.d("$TAG: Refresh already running")
+            return
+        }
         viewModelScope.launch {
-            isRefreshing.value = true
-            refreshContent()
-                // New stories are on screen now, so the background check won't announce them later.
-                .onSuccess { checkForNewStory(userIsInApp = true) }
-                .onFailure { events.send(HomeEvent.RefreshFailed) }
+            // The spinner only for a refresh the reader asked for; the daily one updates the list quietly.
+            if (force) isRefreshing.value = true
+            checksRunning.update { it + 1 }
+            refreshContent(force)
+                .onSuccess { downloaded ->
+                    log.d(if (downloaded) "$TAG: Home: stories downloaded" else "$TAG: Home: stories up to date, nothing downloaded")
+                    // New stories are on screen now, so the background check won't announce them later.
+                    if (downloaded) log.d("$TAG: New story check", data = checkForNewStory(userIsInApp = true))
+                }
+                .onFailure { e ->
+                    log.w("$TAG: Home: refresh failed, the saved stories stay", e)
+                    // Only when the reader asked: a check on opening fails quietly (offline, say).
+                    if (force) events.send(HomeEvent.RefreshFailed)
+                }
+            checksRunning.update { it - 1 }
             isRefreshing.value = false
         }
     }

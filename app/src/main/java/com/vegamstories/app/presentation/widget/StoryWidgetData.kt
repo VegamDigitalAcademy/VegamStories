@@ -80,9 +80,11 @@ class StoryWidgetData @Inject constructor(
         getStories(null).map { it.firstOrNull() }, // newest first
     ) { continueReading, newest -> continueReading to newest }
 
+    /** Null when the story has no picture (the row shows text only) or it can't load. */
     private suspend fun loadCover(story: Story): Bitmap? {
+        val url = story.coverImageUrl ?: return null
         val request = ImageRequest.Builder(context)
-            .data(story.coverImageUrl)
+            .data(url)
             .size(COVER_WIDTH_PX, COVER_HEIGHT_PX) // widget bitmaps travel over IPC: keep them small
             .allowHardware(false) // RemoteViews can't draw hardware bitmaps
             .build()

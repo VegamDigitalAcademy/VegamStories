@@ -17,6 +17,9 @@
   "workers_dev": false,
   "preview_urls": false,
 
+  // Every hour: writes the app's catalogue again (src/worker.js → scheduled), for edits made in Supabase.
+  "triggers": { "crons": ["0 * * * *"] },
+
   "vars": {
     "SUPABASE_URL": "https://bvqsocnowuguvzlwwopn.supabase.co",
     "MEDIA_BASE_URL": "https://media.vegamstories.com",

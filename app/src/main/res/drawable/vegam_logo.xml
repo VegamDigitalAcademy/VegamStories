@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vegam Stories logo artwork without background, cropped tight. Drawn on navy by VegamLogoMark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="448"
+    android:viewportHeight="448">
+    <group android:translateY="-25">
+        <!-- Speed lines -->
+        <path android:strokeColor="#FFF59E0B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M58,199.5L149,199.5" />
+        <path android:strokeColor="#FFBF7D1B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M34,251.5L139,251.5" />
+        <path android:strokeColor="#FF895D2B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M70,303.5L157,303.5" />
+        <!-- Book: cream left page, orange right page meeting in a V -->
+        <path android:fillColor="#FFFFF7E6" android:pathData="M158,131Q206,121 256,157L256,402Z" />
+        <path android:fillColor="#FFF59E0B" android:pathData="M248,168Q292,121 360,132L256,404Z" />
+        <!-- Lines of writing on the left page -->
+        <path android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M189,167.5Q222,167 245,185" />
+        <path android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M199,203.5Q228,203 246,219" />
+        <path android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M210,239.5Q236,239 249,258" />
+        <!-- Sparkle -->
+        <path android:fillColor="#FFFFF7E6" android:pathData="M397.5,94Q401,116 423,119.5Q401,123 397.5,145Q394,123 372,119.5Q394,116 397.5,94Z" />
+    </group>
+</vector>

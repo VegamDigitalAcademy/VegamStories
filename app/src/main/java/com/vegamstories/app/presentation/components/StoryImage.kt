@@ -2,6 +2,7 @@ package com.vegamstories.app.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -16,13 +17,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImagePainter
+import coil3.compose.LocalPlatformContext
+import coil3.memory.MemoryCache
+import coil3.request.ImageRequest
 import com.vegamstories.app.R
 
 /**
  * Every network image in the app goes through here:
  *  - loading → shimmer
- *  - failed  → muted "broken image" icon (instead of an empty box)
+ *  - failed  → [fallback] if given, else a muted "broken image" icon (instead of an empty box)
+ *  - no [model] → [fallback] if given
  *  - success → the image (Coil cross-fades it in)
  */
 @Composable
@@ -31,12 +37,40 @@ fun StoryImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    /** Shown when there is no image ([model] null) or it fails to load. */
+    fallback: (@Composable BoxScope.() -> Unit)? = null,
+    /**
+     * A name for this picture in memory, shared by every place that shows it, at any size. A place
+     * that shows it bigger (a card's cover growing into the reader's) then starts from the copy
+     * already in memory, with no empty moment, and sharpens once its own size has loaded.
+     */
+    cacheKey: String? = null,
 ) {
+    if (model == null && fallback != null) {
+        Box(modifier) { fallback() }
+        return
+    }
     var state by remember(model) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+    val context = LocalPlatformContext.current
+    val request = remember(model, cacheKey) {
+        ImageRequest.Builder(context)
+            .data(model)
+            .apply {
+                if (cacheKey != null) {
+                    memoryCacheKey(cacheKey)
+                    placeholderMemoryCacheKey(cacheKey)
+                }
+            }
+            .build()
+    }
+    // Already in memory: it's drawn from the first frame, so no shimmer over it.
+    val inMemory = remember(cacheKey) {
+        cacheKey != null && SingletonImageLoader.get(context).memoryCache?.get(MemoryCache.Key(cacheKey)) != null
+    }
 
     Box(modifier) {
         AsyncImage(
-            model = model,
+            model = request,
             contentDescription = contentDescription,
             contentScale = contentScale,
             onState = { state = it },
@@ -44,9 +78,9 @@ fun StoryImage(
         )
         when (state) {
             is AsyncImagePainter.State.Loading, AsyncImagePainter.State.Empty ->
-                ShimmerBox(Modifier.matchParentSize())
+                if (!inMemory) ShimmerBox(Modifier.matchParentSize())
 
-            is AsyncImagePainter.State.Error -> Box(
+            is AsyncImagePainter.State.Error -> if (fallback != null) fallback() else Box(
                 modifier = Modifier
                     .matchParentSize()
                     .background(MaterialTheme.colorScheme.surfaceVariant),

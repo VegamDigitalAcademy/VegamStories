@@ -50,7 +50,7 @@ fun FavoritesContent(
             when {
                 state.isLoading -> StoryGridSkeleton()
                 state.stories.isEmpty() -> EmptyState(
-                    icon = R.drawable.ic_favorite_border,
+                    icon = R.drawable.ic_star_border,
                     title = stringResource(R.string.favorites_empty_title),
                     message = stringResource(R.string.favorites_empty_message),
                 )

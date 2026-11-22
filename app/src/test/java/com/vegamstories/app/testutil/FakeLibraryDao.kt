@@ -1,8 +1,10 @@
 package com.vegamstories.app.testutil
 
 import com.vegamstories.app.data.local.dao.LibraryDao
+import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.FavoriteEntity
+import com.vegamstories.app.data.local.entity.LikeEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
 import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
@@ -11,11 +13,12 @@ import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * In-memory [LibraryDao] for the favorite/like methods. The DAO's own logic (toggleFavorite,
- * confirmLike) runs for real on top of these; the SQL itself isn't tested here.
+ * toggleLike, confirmLike) runs for real on top of these; the SQL itself isn't tested here.
  * Like counts only change for stories in [likeCounts], as an SQL UPDATE only touches existing rows.
  */
 class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     val favorites = mutableMapOf<String, FavoriteEntity>()
+    val likes = mutableMapOf<String, LikeEntity>()
     /** Keyed by storyId, like the table's primary key. */
     val pending = linkedMapOf<String, PendingLikeEntity>()
     val likeCounts = likeCounts.toMutableMap()
@@ -23,6 +26,10 @@ class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     override suspend fun isFavorite(storyId: String) = storyId in favorites
     override suspend fun upsertFavorite(entity: FavoriteEntity) { favorites[entity.storyId] = entity }
     override suspend fun deleteFavorite(storyId: String) { favorites.remove(storyId) }
+
+    override suspend fun isLiked(storyId: String) = storyId in likes
+    override suspend fun upsertLike(entity: LikeEntity) { likes[entity.storyId] = entity }
+    override suspend fun deleteLike(storyId: String) { likes.remove(storyId) }
 
     override suspend fun getPendingLikes() = pending.values.toList()
     override suspend fun upsertPendingLike(entity: PendingLikeEntity) { pending[entity.storyId] = entity }
@@ -37,14 +44,18 @@ class FakeLibraryDao(likeCounts: Map<String, Int> = emptyMap()) : LibraryDao {
     }
 
     // Not used by these tests.
-    override fun observeFavorites(): Flow<List<StoryWithStateRow>> = emptyFlow()
-    override fun observeDownloads(): Flow<List<StoryWithStateRow>> = emptyFlow()
+    override fun observeFavorites(lang: String): Flow<List<StoryWithStateRow>> = emptyFlow()
+    override fun observeDownloads(lang: String): Flow<List<StoryWithStateRow>> = emptyFlow()
     override suspend fun isDownloaded(storyId: String) = false
     override suspend fun upsertDownload(entity: DownloadEntity) = Unit
     override suspend fun deleteDownload(storyId: String) = Unit
-    override fun observeHistory(): Flow<List<StoryWithStateRow>> = emptyFlow()
-    override fun observeContinueReading(categoryId: String?): Flow<StoryWithStateRow?> = emptyFlow()
+    override fun observeHistory(lang: String): Flow<List<StoryWithStateRow>> = emptyFlow()
+    override fun observeContinueReading(categoryId: String?, lang: String): Flow<StoryWithStateRow?> = emptyFlow()
     override suspend fun getProgress(storyId: String): ReadingProgressEntity? = null
     override suspend fun upsertProgress(entity: ReadingProgressEntity) = Unit
     override suspend fun clearProgress() = Unit
+    override fun observeBookmarks(): Flow<List<BookmarkEntity>> = emptyFlow()
+    override fun observeBookmarks(storyId: String): Flow<List<BookmarkEntity>> = emptyFlow()
+    override suspend fun upsertBookmark(entity: BookmarkEntity) = Unit
+    override suspend fun deleteBookmarks(entities: List<BookmarkEntity>) = Unit
 }

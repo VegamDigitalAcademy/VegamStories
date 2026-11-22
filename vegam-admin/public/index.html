@@ -59,6 +59,7 @@
                 <span>Category</span>
                 <div class="row">
                   <select id="categoryInput" class="input" required></select>
+                  <button type="button" id="editCategoryBtn" class="btn ghost small-btn" title="Edit category names">✎</button>
                   <button type="button" id="addCategoryBtn" class="btn ghost small-btn" title="Add category">+</button>
                 </div>
               </label>
@@ -74,23 +75,48 @@
                 <span>Publish date</span>
                 <input id="publishedAtInput" class="input" type="datetime-local" />
               </label>
+            </div>
+            <p class="muted small">Shared by every language. Everything below is per language.</p>
+          </section>
+
+          <!-- Language versions: everything below belongs to the selected language -->
+          <section class="card lang-bar">
+            <div class="card-head">
+              <h3>Language versions</h3>
+              <span class="muted small">Each language has its own title, summary, cover, video, text and pages.
+                The app shows a story in a language only if it has that version.</span>
+            </div>
+            <div class="row lang-tabs" id="versionTabs" role="tablist"></div>
+            <div class="row add-text">
+              <select id="addVersionLanguage" class="input" aria-label="Language for a new version"></select>
+              <button type="button" id="addVersionBtn" class="btn ghost">Add language version</button>
+              <button type="button" id="addLanguageBtn" class="btn ghost small-btn" title="Add a language">+ New language</button>
+              <button type="button" id="removeVersionBtn" class="btn danger-ghost small-btn">Remove this version</button>
+            </div>
+          </section>
+
+          <!-- 1b. Title & summary (per language) -->
+          <section class="card">
+            <h3>Title &amp; summary <span class="muted small" id="versionLabel1"></span></h3>
+            <div class="grid">
               <label class="field wide">
                 <span>Title</span>
-                <input id="titleInput" class="input te" required placeholder="నిజాయితీ బహుమతి" />
+                <input id="titleInput" class="input" required />
               </label>
               <label class="field wide">
                 <span>Summary</span>
-                <textarea id="summaryInput" class="input te" rows="2" placeholder="పిల్లల కోసం చక్కని నీతి కథ."></textarea>
+                <textarea id="summaryInput" class="input" rows="2"></textarea>
               </label>
             </div>
           </section>
 
           <!-- 2. Cover & video -->
           <section class="card">
-            <h3>Cover &amp; video</h3>
+            <h3>Cover &amp; video <span class="muted small" id="versionLabel2"></span></h3>
             <div class="media-row">
               <div>
-                <div class="label">Cover <span class="muted">(480×640)</span></div>
+                <div class="label">Cover <span class="muted">(480×640, optional: without one the app shows the
+                  first comic page, or a title card)</span></div>
                 <div id="coverDrop" class="drop portrait"></div>
               </div>
               <div class="grow">
@@ -114,11 +140,22 @@
             </div>
           </section>
 
-          <!-- 3. Pages -->
+          <!-- 3. Story text (per language) -->
           <section class="card">
             <div class="card-head">
-              <h3>Pages</h3>
-              <span class="muted small">One finished image per page (panels and speech bubbles already in the picture).
+              <h3>Story text <span class="muted small" id="versionLabel3"></span></h3>
+              <span class="muted small">Optional. The whole story as plain text, read in the app's Read tab.
+                Leave a blank line between paragraphs. <em id="bodyCount"></em></span>
+            </div>
+            <textarea id="bodyInput" class="input story-text" rows="10"
+              placeholder="Once upon a time…&#10;&#10;(leave a blank line for a new paragraph)"></textarea>
+          </section>
+
+          <!-- 4. Pages -->
+          <section class="card">
+            <div class="card-head">
+              <h3>Pages <span class="muted small" id="versionLabel4"></span></h3>
+              <span class="muted small">Optional if the story has text or a video. One finished image per page (panels and speech bubbles already in the picture).
                 Drop several on “+ Add pages” — they're ordered by file name. Click an image to replace it.</span>
             </div>
             <div id="pagesContainer" class="pages-grid"></div>
@@ -157,10 +194,28 @@
     <!-- New category dialog -->
     <dialog id="categoryDialog" class="dialog">
       <form method="dialog" id="categoryForm">
-        <h3>New category</h3>
-        <label class="field"><span>Id</span><input id="newCatId" class="input mono" placeholder="folk" required /></label>
-        <label class="field"><span>Name</span><input id="newCatName" class="input te" placeholder="జానపద కథలు" required /></label>
+        <h3 id="categoryDialogTitle">New category</h3>
+        <label class="field"><span>Id <em class="muted">(can't change later)</em></span><input id="newCatId" class="input mono" placeholder="folk" required /></label>
+        <div id="newCatNames" class="cat-names"></div>
         <label class="field"><span>Order</span><input id="newCatOrder" class="input" type="number" value="0" /></label>
+        <div class="row end">
+          <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
+          <button value="ok" class="btn primary" id="categoryDialogOk">Add</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- New language dialog -->
+    <dialog id="languageDialog" class="dialog">
+      <form method="dialog" id="languageForm">
+        <h3>New language</h3>
+        <label class="field"><span>Code <em class="muted">(standard 2-letter code: or = Odia, hi = Hindi, ta = Tamil, kn = Kannada)</em></span>
+          <input id="newLangCode" class="input mono" placeholder="or" pattern="[a-z]{2,3}" required /></label>
+        <label class="field"><span>Name in English</span><input id="newLangName" class="input" placeholder="Odia" required /></label>
+        <label class="field"><span>Name in its own script <em class="muted">(shown in the app)</em></span>
+          <input id="newLangNative" class="input" placeholder="ଓଡ଼ିଆ" required /></label>
+        <label class="field"><span>Order <em class="muted">(the first language is the app's default)</em></span>
+          <input id="newLangOrder" class="input" type="number" value="0" /></label>
         <div class="row end">
           <button value="cancel" class="btn ghost" formnovalidate>Cancel</button>
           <button value="ok" class="btn primary">Add</button>

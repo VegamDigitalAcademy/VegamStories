@@ -1,5 +1,7 @@
 package com.vegamstories.app.domain.repository
 
+import com.vegamstories.app.domain.model.Bookmark
+import com.vegamstories.app.domain.model.BookmarkItem
 import com.vegamstories.app.domain.model.Story
 import kotlinx.coroutines.flow.Flow
 
@@ -9,13 +11,20 @@ interface LibraryRepository {
 
     fun observeDownloads(): Flow<List<Story>>
 
+    /** A download of [storyId] under way: how much is saved, 0 … 1; null when none is. */
+    fun observeDownloadProgress(storyId: String): Flow<Float?>
+
     fun observeReadingHistory(): Flow<List<Story>>
 
     /** Most recently opened, unfinished story (optionally within one category). */
     fun observeContinueReading(categoryId: String?): Flow<Story?>
 
     /** @return the new favorite state. */
+    /** The star: saves the story in Favorites, or takes it out. @return whether it's a favorite now. */
     suspend fun toggleFavorite(storyId: String): Boolean
+
+    /** The heart: likes the story (counted on the server), or unlikes it. @return whether it's liked now. */
+    suspend fun toggleLike(storyId: String): Boolean
 
     /** @return the new downloaded state. */
     suspend fun toggleDownload(storyId: String): Boolean
@@ -23,4 +32,14 @@ interface LibraryRepository {
     suspend fun saveProgress(storyId: String, pageIndex: Int, totalPages: Int)
 
     suspend fun clearReadingHistory()
+
+    /** Every bookmark, newest first, with its story. Stories no longer in the catalogue are left out. */
+    fun observeBookmarks(): Flow<List<BookmarkItem>>
+
+    /** The bookmarks in one story, in every language and format. */
+    fun observeBookmarks(storyId: String): Flow<List<Bookmark>>
+
+    suspend fun addBookmark(bookmark: Bookmark)
+
+    suspend fun removeBookmarks(bookmarks: List<Bookmark>)
 }

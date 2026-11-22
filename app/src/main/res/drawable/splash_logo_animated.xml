@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash logo on Android 12+ (values-v31/themes.xml): the Vegam logo (ic_launcher_foreground)
+     coming in. The book pops open as it rushes in, its speed lines streak out behind it, the lines
+     of writing write themselves, and the sparkle twinkles on last.
+
+     The drawable itself is the finished logo; only the animation takes it apart. Android doesn't
+     always play a splash's animation (some launches, some phones, and the copy of the splash handed
+     to the app for its fade-out), and then it shows the drawable as it is: always the whole logo,
+     never the small, half-drawn first frame.
+
+     So nothing here waits with a startOffset (it would show the finished part until its turn, then
+     jump back): every animator runs the whole 1.5 s from the start, holding its first value in
+     keyframes until its moment. The first 0.25 s hold everything at the start while the app's window
+     finishes opening from the icon, so the book's entrance isn't lost in that zoom.
+     Keep windowSplashScreenAnimationDuration (values-v31/themes.xml) at this length. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+            <group
+                android:scaleX="0.13866"
+                android:scaleY="0.13866"
+                android:translateX="22.9412"
+                android:translateY="19.4748">
+                <!-- Speed lines, streaking out leftwards from behind the book -->
+                <path android:name="speed1" android:trimPathStart="0" android:strokeColor="#FFF59E0B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M58,199.5L149,199.5" />
+                <path android:name="speed2" android:trimPathStart="0" android:strokeColor="#FFBF7D1B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M34,251.5L139,251.5" />
+                <path android:name="speed3" android:trimPathStart="0" android:strokeColor="#FF895D2B" android:strokeWidth="16" android:strokeLineCap="round" android:pathData="M70,303.5L157,303.5" />
+                <group
+                    android:name="book"
+                    android:pivotX="259"
+                    android:pivotY="265"
+                    android:scaleX="1"
+                    android:scaleY="1"
+                    android:translateX="0">
+                    <!-- Book: cream left page, orange right page meeting in a V -->
+                    <path android:fillColor="#FFFFF7E6" android:pathData="M158,131Q206,121 256,157L256,402Z" />
+                    <path android:fillColor="#FFF59E0B" android:pathData="M248,168Q292,121 360,132L256,404Z" />
+                    <!-- Lines of writing on the left page -->
+                    <path android:name="writing1" android:trimPathEnd="1" android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M189,167.5Q222,167 245,185" />
+                    <path android:name="writing2" android:trimPathEnd="1" android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M199,203.5Q228,203 246,219" />
+                    <path android:name="writing3" android:trimPathEnd="1" android:strokeColor="#FFB0AAB0" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M210,239.5Q236,239 249,258" />
+                </group>
+                <group
+                    android:name="sparkle"
+                    android:pivotX="397.5"
+                    android:pivotY="119.5"
+                    android:scaleX="1"
+                    android:scaleY="1">
+                    <path android:fillColor="#FFFFF7E6" android:pathData="M397.5,94Q401,116 423,119.5Q401,123 397.5,145Q394,123 372,119.5Q394,116 397.5,94Z" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- Timeline (ms of 1500, fraction = ms / 1500): 0–250 hold; the book rushes in and pops open
+         250–700; speed lines 370–690, 450–770, 530–850; writing 670–850, 790–970, 910–1090;
+         the sparkle pops on 820–1170, spinning round twice 820–1500. -->
+
+    <!-- The book rushes in from the left and pops open. -->
+    <target android:name="book">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="scaleX" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0.6" />
+                    <keyframe android:fraction="0.1667" android:value="0.6" />
+                    <keyframe android:fraction="0.4667" android:value="1" android:interpolator="@android:anim/overshoot_interpolator" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+                <propertyValuesHolder android:propertyName="scaleY" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0.6" />
+                    <keyframe android:fraction="0.1667" android:value="0.6" />
+                    <keyframe android:fraction="0.4667" android:value="1" android:interpolator="@android:anim/overshoot_interpolator" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+                <propertyValuesHolder android:propertyName="translateX" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="-60" />
+                    <keyframe android:fraction="0.1667" android:value="-60" />
+                    <keyframe android:fraction="0.4467" android:value="0" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="0" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+
+    <!-- The speed lines streak out behind it, one after another. -->
+    <target android:name="speed1">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="trimPathStart" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="1" />
+                    <keyframe android:fraction="0.2467" android:value="1" />
+                    <keyframe android:fraction="0.46" android:value="0" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="0" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="speed2">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="trimPathStart" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="1" />
+                    <keyframe android:fraction="0.3" android:value="1" />
+                    <keyframe android:fraction="0.5133" android:value="0" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="0" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="speed3">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="trimPathStart" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="1" />
+                    <keyframe android:fraction="0.3533" android:value="1" />
+                    <keyframe android:fraction="0.5667" android:value="0" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="0" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+
+    <!-- The writing writes itself, line by line. -->
+    <target android:name="writing1">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="trimPathEnd" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0" />
+                    <keyframe android:fraction="0.4467" android:value="0" />
+                    <keyframe android:fraction="0.5667" android:value="1" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="writing2">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="trimPathEnd" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0" />
+                    <keyframe android:fraction="0.5267" android:value="0" />
+                    <keyframe android:fraction="0.6467" android:value="1" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="writing3">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="trimPathEnd" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0" />
+                    <keyframe android:fraction="0.6067" android:value="0" />
+                    <keyframe android:fraction="0.7267" android:value="1" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+
+    <!-- And the sparkle pops on last, spinning round twice and slowing as it settles. -->
+    <target android:name="sparkle">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1500">
+                <propertyValuesHolder android:propertyName="scaleX" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0" />
+                    <keyframe android:fraction="0.5467" android:value="0" />
+                    <keyframe android:fraction="0.78" android:value="1" android:interpolator="@android:anim/overshoot_interpolator" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+                <propertyValuesHolder android:propertyName="scaleY" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="0" />
+                    <keyframe android:fraction="0.5467" android:value="0" />
+                    <keyframe android:fraction="0.78" android:value="1" android:interpolator="@android:anim/overshoot_interpolator" />
+                    <keyframe android:fraction="1" android:value="1" />
+                </propertyValuesHolder>
+                <propertyValuesHolder android:propertyName="rotation" android:valueType="floatType">
+                    <keyframe android:fraction="0" android:value="-720" />
+                    <keyframe android:fraction="0.5467" android:value="-720" />
+                    <keyframe android:fraction="1" android:value="0" android:interpolator="@android:interpolator/fast_out_slow_in" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+</animated-vector>

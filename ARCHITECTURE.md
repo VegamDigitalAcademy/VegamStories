@@ -49,6 +49,22 @@ com.vegamstories.app
    Alerts are opt-in (Settings → New story alerts). The newest story already announced or seen is kept in
    DataStore, so installing the app or opening Home never triggers an alert for an old story.
 
+## Languages
+
+Stories and categories come in several languages, all managed on the server (admin site); nothing
+about languages is fixed in the app.
+
+- **Shared by all languages:** a story's id, category, episode, publish date and likes.
+- **Per language:** title, summary, cover, comic pages, story text and video
+  (`story_translations`, `story_pages.language`), and category names (`category_names`).
+- **Story language:** the language button on Home (`ContentLanguageRepository`). Home, Search,
+  categories, next episode and new-story alerts show only stories that have a version in it. The
+  library (Favorites, Downloads, History, Continue reading) shows every saved story, in that
+  language when it has it, else in its first language. The reader's language chips switch one
+  story's version.
+- Default language: the user's pick, else the app's/phone's language if stories exist in it,
+  else the first language in the server's order.
+
 ## Backend: Supabase + Cloudflare R2
 
 - **Supabase** (`categories`, `stories`, `story_pages` tables) holds story text and image URLs.

@@ -8,9 +8,25 @@ Fill in the story, drop in the images, click **Save**:
 - switch **Published** on and the story appears in the app on its next refresh
 
 ```
-Your browser ──▶ admin.vegamstories.com (Cloudflare Worker) ──▶ R2 bucket  (images)
- (this page)      checks your login, holds the secret key     └─▶ Supabase   (story rows)
+Your browser ──▶ admin.vegamstories.com (Cloudflare Worker) ──▶ R2 bucket  (images, the app's catalogue)
+ (this page)      checks your login, holds the secret key     └─▶ Supabase   (story rows, likes)
 ```
+
+### The app's catalogue
+
+The app doesn't read stories from Supabase. After every save, delete, publish switch, category or
+language change, the Worker writes the **catalogue** to R2: every published story in every language,
+the categories and the languages, as one JSON file. It holds Supabase's rows as Supabase sends them,
+so building it takes the Worker very little computing time (Workers Free allows 10 ms per run).
+
+- `catalogue/v1.json`: a small file with the current **version** (a fingerprint of the content).
+  The app reads it first and downloads the catalogue only when the version is new to it.
+- `catalogue/v1/<version>.json`: the catalogue itself. The newest three are kept.
+
+The same stories always give the same version, so saving without changes costs the apps nothing.
+Every hour the Worker writes it again, so changes made directly in Supabase reach the app too.
+Like counts aren't in it: the app reads them from Supabase (a few bytes per story).
+If saving shows *"Saved, but the app's story list wasn't updated"*, click **Save** again.
 
 Only `admin@vegamstories.com` can get in (Cloudflare Access, email code). The Supabase
 secret key lives only inside Cloudflare, never in the page.
@@ -87,6 +103,19 @@ you, and the admin page opens. The login lasts 24 hours by default.
   name (`01.png`, `02.png`, … or the `p0-0.webp`, `p0-1.webp` files from the YouTube-to-comic prompt).
 - **Captions / speech bubbles:** one bubble per line. The preview on the right shows exactly
   how the page will look in the app.
+- **Shared vs per language:** category, episode, story id and publish date are shared. Under
+  **Language versions** each language (తెలుగు | English | ଓଡ଼ିଆ …) has its own title, summary,
+  cover, video, story text and comic pages. **Add language version** adds one; **Remove this
+  version** deletes it on Save. The app shows a story in a language only if it has that version.
+  Every version needs a title and at least one format (pages, text or a YouTube video). The cover
+  is optional: without one the app shows the first comic page, or else a title card it draws itself.
+  **✕ Remove** on the cover deletes that language's cover (from Supabase and R2) when you click Save.
+- **Story text:** optional, per version. Leave a blank line between paragraphs.
+- **Categories:** **+** adds one, **✎** edits the selected one's names: one name per language.
+- **+ New language:** the standard code (`or` Odia, `hi` Hindi, `ta` Tamil, `kn` Kannada), its
+  English name, its name in its own script (shown in the app, e.g. ଓଡ଼ିଆ) and its order (the first
+  is the app's default). The app picks up new languages on its next refresh; no app update needed.
+- Images of each language go in their own R2 folder: `<story-id>/<language>/…`.
 - **Save** (or ⌘S) stores everything. Replaced or removed images are deleted from R2 automatically.
 - **Published** switch: off = draft (not in the app), on = live. Remember to click Save after switching it.
 - **Delete story** removes it from Supabase and deletes its images from R2.
@@ -95,6 +124,11 @@ Any image format works (PNG, JPG, WebP, phone photos). Each is cropped from the 
 cover 480×640, panels 800×600, video thumbnail 960×540.
 
 ## Updating the site later
+
+Before deploying this version, run these once in Supabase → SQL Editor, in order (skip any you
+already ran): `004_story_texts.sql`, `005_languages.sql`, `006_story_translations.sql`, `007_optional_cover.sql`. 006 turns
+existing stories and category names into their Telugu version; deploy this site and the new app
+right after it, as older versions read the columns it removes.
 
 Edit files in `public/` (page) or `src/worker.js` (server part), then run `npx wrangler deploy` again.
 
@@ -113,6 +147,6 @@ on your Mac, but stories are saved to your real Supabase, so use test ids like `
 | File | What it is |
 |---|---|
 | `public/index.html`, `app.js`, `styles.css` | The admin page (no build step) |
-| `src/worker.js` | Server part: login check, image upload to R2, saving to Supabase |
+| `src/worker.js` | Server part: login check, image upload to R2, saving to Supabase, the app's catalogue |
 | `wrangler.jsonc` | Cloudflare settings: bucket, domain, Supabase URL, allowed emails |
 | `.dev.vars.example` | Template for local testing secrets |

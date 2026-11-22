@@ -1,5 +1,7 @@
 package com.vegamstories.app.presentation.search
 
+import kotlinx.coroutines.flow.onEach
+import com.vegamstories.app.core.logging.AppLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vegamstories.app.domain.usecase.SearchStoriesUseCase
@@ -18,6 +20,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
+private const val TAG = "SearchViewModel"
+
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
@@ -27,10 +31,13 @@ class SearchViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    private val log = AppLogger(TAG)
+
     val results: StateFlow<StoryListUiState> = _query
         .debounce(250)
         .map { it.trim() }
         .distinctUntilChanged()
+        .onEach { if (it.isNotEmpty()) log.i("$TAG: User searched \"$it\"") }
         .flatMapLatest { q -> searchStories(q).map { StoryListUiState(isLoading = false, stories = it) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StoryListUiState(isLoading = false))
 
