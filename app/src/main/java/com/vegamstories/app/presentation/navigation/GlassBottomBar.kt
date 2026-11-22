@@ -10,6 +10,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -84,8 +90,17 @@ import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.ui.theme.VegamRed
 
-/** Space the bar takes above the system navigation bar: 6 (top gap) + 68 (bar) + 10 (bottom gap). */
-val GlassBottomBarHeight = 84.dp
+/**
+ * Space the bar takes above the system navigation bar: 6 (top gap) + 68 (bar), less the
+ * [BarSink] it rests down into the navigation bar's area.
+ */
+val GlassBottomBarHeight = 70.dp
+
+/**
+ * The bar rests this far down into the system navigation bar's area (it used to sit 10dp above
+ * it): low, so it covers less of the stories, and still clear of the gesture line at the bottom.
+ */
+private val BarSink = 4.dp
 
 /** Room a scrolling list leaves at its end for the bar it scrolls under; 0 where there's no bar. */
 val LocalBottomBarSpace = staticCompositionLocalOf { 0.dp }
@@ -127,10 +142,12 @@ fun GlassBottomBar(
     val frosting = remember(blurRadius) { if (blurs) frostedGlass(blurRadius) else null }
     // Off the screen's edge there's nothing recorded: the page colour stands in there.
     val page = MaterialTheme.colorScheme.background
+    val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Box(
         modifier = modifier
-            .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp) // keep in sync with GlassBottomBarHeight
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal))
+            // Keep in sync with GlassBottomBarHeight.
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = (navigationBar - BarSink).coerceAtLeast(4.dp))
             .fillMaxWidth()
             .height(68.dp)
             .onGloballyPositioned { origin[0] = it.positionInRoot() }
