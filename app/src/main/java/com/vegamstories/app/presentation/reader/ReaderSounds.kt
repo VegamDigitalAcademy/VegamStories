@@ -124,9 +124,9 @@ private const val SAME_TURN_MILLIS = 90L
 private const val FAST_TURN_MILLIS = 250L
 private const val SLOW_TURN_MILLIS = 900L
 
-/** Soft: a page sound, not a notification. */
-private const val VOLUME = 0.5f
-private const val VOLUME_DROP = 0.15f
+/** Soft: a page sound in the background, not a notification (a slow turn; fast ones a little lighter). */
+private const val VOLUME = 0.05f
+private const val VOLUME_DROP = 0.95f
 
 /** The tear and the glue: a little louder than a page, being a moment of their own. */
 private const val EFFECT_VOLUME = 0.7f

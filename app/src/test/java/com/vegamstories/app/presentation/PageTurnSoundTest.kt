@@ -115,7 +115,7 @@ class PageTurnSoundTest {
         val fast = pageTurnPlayback(sinceLastMillis = 200)!!
 
         assertEquals(1f, slow.rate)
-        assertEquals(0.5f, slow.volume)
+        assertEquals(0.25f, slow.volume)
         assertTrue(brisk.rate > slow.rate && fast.rate > brisk.rate)
         assertTrue(fast.volume < slow.volume)
         assertEquals(1.6f, fast.rate, 0.001f)
