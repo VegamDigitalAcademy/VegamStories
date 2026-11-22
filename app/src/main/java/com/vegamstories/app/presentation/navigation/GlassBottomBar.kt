@@ -65,6 +65,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -179,7 +180,7 @@ fun GlassBottomBar(
                 .background(Brush.verticalGradient(listOf(glass.fillTop, glass.fillBottom)))
                 .border(1.dp, Brush.verticalGradient(listOf(glass.edgeTop, glass.edgeBottom)), shape)
                 .drawWithContent {
-                    drawLens(lensSpots, rowOrigin[0], lensAt.value, lensShown, lensStretch, glass.lens)
+                    drawLens(lensSpots, rowOrigin[0], lensAt.value, lensShown, lensStretch, glass.lens, glass.lensEdge, LensEdgeWidth.toPx())
                     drawContent()
                     // Light catching the upper edge of the glass.
                     drawRect(
@@ -220,20 +221,41 @@ fun GlassBottomBar(
  * The lens at [at] (a tab's index, or between two while sliding), behind the tabs' icons: between
  * two tabs it's drawn between their spots, a little wider mid-way ([stretch]), like a drop moving.
  */
-private fun DrawScope.drawLens(spots: Array<Rect?>, origin: Offset, at: Float, shown: Float, stretch: Float, color: Color) {
+private fun DrawScope.drawLens(
+    spots: Array<Rect?>,
+    origin: Offset,
+    at: Float,
+    shown: Float,
+    stretch: Float,
+    color: Color,
+    edge: Color?,
+    edgeWidth: Float,
+) {
     if (shown <= 0f) return
     val from = spots.getOrNull(floor(at).toInt()) ?: return
     val to = spots.getOrNull(ceil(at).toInt()) ?: from
     val t = at - floor(at)
     val spot = lerp(from, to, t).translate(-origin)
     val extra = stretch * sin(PI.toFloat() * t)
-    drawRoundRect(
-        color = color.copy(alpha = color.alpha * shown),
-        topLeft = Offset(spot.left - extra / 2f, spot.top),
-        size = Size(spot.width + extra, spot.height),
-        cornerRadius = CornerRadius(spot.height / 2f),
-    )
+    val topLeft = Offset(spot.left - extra / 2f, spot.top)
+    val size = Size(spot.width + extra, spot.height)
+    val corner = CornerRadius(spot.height / 2f)
+    drawRoundRect(color = color.copy(alpha = color.alpha * shown), topLeft = topLeft, size = size, cornerRadius = corner)
+    if (edge != null) {
+        // The rim just inside the lens, so it isn't cut by the next tab.
+        val inset = edgeWidth / 2f
+        drawRoundRect(
+            color = edge.copy(alpha = edge.alpha * shown),
+            topLeft = topLeft + Offset(inset, inset),
+            size = Size(size.width - edgeWidth, size.height - edgeWidth),
+            cornerRadius = CornerRadius(corner.x - inset),
+            style = Stroke(width = edgeWidth),
+        )
+    }
 }
+
+/** The lens's rim, where it has one (by night). */
+private val LensEdgeWidth = 1.dp
 
 /** Blur, then a little more colour (as iPhone's glass does, so what's behind doesn't turn grey). */
 @RequiresApi(Build.VERSION_CODES.S)
@@ -352,6 +374,8 @@ private class GlassColors(
     val sheen: Color,
     /** Behind the selected tab's icon. */
     val lens: Color,
+    /** A thin rim round [lens], or none. */
+    val lensEdge: Color? = null,
 )
 
 /**
@@ -374,7 +398,10 @@ private val NightBlurGlass = GlassColors(
     edgeTop = Color.White.copy(alpha = 0.28f),
     edgeBottom = Color.White.copy(alpha = 0.06f),
     sheen = Color.White.copy(alpha = 0.08f),
-    lens = Color.White.copy(alpha = 0.14f),
+    // A soft red tint with a thin red rim: a tinted glass lens that goes with the red icon, rather
+    // than a flat grey pill (which looked dull, like a pressed button) or a solid maroon block.
+    lens = VegamRed.copy(alpha = 0.2f),
+    lensEdge = VegamRed.copy(alpha = 0.45f),
 )
 
 /** Milky glass on the light background, where it can't blur (Android before 12). */
@@ -394,8 +421,9 @@ private val NightGlass = GlassColors(
     edgeTop = Color.White.copy(alpha = 0.22f),
     edgeBottom = Color.White.copy(alpha = 0.05f),
     sheen = Color.White.copy(alpha = 0.06f),
-    // Neutral, not red: a red tint on smoked glass turns into a heavy maroon block.
-    lens = Color.White.copy(alpha = 0.10f),
+    // As by night with blur: a light red tint and a thin red rim (a stronger tint turns into a heavy maroon block).
+    lens = VegamRed.copy(alpha = 0.16f),
+    lensEdge = VegamRed.copy(alpha = 0.4f),
 )
 
 // ---------------- Previews ----------------
