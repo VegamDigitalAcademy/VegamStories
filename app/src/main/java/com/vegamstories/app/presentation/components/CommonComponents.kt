@@ -1,6 +1,16 @@
 package com.vegamstories.app.presentation.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,24 +52,22 @@ import com.vegamstories.app.R
 import com.vegamstories.app.presentation.preview.ComponentPreviews
 import com.vegamstories.app.presentation.preview.PreviewTheme
 
-/** Red rounded square with the Telugu "వ" — the Vegam logo mark. */
+/** The Vegam Stories logo (the app icon): the book-and-sparkle mark on its navy rounded square. */
 @Composable
 fun VegamLogoMark(modifier: Modifier = Modifier, size: Int = 30) {
-    Box(
+    Image(
+        painter = painterResource(R.drawable.vegam_logo),
+        contentDescription = null, // the app name is written next to it
         modifier = modifier
             .size(size.dp)
             .clip(RoundedCornerShape((size / 4).dp))
-            .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "వ",
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = (size * 0.55f).sp,
-        )
-    }
+            .background(LogoNavy)
+            .padding((size / 12).dp),
+    )
 }
+
+/** Background of the logo and the app icon (ic_launcher_background). */
+private val LogoNavy = Color(0xFF1E1B4B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,9 +139,29 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // Gently alive: the icon bobs up and down, and a halo ripples out from it now and then.
+        val breathing = rememberInfiniteTransition(label = "empty")
+        val bob = breathing.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(EMPTY_BOB_MILLIS, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "bob",
+        )
+        val halo = breathing.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(EMPTY_HALO_MILLIS, easing = LinearOutSlowInEasing)),
+            label = "halo",
+        )
+        val haloColor = MaterialTheme.colorScheme.primary
         Box(
             modifier = Modifier
                 .size(72.dp)
+                .graphicsLayer { translationY = (0.5f - bob.value) * EMPTY_BOB.toPx() }
+                .drawBehind {
+                    val h = halo.value
+                    drawCircle(haloColor.copy(alpha = 0.22f * (1f - h)), radius = size.minDimension / 2f * (1f + 0.5f * h))
+                }
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
@@ -160,6 +188,11 @@ fun EmptyState(
         }
     }
 }
+
+/** The empty screen's icon: how far and how slowly it bobs, and how often its halo ripples out. */
+private val EMPTY_BOB = 8.dp
+private const val EMPTY_BOB_MILLIS = 1_400
+private const val EMPTY_HALO_MILLIS = 2_400
 
 @Composable
 fun LoadingBox(modifier: Modifier = Modifier) {
@@ -221,7 +254,7 @@ fun VegamSwitch(
 private fun EmptyStatePreview() = PreviewTheme {
     Box(Modifier.size(width = 360.dp, height = 320.dp)) {
         EmptyState(
-            icon = R.drawable.ic_favorite_border,
+            icon = R.drawable.ic_star_border,
             title = stringResource(R.string.favorites_empty_title),
             message = stringResource(R.string.favorites_empty_message),
         )

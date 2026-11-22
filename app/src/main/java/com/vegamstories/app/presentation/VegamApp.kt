@@ -12,6 +12,16 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vegamstories.app.presentation.offline.NoInternetDialog
+import com.vegamstories.app.presentation.offline.NoInternetNotice
+import com.vegamstories.app.presentation.offline.OfflineViewModel
+import com.vegamstories.app.presentation.reader.StoryClosingOverlay
+import com.vegamstories.app.presentation.reader.StoryOpeningOverlay
+import com.vegamstories.app.presentation.navigation.StoryOpener
+import com.vegamstories.app.presentation.navigation.LocalStoryOpener
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,11 +30,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.vegamstories.app.presentation.navigation.EmphasizedEasing
 import com.vegamstories.app.presentation.navigation.GlassBottomBar
+import com.vegamstories.app.presentation.navigation.LocalNewDownloads
+import com.vegamstories.app.presentation.navigation.NewDownloads
 import com.vegamstories.app.presentation.navigation.NAV_ANIM_MS
 import com.vegamstories.app.presentation.navigation.ReaderRoute
 import com.vegamstories.app.presentation.navigation.SearchRoute
@@ -61,12 +76,34 @@ fun VegamApp(
     }
 
     // Gradient + arches behind every screen; screens are transparent on top.
-    AppBackground {
-        // The bar and snackbar float over the screens instead of resizing them. If the bar's
-        // space were taken from the screen area, every screen would shrink and grow while the
-        // bar animates (the reader visibly squeezing on Back). Tab screens reserve the bar's
-        // space themselves instead (VegamNavHost), so nothing resizes during a transition.
-        Box(Modifier.fillMaxSize()) {
+    // No internet: said once each time the phone goes offline (not over a story being read), and
+    // again when a story that isn't saved on the phone is asked for.
+    val offline: OfflineViewModel = hiltViewModel()
+    val online by offline.isOnline.collectAsStateWithLifecycle()
+    var noInternet by remember { mutableStateOf<NoInternetNotice?>(null) }
+    val inReader = currentDestination?.hasRoute(ReaderRoute::class) == true
+    LaunchedEffect(online) {
+        noInternet = if (online) null else if (inReader) noInternet else NoInternetNotice.OFFLINE
+    }
+
+    // A story opening from its card grows over everything (StoryOpeningOverlay).
+    val storyOpener = remember { StoryOpener() }
+    // Stories downloaded in the reader, for the Downloads tab to hop about when the bar is back.
+    val newDownloads = remember { NewDownloads() }
+    CompositionLocalProvider(LocalStoryOpener provides storyOpener, LocalNewDownloads provides newDownloads) {
+    // Everything under the bar, recorded as it's drawn, for the bar to blur (GlassBottomBar).
+    val backdrop = rememberGraphicsLayer()
+    // The bar and snackbar float over the screens instead of resizing them. If the bar's space
+    // were taken from the screen area, every screen would shrink and grow while the bar animates
+    // (the reader visibly squeezing on Back). Tab screens keep clear of it themselves instead
+    // (VegamNavHost), so nothing resizes during a transition.
+    Box(Modifier.fillMaxSize()) {
+        AppBackground(
+            Modifier.drawWithContent {
+                backdrop.record { this@drawWithContent.drawContent() }
+                drawLayer(backdrop)
+            },
+        ) {
             VegamNavHost(
                 navController = navController,
                 shortcutTarget = shortcutTarget,
@@ -78,7 +115,10 @@ fun VegamApp(
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+                canOpenStory = offline::canOpen,
+                onStoryNeedsInternet = { noInternet = NoInternetNotice.STORY_NOT_SAVED },
             )
+        }
             AnimatedVisibility(
                 visible = showBottomBar,
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -89,6 +129,7 @@ fun VegamApp(
                     // While sliding away, keep the tab we came from highlighted.
                     currentDestination = if (showBottomBar) currentDestination else lastTabDestination,
                     onNavigate = navController::navigateToTopLevel,
+                    backdrop = backdrop,
                 )
             }
             SnackbarHost(
@@ -97,7 +138,10 @@ fun VegamApp(
                     .align(Alignment.BottomCenter)
                     .then(if (showBottomBar) Modifier.glassBottomBarSpace() else Modifier.navigationBarsPadding()),
             )
-        }
+            StoryOpeningOverlay(storyOpener)
+            StoryClosingOverlay(storyOpener)
+            noInternet?.let { notice -> NoInternetDialog(notice, onDismiss = { noInternet = null }) }
+    }
     }
 }
 

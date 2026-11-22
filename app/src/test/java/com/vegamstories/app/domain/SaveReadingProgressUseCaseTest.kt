@@ -1,6 +1,8 @@
 package com.vegamstories.app.domain
 
 import com.vegamstories.app.domain.model.ReadingProgress
+import com.vegamstories.app.domain.model.Bookmark
+import com.vegamstories.app.domain.model.BookmarkItem
 import com.vegamstories.app.domain.model.Story
 import com.vegamstories.app.domain.repository.LibraryRepository
 import com.vegamstories.app.domain.usecase.SaveReadingProgressUseCase
@@ -18,14 +20,20 @@ class SaveReadingProgressUseCaseTest {
         var saved: Triple<String, Int, Int>? = null
         override fun observeFavorites(): Flow<List<Story>> = emptyFlow()
         override fun observeDownloads(): Flow<List<Story>> = emptyFlow()
+        override fun observeDownloadProgress(storyId: String): Flow<Float?> = emptyFlow()
         override fun observeReadingHistory(): Flow<List<Story>> = emptyFlow()
         override fun observeContinueReading(categoryId: String?): Flow<Story?> = emptyFlow()
         override suspend fun toggleFavorite(storyId: String) = true
+        override suspend fun toggleLike(storyId: String) = true
         override suspend fun toggleDownload(storyId: String) = true
         override suspend fun saveProgress(storyId: String, pageIndex: Int, totalPages: Int) {
             saved = Triple(storyId, pageIndex, totalPages)
         }
         override suspend fun clearReadingHistory() = Unit
+        override fun observeBookmarks(): Flow<List<BookmarkItem>> = emptyFlow()
+        override fun observeBookmarks(storyId: String): Flow<List<Bookmark>> = emptyFlow()
+        override suspend fun addBookmark(bookmark: Bookmark) = Unit
+        override suspend fun removeBookmarks(bookmarks: List<Bookmark>) = Unit
     }
 
     private val repo = FakeLibraryRepository()

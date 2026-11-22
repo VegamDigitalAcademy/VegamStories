@@ -4,34 +4,59 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Shape of the JSON we expect from the server. When the real API is ready, adjust the
- * @SerialName values to match it — nothing outside the data layer has to change.
+ * The stories as the app saves them: what NetworkStoryRemoteDataSource makes of Supabase's rows
+ * (from the catalogue in R2, or from Supabase), and what FakeStoryRemoteDataSource makes up.
  */
 @Serializable
 data class FeedResponseDto(
     @SerialName("categories") val categories: List<CategoryDto>,
     @SerialName("stories") val stories: List<StoryDto>,
+    /** Languages stories can be in. Empty if the server couldn't send them (the saved list is kept). */
+    @SerialName("languages") val languages: List<LanguageDto> = emptyList(),
 )
 
+/** A story language, managed in the admin site: e.g. code "or", name "Odia", native name "ଓଡ଼ିଆ". */
 @Serializable
-data class CategoryDto(
-    @SerialName("id") val id: String,
+data class LanguageDto(
+    @SerialName("code") val code: String,
     @SerialName("name") val name: String,
+    @SerialName("native_name") val nativeName: String,
     @SerialName("sort_order") val sortOrder: Int = 0,
 )
 
+/** A category: the id and order are shared; [names] maps language code → name ("te" → "నీతి కథలు"). */
+@Serializable
+data class CategoryDto(
+    @SerialName("id") val id: String,
+    @SerialName("names") val names: Map<String, String>,
+    @SerialName("sort_order") val sortOrder: Int = 0,
+)
+
+/** A story: what all languages share, and one [StoryTranslationDto] per language it's in. */
 @Serializable
 data class StoryDto(
     @SerialName("id") val id: String,
     @SerialName("category_id") val categoryId: String,
     @SerialName("episode") val episode: Int,
+    @SerialName("published_at") val publishedAt: Long,
+    /** Not in the catalogue from R2 (likes change all the time): the app reads the counts separately. */
+    @SerialName("like_count") val likeCount: Int? = null,
+    @SerialName("translations") val translations: List<StoryTranslationDto> = emptyList(),
+)
+
+/** One language version of a story. It needs at least one of [pages], [text] or [video]. */
+@Serializable
+data class StoryTranslationDto(
+    /** A code from the languages list, e.g. "te", "en", "or". */
+    @SerialName("language") val language: String,
     @SerialName("title") val title: String,
     @SerialName("summary") val summary: String = "",
-    @SerialName("cover_url") val coverUrl: String,
-    @SerialName("published_at") val publishedAt: Long,
+    /** Optional: without it the app shows the first comic page, or a title card. */
+    @SerialName("cover_url") val coverUrl: String? = null,
     @SerialName("pages") val pages: List<PageDto> = emptyList(),
+    /** The story as plain text (paragraphs separated by a blank line); null = no text version. */
+    @SerialName("text") val text: String? = null,
     @SerialName("video") val video: VideoDto? = null,
-    @SerialName("like_count") val likeCount: Int = 0,
 )
 
 /** One finished comic page image. */
@@ -45,5 +70,16 @@ data class VideoDto(
     @SerialName("title") val title: String,
     @SerialName("description") val description: String = "",
     @SerialName("thumbnail_url") val thumbnailUrl: String,
+    @SerialName("url") val url: String,
+)
+
+/**
+ * The small file the app reads first (catalogue/v1.json in R2): which catalogue is current. The
+ * catalogue itself ([SupabaseCatalogueDto]) is downloaded only when [version] is new to the phone.
+ */
+@Serializable
+data class CataloguePointerDto(
+    /** Changes whenever the stories, categories or languages change; the same content keeps it. */
+    @SerialName("version") val version: String,
     @SerialName("url") val url: String,
 )

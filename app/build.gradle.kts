@@ -6,13 +6,15 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.room)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 // Supabase keys are read from local.properties (never committed to git):
 //   SUPABASE_URL=https://xxxx.supabase.co
 //   SUPABASE_ANON_KEY=eyJ...   (or sb_publishable_...)
 // Without them the app runs on dummy data, so a fresh checkout still builds and runs.
-val localProperties = Properties().apply {
+val  localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
@@ -20,16 +22,27 @@ val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL").orEmpty().
 val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY").orEmpty().trim()
 val hasSupabase = supabaseUrl.isNotEmpty() && supabaseAnonKey.isNotEmpty()
 
+// Upload key for Play, also read from local.properties (the .jks lives outside the project):
+//   UPLOAD_STORE_FILE=/Users/you/keys/vegam-upload.jks
+//   UPLOAD_STORE_PASSWORD=...
+//   UPLOAD_KEY_ALIAS=upload
+//   UPLOAD_KEY_PASSWORD=...
+// Without them release builds are unsigned: they still build, but can't be installed or uploaded.
+val uploadStoreFile: String = localProperties.getProperty("UPLOAD_STORE_FILE").orEmpty().trim()
+val hasUploadKey = uploadStoreFile.isNotEmpty() && file(uploadStoreFile).exists()
+
 android {
     namespace = "com.vegamstories.app"
     compileSdk = 37
+    // The NDK installed here; release builds use it to read native debug symbols (see release below).
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "com.vegamstories.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 5
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -41,15 +54,36 @@ android {
             "BASE_URL",
             "\"${if (hasSupabase) "$supabaseUrl/rest/v1/" else "https://localhost/"}\"",
         )
+        // The story catalogue in R2: a small file saying which version is current, written by the
+        // admin site (vegam-admin) on every change. The app downloads a catalogue only when it's new.
+        buildConfigField("String", "CATALOGUE_URL", "\"https://media.vegamstories.com/catalogue/v1.json\"")
         // Real Supabase data when the keys are present, dummy data otherwise.
         buildConfigField("boolean", "USE_FAKE_BACKEND", (!hasSupabase).toString())
     }
 
+    signingConfigs {
+        if (hasUploadKey) {
+            create("upload") {
+                storeFile = file(uploadStoreFile)
+                storePassword = localProperties.getProperty("UPLOAD_STORE_PASSWORD")
+                keyAlias = localProperties.getProperty("UPLOAD_KEY_ALIAS")
+                keyPassword = localProperties.getProperty("UPLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            if (hasUploadKey) signingConfig = signingConfigs.getByName("upload")
+            // R8: shrinks, optimizes and obfuscates the code and removes unused resources.
+            // App keep rules live in src/main/keepRules/; libraries bring their own.
+            // (optimization { enable = true } is AGP 9's experimental "gradual R8", so not used.)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            // Native debug symbols for the AndroidX .so files, packed into the bundle, so Play can
+            // show readable native crash and ANR stacks.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
     }
     compileOptions {
@@ -60,9 +94,32 @@ android {
         compose = true
         buildConfig = true
     }
+    // Every language in the base APK. Split by language, Play installs only the phone's own
+    // languages, so Telugu picked in the app's Settings on an English phone stayed English.
+    bundle {
+        language { enableSplit = false }
+    }
+    testOptions {
+        unitTests {
+            // Robolectric tests (screens, view models) need the app's resources: strings, drawables, themes.
+            isIncludeAndroidResources = true
+            // Robolectric's Android 16 sets file descriptors through a JDK-internal API.
+            all { it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }
+        }
+    }
+}
+
+// Room writes each DB version's schema here (commit it). Needed to review and test migrations.
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
+    // Baseline Profile (baselineprofile module): installs the compiled startup, story opening and
+    // page turning code with the app, so the first run is as smooth as later ones.
+    implementation(libs.androidx.profileinstaller)
+    "baselineProfile"(project(":baselineprofile"))
+
     // Core / Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -96,6 +153,9 @@ dependencies {
     // Video: YouTube player inside the reader
     implementation(libs.youtube.player.core)
 
+    // Splash screen with the logo
+    implementation(libs.androidx.core.splashscreen)
+
     // In-app language switch (English / Telugu)
     implementation(libs.androidx.appcompat)
 
@@ -119,10 +179,14 @@ dependencies {
     // Network
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
-    implementation(libs.okhttp.logging)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Screens and view models tested on the JVM (Robolectric), no device needed
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

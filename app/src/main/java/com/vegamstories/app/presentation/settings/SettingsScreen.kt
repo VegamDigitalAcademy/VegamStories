@@ -1,5 +1,11 @@
 package com.vegamstories.app.presentation.settings
 
+import com.vegamstories.app.core.logging.SharedLogs
+import com.vegamstories.app.core.logging.AppLogger
+import androidx.compose.ui.res.painterResource
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Icon
+import android.content.ClipData
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -31,6 +37,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,7 +61,9 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vegamstories.app.BuildConfig
 import com.vegamstories.app.R
+import com.vegamstories.app.domain.model.AUTO_TURN_SECONDS_OPTIONS
 import com.vegamstories.app.domain.model.AppLanguage
 import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.components.BackTopBar
@@ -60,17 +71,41 @@ import com.vegamstories.app.presentation.components.VegamSwitch
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.preview.ScreenPreviews
 import com.vegamstories.app.presentation.preview.TeluguPreview
-import timber.log.Timber
+
+private const val TAG = "SettingsScreen"
 
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    /** Opens Settings → API calls. The row shows in debug builds only. */
+    onOpenApiCalls: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val language by viewModel.language.collectAsStateWithLifecycle()
     val newStoryAlerts by viewModel.newStoryAlerts.collectAsStateWithLifecycle()
+    val readerSettings by viewModel.readerSettings.collectAsStateWithLifecycle()
+    val shareLogs by viewModel.shareLogs.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Support → Share logs: the note dialog, then the share sheet with the zip.
+    var showShareLogs by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(viewModel) {
+        viewModel.logsToShare.collect { logs ->
+            showShareLogs = false
+            context.shareLogs(logs)
+        }
+    }
+    if (showShareLogs) {
+        ShareLogsDialog(
+            state = shareLogs,
+            onShare = viewModel::onShareLogs,
+            onDismiss = {
+                showShareLogs = false
+                viewModel.onShareLogsDismissed()
+            },
+        )
+    }
 
     // Whether the system lets the app post notifications at all. Re-checked on every resume,
     // since the user may have just changed it in the phone's settings.
@@ -107,9 +142,45 @@ fun SettingsScreen(
             }
         },
         onOpenNotificationSettings = { context.openAppNotificationSettings() },
+        autoTurnPages = readerSettings.autoTurnPages,
+        autoTurnSeconds = readerSettings.autoTurnSeconds,
+        onAutoTurnChange = viewModel::onAutoTurnChange,
+        onAutoTurnSecondsChange = viewModel::onAutoTurnSecondsChange,
+        pageTurnSound = readerSettings.pageTurnSound,
+        onPageTurnSoundChange = viewModel::onPageTurnSoundChange,
+        tornPages = readerSettings.tornPages,
+        onTornPagesChange = viewModel::onTornPagesChange,
+        onShareLogs = { showShareLogs = true },
+        // The Developer section (API calls) is for debug builds only.
+        onOpenApiCalls = onOpenApiCalls.takeIf { BuildConfig.DEBUG },
         onBack = onBack,
     )
 }
+
+/**
+ * The share sheet with the logs zip: WhatsApp, Gmail (addressed to support, with a subject) or any
+ * app that takes a file. The note and the app/phone line go in the message too.
+ */
+private fun Context.shareLogs(logs: SharedLogs) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/zip"
+        putExtra(Intent.EXTRA_STREAM, logs.uri)
+        putExtra(Intent.EXTRA_TEXT, logs.text)
+        putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_logs_subject))
+        putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.support_email)))
+        // Lets the chosen app read the zip (through the FileProvider).
+        clipData = ClipData.newRawUri(null, logs.uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        startActivity(Intent.createChooser(send, getString(R.string.share_logs_title)))
+        log.i("$TAG: Share sheet opened for the logs")
+    } catch (e: ActivityNotFoundException) {
+        log.w("$TAG: No app can share the logs", e)
+    }
+}
+
+private val log = AppLogger(TAG)
 
 /** The app's notification page in the phone's settings (Android 8+), else its app-info page. */
 private fun Context.openAppNotificationSettings() {
@@ -121,7 +192,7 @@ private fun Context.openAppNotificationSettings() {
     try {
         startActivity(intent)
     } catch (e: ActivityNotFoundException) {
-        Timber.w(e, "No settings screen for notifications")
+        log.w("$TAG: No settings screen for notifications", e)
     }
 }
 
@@ -137,6 +208,17 @@ fun SettingsContent(
     onNewStoryAlertsChange: (Boolean) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onBack: () -> Unit,
+    autoTurnPages: Boolean = true,
+    autoTurnSeconds: Int = 30,
+    onAutoTurnChange: (Boolean) -> Unit = {},
+    onAutoTurnSecondsChange: (Int) -> Unit = {},
+    pageTurnSound: Boolean = true,
+    onPageTurnSoundChange: (Boolean) -> Unit = {},
+    tornPages: Boolean = true,
+    onTornPagesChange: (Boolean) -> Unit = {},
+    onShareLogs: () -> Unit = {},
+    /** Settings → API calls; null (release builds) hides the Developer section. */
+    onOpenApiCalls: (() -> Unit)? = null,
 ) {
     Scaffold(
         topBar = { BackTopBar(title = stringResource(R.string.menu_settings), onBack = onBack) },
@@ -181,6 +263,48 @@ fun SettingsContent(
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
 
+            // ---- Reading ----
+            SectionLabel(stringResource(R.string.settings_reading_section))
+            SwitchRow(
+                title = stringResource(R.string.settings_auto_turn),
+                subtitle = stringResource(R.string.settings_auto_turn_desc),
+                checked = autoTurnPages,
+                onCheckedChange = onAutoTurnChange,
+            )
+            if (autoTurnPages) {
+                SingleChoiceSegmentedButtonRow(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                ) {
+                    AUTO_TURN_SECONDS_OPTIONS.forEachIndexed { i, seconds ->
+                        SegmentedButton(
+                            selected = seconds == autoTurnSeconds,
+                            onClick = { onAutoTurnSecondsChange(seconds) },
+                            shape = SegmentedButtonDefaults.itemShape(index = i, count = AUTO_TURN_SECONDS_OPTIONS.size),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        ) { Text(stringResource(R.string.settings_auto_turn_seconds, seconds)) }
+                    }
+                }
+            }
+            SwitchRow(
+                title = stringResource(R.string.settings_page_turn_sound),
+                subtitle = stringResource(R.string.settings_page_turn_sound_desc),
+                checked = pageTurnSound,
+                onCheckedChange = onPageTurnSoundChange,
+            )
+            SwitchRow(
+                title = stringResource(R.string.settings_torn_pages),
+                subtitle = stringResource(R.string.settings_torn_pages_desc),
+                checked = tornPages,
+                onCheckedChange = onTornPagesChange,
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+
             // ---- Notifications ----
             SectionLabel(stringResource(R.string.settings_notifications_section))
             SwitchRow(
@@ -199,6 +323,27 @@ fun SettingsContent(
                         .fillMaxWidth()
                         .clickable(onClick = onOpenNotificationSettings)
                         .padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+
+            // ---- Support ----
+            SectionLabel(stringResource(R.string.settings_support_section))
+            ActionRow(
+                title = stringResource(R.string.settings_share_logs),
+                subtitle = stringResource(R.string.settings_share_logs_desc),
+                onClick = onShareLogs,
+            )
+
+            // ---- Developer (debug builds only) ----
+            if (onOpenApiCalls != null) {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+                SectionLabel(stringResource(R.string.settings_developer_section))
+                ActionRow(
+                    title = stringResource(R.string.settings_api_calls),
+                    subtitle = stringResource(R.string.settings_api_calls_desc),
+                    onClick = onOpenApiCalls,
                 )
             }
             Spacer(Modifier.height(16.dp))
@@ -266,6 +411,33 @@ private fun RadioOptionRow(title: String, subtitle: String, selected: Boolean, o
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** A row that does something when tapped (opens a dialog or a page), with a chevron. */
+@Composable
+private fun ActionRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+        )
     }
 }
 

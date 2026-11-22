@@ -4,8 +4,11 @@ import android.content.Context
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.vegamstories.app.BuildConfig
+import com.vegamstories.app.core.logging.ApiCallCounter
+import com.vegamstories.app.data.remote.api.CatalogueApi
 import com.vegamstories.app.data.remote.api.StoryApi
-import com.vegamstories.app.data.remote.logging.PrettyApiLogger
+import com.vegamstories.app.data.remote.logging.ApiCallCountInterceptor
+import com.vegamstories.app.data.remote.logging.ApiLoggingInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,10 +17,10 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Provider
 import javax.inject.Singleton
 
 @Module
@@ -34,7 +37,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    fun provideOkHttpClient(apiCallCounter: Provider<ApiCallCounter>): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         // Supabase needs the project key on every request. This client is only used by
@@ -51,19 +54,11 @@ object NetworkModule {
                 .build()
             chain.proceed(request)
         }
-        .apply {
-            // Debug builds only: every Supabase call in Logcat (tag "VegamApi") with pretty JSON.
-            // Added after the auth interceptor so it shows the real request; keys are masked.
-            if (BuildConfig.DEBUG) {
-                addInterceptor(
-                    HttpLoggingInterceptor(PrettyApiLogger()).apply {
-                        level = HttpLoggingInterceptor.Level.BODY
-                        redactHeader("apikey")
-                        redactHeader("Authorization")
-                    },
-                )
-            }
-        }
+        // Every call and its response in the logs (tag "ApiLoggingInterceptor"): Logcat in debug builds, the log
+        // files in every build. After the auth interceptor, so it sees the real request; it never
+        // logs headers, so the key stays out of the logs.
+        .addInterceptor(ApiLoggingInterceptor())
+        .countCallsInDebug(apiCallCounter)
         .build()
 
     @Provides
@@ -77,6 +72,35 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideStoryApi(retrofit: Retrofit): StoryApi = retrofit.create(StoryApi::class.java)
+
+    /**
+     * The story catalogue in R2 (media.vegamstories.com). Its own client: these requests must not
+     * carry the Supabase key. Logged like the Supabase calls.
+     */
+    @Provides
+    @Singleton
+    fun provideCatalogueApi(json: Json, apiCallCounter: Provider<ApiCallCounter>): CatalogueApi {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(ApiLoggingInterceptor())
+            .countCallsInDebug(apiCallCounter)
+            .build()
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.CATALOGUE_URL.substringBeforeLast('/') + "/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(CatalogueApi::class.java)
+    }
+
+    /**
+     * Debug builds count every API call (Settings → API calls). A Provider, so release builds never
+     * even create the counter.
+     */
+    private fun OkHttpClient.Builder.countCallsInDebug(counter: Provider<ApiCallCounter>) = apply {
+        if (BuildConfig.DEBUG) addInterceptor(ApiCallCountInterceptor(counter.get()::record))
+    }
 
     /** The app-wide Coil loader (configured in VegamStoriesApp). */
     @Provides

@@ -1,15 +1,26 @@
 package com.vegamstories.app
 
+import com.vegamstories.app.core.logging.AppLogger
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import com.vegamstories.app.presentation.LocalSplashDone
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,10 +29,13 @@ import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.MainViewModel
 import com.vegamstories.app.presentation.VegamApp
 import com.vegamstories.app.presentation.shortcuts.AppShortcutsManager
+import com.vegamstories.app.presentation.onboarding.StoryLanguageScreen
 import com.vegamstories.app.presentation.shortcuts.ShortcutTarget
 import com.vegamstories.app.ui.theme.MyApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+
+private const val TAG = "MainActivity"
 
 @AndroidEntryPoint
 /** AppCompatActivity (not ComponentActivity) so the in-app language setting works on Android 7–12. */
@@ -35,15 +49,52 @@ class MainActivity : AppCompatActivity() {
     private var shortcutTarget by mutableStateOf<ShortcutTarget?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Logo splash: on launch it stays at least SPLASH_MIN_MS, and longer if the saved theme and
+        // story-language choice aren't read yet, so the first screen follows with no blank frame.
+        // Not when the screen is only recreated (theme/language change): that would freeze it.
+        val splashUntil = SystemClock.uptimeMillis() + if (savedInstanceState == null) SPLASH_MIN_MS else 0L
+        installSplashScreen().apply {
+            setKeepOnScreenCondition {
+                SystemClock.uptimeMillis() < splashUntil ||
+                    viewModel.themeMode.value == null || viewModel.needsStoryLanguage.value == null
+            }
+            // Android 12+ takes the splash away itself, with its own short exit. Asking to do it here
+            // (setOnExitAnimationListener) makes Android hand the app a copy of the splash, and in the
+            // hand-over there's a frame with neither: the screen blinks dark. Older Android draws the
+            // splash inside the app, so there it goes gently: the logo grows a little as it fades.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                setOnExitAnimationListener { splash ->
+                    val icon = runCatching { splash.iconView }.getOrNull()
+                    icon?.animate()?.scaleX(SPLASH_EXIT_SCALE)?.scaleY(SPLASH_EXIT_SCALE)
+                        ?.setDuration(SPLASH_EXIT_MS)?.setInterpolator(AccelerateInterpolator())?.start()
+                    splash.view.animate()
+                        .alpha(0f)
+                        .setDuration(SPLASH_EXIT_MS)
+                        .setInterpolator(DecelerateInterpolator())
+                        .withEndAction { splash.remove() }
+                        .start()
+                }
+            }
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Only on a fresh launch — after rotation the NavController already restored the screen.
+        // Only on a fresh launch — when the screen is recreated (language change) the NavController
+        // has already restored it.
         if (savedInstanceState == null) handleShortcut(intent)
         setContent {
+            // When the splash goes: after its time, and once the saved choices are read (below).
+            var splashDone by remember { mutableStateOf(savedInstanceState != null) }
+            LaunchedEffect(Unit) {
+                delay((splashUntil - SystemClock.uptimeMillis()).coerceAtLeast(0L))
+                splashDone = true
+            }
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-            // Wait for the saved choice so a "Dark" user never sees a light flash.
+            val needsStoryLanguage by viewModel.needsStoryLanguage.collectAsStateWithLifecycle()
+            // Wait for the saved choices so a "Dark" user never sees a light flash, and the
+            // language screen never flashes up for someone who already chose.
             val mode = themeMode
-            if (mode != null) {
+            val firstLaunch = needsStoryLanguage
+            if (mode != null && firstLaunch != null) {
                 val darkTheme = when (mode) {
                     ThemeMode.SYSTEM -> isSystemInDarkTheme() // follows the phone, live
                     ThemeMode.LIGHT -> false
@@ -60,10 +111,17 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 MyApplicationTheme(darkTheme = darkTheme) {
-                    VegamApp(
-                        shortcutTarget = shortcutTarget,
-                        onShortcutHandled = { shortcutTarget = null },
-                    )
+                    CompositionLocalProvider(LocalSplashDone provides splashDone) {
+                    if (firstLaunch) {
+                        // Once, before Home. A shortcut tapped meanwhile stays pending and opens after.
+                        StoryLanguageScreen()
+                    } else {
+                        VegamApp(
+                            shortcutTarget = shortcutTarget,
+                            onShortcutHandled = { shortcutTarget = null },
+                        )
+                    }
+                    }
                 }
             }
         }
@@ -77,12 +135,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleShortcut(intent: Intent?) {
         ShortcutTarget.from(intent)?.let { target ->
+            log.i("$TAG: Opened from outside the app (shortcut, widget or notification)", data = target)
             shortcutTarget = target
             appShortcutsManager.reportUsed(target)
         }
     }
 
+    private val log = AppLogger(TAG)
+
     private companion object {
+        /** The logo splash stays at least this long. */
+        const val SPLASH_MIN_MS = 2_000L
+
+        /** The splash fading into the app on Android 11 and older: how long, and how much the logo grows. */
+        private const val SPLASH_EXIT_MS = 320L
+        private const val SPLASH_EXIT_SCALE = 1.18f
+
         // Same scrims the platform uses for 3-button navigation bars.
         val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
         val DarkScrim = Color.argb(0x80, 0x1b, 0x1b, 0x1b)

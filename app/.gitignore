@@ -1,1 +1,3 @@
 /build
+# Signed builds from Generate Signed App Bundle / APK
+/release

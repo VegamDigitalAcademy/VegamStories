@@ -8,5 +8,7 @@ import javax.inject.Inject
 class GetStoryDetailUseCase @Inject constructor(
     private val repository: StoryRepository,
 ) {
-    operator fun invoke(storyId: String): Flow<StoryDetail?> = repository.observeStoryDetail(storyId)
+    /** [language] null = the app's story language. */
+    operator fun invoke(storyId: String, language: String? = null): Flow<StoryDetail?> =
+        repository.observeStoryDetail(storyId, language)
 }

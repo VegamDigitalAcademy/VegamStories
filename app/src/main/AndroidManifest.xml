@@ -8,6 +8,10 @@
     <!-- "New story" alerts (Android 13+ asks the user; requested only when they turn alerts on). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The reader is locked to portrait; this keeps Play from hiding the app on devices without a
+         portrait screen (e.g. some Chromebooks / TVs), where it simply runs in a portrait window. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+
     <!-- Lets the "Watch on YouTube" button find the YouTube app / browser on Android 11+ -->
     <queries>
         <intent>
@@ -28,14 +32,21 @@
         android:supportsRtl="true"
         android:localeConfig="@xml/locales_config"
         android:theme="@style/Theme.MyApplication">
+        <!-- Android 16+ ignores the portrait lock below on tablets and foldables (600 dp and wider)
+             unless the app opts out here. Only apps targeting SDK 36 can: at 37 this stops working. -->
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
+
+        <!-- Always upright, on phones, tablets and foldables. A full-screen video still turns
+             sideways (YouTubePlayer). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:screenOrientation="portrait"
-            tools:ignore="LockedOrientationActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:theme="@style/Theme.MyApplication"
+            android:theme="@style/Theme.Vegam.Starting"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -56,6 +67,17 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/story_widget_info" />
         </receiver>
+
+        <!-- Lets the share sheet (WhatsApp etc.) read the end-of-story card picture. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
 
         <!-- WorkManager is started by VegamStoriesApp (Configuration.Provider) so workers get Hilt. -->
         <provider

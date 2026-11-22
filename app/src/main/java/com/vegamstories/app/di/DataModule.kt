@@ -10,7 +10,9 @@ import com.vegamstories.app.data.remote.datasource.StoryRemoteDataSource
 import com.vegamstories.app.data.repository.LibraryRepositoryImpl
 import com.vegamstories.app.data.repository.StoryRepositoryImpl
 import com.vegamstories.app.data.settings.AppCompatLanguageRepository
+import com.vegamstories.app.data.settings.ContentLanguageRepositoryImpl
 import com.vegamstories.app.data.settings.SettingsRepositoryImpl
+import com.vegamstories.app.domain.repository.ContentLanguageRepository
 import com.vegamstories.app.domain.repository.LanguageRepository
 import com.vegamstories.app.domain.repository.LibraryRepository
 import com.vegamstories.app.domain.repository.SettingsRepository
@@ -42,6 +44,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLanguageRepository(impl: AppCompatLanguageRepository): LanguageRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindContentLanguageRepository(impl: ContentLanguageRepositoryImpl): ContentLanguageRepository
 }
 
 @Module

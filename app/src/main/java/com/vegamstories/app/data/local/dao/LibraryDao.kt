@@ -1,22 +1,29 @@
 package com.vegamstories.app.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.vegamstories.app.data.local.entity.BookmarkEntity
 import com.vegamstories.app.data.local.entity.DownloadEntity
 import com.vegamstories.app.data.local.entity.FavoriteEntity
+import com.vegamstories.app.data.local.entity.LikeEntity
 import com.vegamstories.app.data.local.entity.PendingLikeEntity
 import com.vegamstories.app.data.local.entity.ReadingProgressEntity
 import com.vegamstories.app.data.local.entity.StoryWithStateRow
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * The user's library. Story lists show each story in `lang` when it has that version, else in
+ * another language it has (see STORY_WITH_STATE_SELECT): saved stories never disappear.
+ */
 @Dao
 interface LibraryDao {
 
-    // ----- Favorites -----
+    // ----- Favorites (the star): the user's own list -----
     @Query("$STORY_WITH_STATE_SELECT WHERE f.storyId IS NOT NULL ORDER BY f.addedAt DESC")
-    fun observeFavorites(): Flow<List<StoryWithStateRow>>
+    fun observeFavorites(lang: String): Flow<List<StoryWithStateRow>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE storyId = :storyId)")
     suspend fun isFavorite(storyId: String): Boolean
@@ -27,14 +34,32 @@ interface LibraryDao {
     @Query("DELETE FROM favorites WHERE storyId = :storyId")
     suspend fun deleteFavorite(storyId: String)
 
-    /**
-     * The heart: saves the favorite, moves the like count by one and queues the like for the
-     * server (LikeSyncer), all at once. @return the new state.
-     */
+    /** The star: saves the story in Favorites, or takes it out. Nothing goes to the server. @return the new state. */
     @Transaction
     suspend fun toggleFavorite(storyId: String, addedAt: Long): Boolean {
-        val liked = !isFavorite(storyId)
-        if (liked) upsertFavorite(FavoriteEntity(storyId, addedAt)) else deleteFavorite(storyId)
+        val favorite = !isFavorite(storyId)
+        if (favorite) upsertFavorite(FavoriteEntity(storyId, addedAt)) else deleteFavorite(storyId)
+        return favorite
+    }
+
+    // ----- Likes (the heart): counted on the server -----
+    @Query("SELECT EXISTS(SELECT 1 FROM likes WHERE storyId = :storyId)")
+    suspend fun isLiked(storyId: String): Boolean
+
+    @Upsert
+    suspend fun upsertLike(entity: LikeEntity)
+
+    @Query("DELETE FROM likes WHERE storyId = :storyId")
+    suspend fun deleteLike(storyId: String)
+
+    /**
+     * The heart: saves the like, moves the like count by one and queues the like for the server
+     * (LikeSyncer), all at once. Doesn't touch Favorites. @return the new state.
+     */
+    @Transaction
+    suspend fun toggleLike(storyId: String, likedAt: Long): Boolean {
+        val liked = !isLiked(storyId)
+        if (liked) upsertLike(LikeEntity(storyId, likedAt)) else deleteLike(storyId)
         adjustLikeCount(storyId, if (liked) 1 else -1)
         upsertPendingLike(PendingLikeEntity(storyId, liked))
         return liked
@@ -68,7 +93,7 @@ interface LibraryDao {
 
     // ----- Downloads -----
     @Query("$STORY_WITH_STATE_SELECT WHERE d.storyId IS NOT NULL ORDER BY d.downloadedAt DESC")
-    fun observeDownloads(): Flow<List<StoryWithStateRow>>
+    fun observeDownloads(lang: String): Flow<List<StoryWithStateRow>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM downloads WHERE storyId = :storyId)")
     suspend fun isDownloaded(storyId: String): Boolean
@@ -81,14 +106,14 @@ interface LibraryDao {
 
     // ----- Reading progress -----
     @Query("$STORY_WITH_STATE_SELECT WHERE p.storyId IS NOT NULL ORDER BY p.updatedAt DESC")
-    fun observeHistory(): Flow<List<StoryWithStateRow>>
+    fun observeHistory(lang: String): Flow<List<StoryWithStateRow>>
 
     @Query(
         "$STORY_WITH_STATE_SELECT WHERE p.storyId IS NOT NULL AND p.isCompleted = 0 " +
             "AND (:categoryId IS NULL OR s.categoryId = :categoryId) " +
             "ORDER BY p.updatedAt DESC LIMIT 1",
     )
-    fun observeContinueReading(categoryId: String?): Flow<StoryWithStateRow?>
+    fun observeContinueReading(categoryId: String?, lang: String): Flow<StoryWithStateRow?>
 
     @Query("SELECT * FROM reading_progress WHERE storyId = :storyId LIMIT 1")
     suspend fun getProgress(storyId: String): ReadingProgressEntity?
@@ -98,4 +123,17 @@ interface LibraryDao {
 
     @Query("DELETE FROM reading_progress")
     suspend fun clearProgress()
+
+    // ----- Bookmarks -----
+    @Query("SELECT * FROM bookmarks ORDER BY createdAt DESC")
+    fun observeBookmarks(): Flow<List<BookmarkEntity>>
+
+    @Query("SELECT * FROM bookmarks WHERE storyId = :storyId")
+    fun observeBookmarks(storyId: String): Flow<List<BookmarkEntity>>
+
+    @Upsert
+    suspend fun upsertBookmark(entity: BookmarkEntity)
+
+    @Delete
+    suspend fun deleteBookmarks(entities: List<BookmarkEntity>)
 }
