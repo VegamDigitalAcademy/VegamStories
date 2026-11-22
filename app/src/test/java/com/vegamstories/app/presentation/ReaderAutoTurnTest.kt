@@ -73,10 +73,10 @@ class ReaderAutoTurnTest {
     }
 
     @Test
-    fun `a comic page waits the default 30 s before it turns`() {
+    fun `a comic page waits the default 60 s before it turns`() {
         reader(comic())
 
-        compose.mainClock.advanceTimeBy(29_000)
+        compose.mainClock.advanceTimeBy(59_000)
         assertEquals(listOf(0), pagesSettled)
 
         compose.mainClock.advanceTimeBy(2_000)
@@ -92,9 +92,9 @@ class ReaderAutoTurnTest {
         compose.mainClock.advanceTimeBy(60_000)
         assertEquals(listOf(0), pagesSettled)
 
-        // Letting go isn't a tap: the page stays, with the time it had left (about 20 s).
+        // Letting go isn't a tap: the page stays, with the time it had left (about 50 s).
         lift()
-        compose.mainClock.advanceTimeBy(18_000)
+        compose.mainClock.advanceTimeBy(48_000)
         assertEquals(listOf(0), pagesSettled)
 
         compose.mainClock.advanceTimeBy(4_000)
@@ -111,7 +111,7 @@ class ReaderAutoTurnTest {
         assertEquals(listOf(0), pagesSettled)
 
         lift()
-        compose.mainClock.advanceTimeBy(22_000)
+        compose.mainClock.advanceTimeBy(52_000)
         assertEquals(listOf(0, 1), pagesSettled)
     }
 

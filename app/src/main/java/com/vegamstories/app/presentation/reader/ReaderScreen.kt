@@ -1496,6 +1496,9 @@ private fun EndOfStory(onContinue: () -> Unit, modifier: Modifier = Modifier) {
  * One bar per page across the screen, with the count beside it ("3 / 10"), like WhatsApp status:
  * earlier pages are full, the current page's bar fills as its auto-turn timer runs, later ones are
  * empty. With auto-turn off (Settings), or on the like page, the current bar is simply full.
+ *
+ * The current page's bar is wider and a little taller than the others, so it's easy to see; on a
+ * page turn it slides over to the new page with a small springy pop (see [pageBarLayout]).
  */
 @Composable
 private fun PageIndicator(
@@ -1507,6 +1510,12 @@ private fun PageIndicator(
 ) {
     val fillColor = MaterialTheme.colorScheme.primary
     val trackColor = MaterialTheme.colorScheme.outline
+    // Where the big bar is: on the current page, springing over to the next one as the page turns.
+    val focus = animateFloatAsState(
+        targetValue = currentPage.toFloat(),
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        label = "pageBarFocus",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1516,20 +1525,24 @@ private fun PageIndicator(
         Canvas(
             Modifier
                 .weight(1f)
-                .height(4.dp),
+                .height(PageBarTallHeight),
         ) {
             if (pageCount <= 0) return@Canvas
             val gap = (if (pageCount > 30) 1.dp else 3.dp).toPx()
-            val barWidth = ((size.width - gap * (pageCount - 1)) / pageCount).coerceAtLeast(1f)
-            val corner = CornerRadius(size.height / 2)
-            // The timer is read here, while drawing: only this bar redraws each frame.
+            val low = PageBarHeight.toPx()
+            val tall = PageBarTallHeight.toPx()
+            // The timer and the big bar's place are read here, while drawing: only the bars redraw.
             val timerFill = pageBarFill(currentPage, currentPage, timer.page, timer.progress.value, autoTurn, lastAutoPage)
+            val bars = pageBarLayout(pageCount, focus.value, size.width, gap)
             for (i in 0 until pageCount) {
-                val left = i * (barWidth + gap)
-                drawRoundRect(trackColor, topLeft = Offset(left, 0f), size = Size(barWidth, size.height), cornerRadius = corner)
+                val (left, width, near) = bars[i]
+                val height = low + (tall - low) * near
+                val top = (size.height - height) / 2f
+                val corner = CornerRadius(height / 2f)
+                drawRoundRect(trackColor, topLeft = Offset(left, top), size = Size(width, height), cornerRadius = corner)
                 val fill = if (i == currentPage) timerFill else pageBarFill(i, currentPage, timer.page, 0f, autoTurn, lastAutoPage)
                 if (fill > 0f) {
-                    drawRoundRect(fillColor, topLeft = Offset(left, 0f), size = Size(barWidth * fill, size.height), cornerRadius = corner)
+                    drawRoundRect(fillColor, topLeft = Offset(left, top), size = Size(width * fill, height), cornerRadius = corner)
                 }
             }
         }
@@ -1541,6 +1554,33 @@ private fun PageIndicator(
         )
     }
 }
+
+/** One page's bar: where it starts and how wide it is (px), and how near the big bar is to it (0 … 1). */
+internal data class PageBar(val left: Float, val width: Float, val near: Float)
+
+/**
+ * The page bars across [totalWidth] px, [gap] px apart. The bar at [focus] (the current page; in
+ * between two while the big bar slides over) is [PAGE_BAR_FOCUS_EXTRA] wider than the rest; between
+ * two pages the extra is shared by both, so the bars always fill the width exactly.
+ */
+internal fun pageBarLayout(pageCount: Int, focus: Float, totalWidth: Float, gap: Float): List<PageBar> {
+    if (pageCount <= 0) return emptyList()
+    val near = List(pageCount) { i -> (1f - kotlin.math.abs(i - focus)).coerceIn(0f, 1f) }
+    val weights = near.map { 1f + PAGE_BAR_FOCUS_EXTRA * it }
+    val unit = (totalWidth - gap * (pageCount - 1)).coerceAtLeast(0f) / weights.sum()
+    var left = 0f
+    return List(pageCount) { i ->
+        val width = (unit * weights[i]).coerceAtLeast(1f)
+        PageBar(left, width, near[i]).also { left += width + gap }
+    }
+}
+
+/** The current page's bar is this much wider than the others (1.4 = 2.4 times as wide). */
+internal const val PAGE_BAR_FOCUS_EXTRA = 1.4f
+
+/** The page bars' height, and the current page's (taller). */
+private val PageBarHeight = 4.dp
+private val PageBarTallHeight = 6.dp
 
 /**
  * How full page [index]'s bar is, 0..1: earlier pages full, later ones empty; the current page

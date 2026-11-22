@@ -8,6 +8,10 @@
     <!-- "New story" alerts (Android 13+ asks the user; requested only when they turn alerts on). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The reader is locked to portrait; this keeps Play from hiding the app on devices without a
+         portrait screen (e.g. some Chromebooks / TVs), where it simply runs in a portrait window. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+
     <!-- Lets the "Watch on YouTube" button find the YouTube app / browser on Android 11+ -->
     <queries>
         <intent>

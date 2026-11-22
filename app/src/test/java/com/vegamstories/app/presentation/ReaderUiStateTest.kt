@@ -81,7 +81,7 @@ class ReaderUiStateTest {
 
     @Test
     fun `comic pages auto-turn after the time chosen in Settings, or not at all`() {
-        assertEquals(30_000L, ReaderSettings().autoTurnMillis) // on, 30 s by default
+        assertEquals(60_000L, ReaderSettings().autoTurnMillis) // on, 60 s by default
         assertEquals(10_000L, ReaderSettings(autoTurnSeconds = 10).autoTurnMillis)
         assertNull(ReaderSettings(autoTurnPages = false, autoTurnSeconds = 20).autoTurnMillis)
         // The default is one of the times offered, so Settings shows it selected.
