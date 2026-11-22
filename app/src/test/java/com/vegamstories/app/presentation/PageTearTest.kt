@@ -24,6 +24,9 @@ import com.vegamstories.app.domain.model.ThemeMode
 import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.presentation.reader.FIX_AFTER_MILLIS
 import com.vegamstories.app.presentation.reader.FastTurns
+import com.vegamstories.app.presentation.reader.PageTear
+import com.vegamstories.app.presentation.reader.RUB_STRETCHES
+import com.vegamstories.app.presentation.reader.TearStage
 import com.vegamstories.app.presentation.reader.ReaderScreenContent
 import com.vegamstories.app.presentation.reader.ReaderSounds
 import com.vegamstories.app.presentation.reader.ReaderUiState
@@ -112,9 +115,25 @@ class PageTearTest {
     }
 
     @Test
-    fun `a turn within one and a half seconds of the last is fast`() {
+    fun `a turn within 0_7 seconds of the last is fast`() {
         val turns = FastTurns()
-        assertEquals(listOf(false, false, false, true), (0..3).map { turns.turned(it * 1_400L) })
+        assertEquals(listOf(false, false, false, true), (0..3).map { turns.turned(it * 650L) })
+    }
+
+    @Test
+    fun `turning on as soon as each page has come to rest is reading, and never tears`() {
+        val turns = FastTurns()
+        // A tapped page takes 1.1 s to turn: the next tap comes after that.
+        assertTrue((0..10).none { turns.turned(it * 1_200L) })
+    }
+
+    @Test
+    fun `three fast turns, a pause of 3 seconds, and the next turn doesn't tear`() {
+        val turns = FastTurns()
+        listOf(0L, 300, 600).forEach { assertFalse(turns.turned(it)) }
+
+        assertFalse(turns.turned(3_600))
+        assertFalse(turns.turned(3_900)) // fast again, but only one in a row
     }
 
     @Test
@@ -147,6 +166,26 @@ class PageTearTest {
         assertEquals(listOf(0f, 0.5f, 0f), rubbedAfter(fresh, line, Offset(150f, 105f), moved = 30f, reach = 20f, fillDistance = 60f))
         assertEquals(listOf(0f, 1f, 0f), rubbedAfter(listOf(0f, 0.9f, 0f), line, Offset(150f, 100f), moved = 30f, reach = 20f, fillDistance = 60f))
         assertEquals(fresh, rubbedAfter(fresh, line, Offset(150f, 160f), moved = 30f, reach = 20f, fillDistance = 60f))
+    }
+
+    @Test
+    fun `rubbed in 80 percent of the way, the page is glued without waiting for the rest`() {
+        val tear = PageTear().apply {
+            tear(page = 2, seed = 7)
+            startPouring(0.5f)
+            poured()
+        }
+        // A touch away from the tear: it rubs nothing in, only checks how far the rubbing has got.
+        fun check() = tear.rub(Offset(-1_000f, -1_000f), moved = 0f, linePx = listOf(Offset.Zero, Offset(100f, 0f)), reach = 1f, fillDistance = 1f)
+
+        repeat(19) { tear.rubbed[it] = 1f } // 19 of 24 stretches: 79%
+        check()
+        assertEquals(TearStage.RUBBING, tear.stage)
+
+        tear.rubbed[19] = 1f // 20 of 24: 83%
+        check()
+        assertEquals(TearStage.FIXED, tear.stage)
+        assertEquals(24, RUB_STRETCHES)
     }
 
     @Test

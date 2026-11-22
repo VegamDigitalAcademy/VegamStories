@@ -124,7 +124,8 @@ internal val LocalStoryLanguage = compositionLocalOf<String?> { null }
 
 /**
  * Counts quick page turns in a row. A turn less than [FAST_TURN_GAP_MILLIS] after the one before
- * is fast; after [FAST_TURNS_TO_TEAR] of them, [turned] says the page just reached tears.
+ * is fast; after [FAST_TURNS_TO_TEAR] of them, [turned] says the page just reached tears. Any slower
+ * turn (a pause, or simply reading) starts the count again: only flicking tears a page.
  */
 internal class FastTurns {
     private var lastAt: Long? = null
@@ -249,7 +250,17 @@ internal class PageTear {
         rubbedAfter(rubbed, linePx, finger, moved, reach, fillDistance).forEachIndexed { i, amount ->
             if (rubbed[i] != amount) rubbed[i] = amount
         }
-        if (progress >= 1f) fixed()
+        // Rubbed in most of the way is enough: the rest closes by itself (sealRest).
+        if (progress >= RUB_DONE_AT) fixed()
+    }
+
+    /** Glued by rubbing: the stretches not yet rubbed in close by themselves, smoothly. */
+    suspend fun sealRest() {
+        val from = rubbed.toList()
+        if (from.all { it >= 1f }) return
+        Animatable(0f).animateTo(1f, tween(durationMillis = SEAL_REST_MILLIS, easing = FastOutSlowInEasing)) {
+            from.forEachIndexed { i, start -> if (i < rubbed.size) rubbed[i] = start + (1f - start) * value }
+        }
     }
 
     /** Fix it: glued at once, for anyone who can't or won't rub. */
@@ -271,7 +282,7 @@ internal class PageTear {
     }
 
     private fun fixed() {
-        log.i("$TAG: Page ${page + 1} glued back by rubbing")
+        log.i("$TAG: Page ${page + 1} glued back by rubbing (${(progress * 100).toInt()}% rubbed in)")
         stage = TearStage.FIXED
     }
 }
@@ -654,6 +665,7 @@ internal fun BoxScope.TearRepair(tear: PageTear, onFixed: () -> Unit, onDone: ()
         LaunchedEffect(tear.stage) {
             if (tear.stage != TearStage.FIXED) return@LaunchedEffect
             onFixed()
+            launch { tear.sealRest() }
             launch {
                 tear.bounce.animateTo(1.04f, tween(durationMillis = 140, easing = FastOutSlowInEasing))
                 tear.bounce.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium))
@@ -1267,9 +1279,12 @@ private class ConfettiPiece(val velocity: Offset, val spin: Float, val color: Co
 private const val TAG = "PageTear"
 private val log = AppLogger(TAG)
 
-/** A turn less than this after the one before counts as fast. A page takes about a second to turn,
- * so this is quick turning, not normal reading. */
-private const val FAST_TURN_GAP_MILLIS = 1_500L
+/**
+ * A turn less than this after the one before counts as fast. A tapped page takes 1.1 s to turn, so
+ * this means tapping again while the page is still turning: flicking through. Turning on as soon
+ * as each page has come to rest (1.1 s or more apart) is reading, and never tears a page.
+ */
+private const val FAST_TURN_GAP_MILLIS = 700L
 
 /** This many fast turns in a row, and the page tears. */
 private const val FAST_TURNS_TO_TEAR = 3
@@ -1284,6 +1299,10 @@ private const val DROP_DEGREES = 4f
 
 /** The tear is rubbed in stretch by stretch: this many. */
 internal const val RUB_STRETCHES = 24
+
+/** Rubbed in this far (80%), the page is glued: no need to get every last bit; the rest closes by itself, in this long. */
+internal const val RUB_DONE_AT = 0.8f
+private const val SEAL_REST_MILLIS = 350
 
 /** Paper fibres and bits along each torn edge. */
 private const val FIBRES_PER_EDGE = 46
