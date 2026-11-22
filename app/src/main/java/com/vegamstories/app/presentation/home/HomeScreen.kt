@@ -11,6 +11,9 @@ import androidx.compose.ui.semantics.semantics
 import com.vegamstories.app.domain.model.ContentLanguages
 import com.vegamstories.app.domain.model.Language
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -172,6 +175,8 @@ fun HomeContent(
                     stories = state.stories,
                     onStoryClick = { onStoryClick(it.id) },
                     modifier = Modifier.fillMaxSize(),
+                    // The category under each card only on ALL: a category's tab is all that category.
+                    showCategory = state.selectedCategoryId == null,
                 ) {
                     state.continueReading?.let { story ->
                         fullWidthItem(key = "continue") {
@@ -324,13 +329,30 @@ private fun TabLabel(text: String, selected: Boolean) {
     )
 }
 
+/**
+ * The story left unfinished. By day a white card lifted off the warm background with a soft shadow
+ * and a hairline edge (a grey one looked washed out on it); by night the dark surface it always had.
+ */
 @Composable
 private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
+    val night = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(
+                if (night) {
+                    Modifier
+                        .clip(shape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                } else {
+                    Modifier
+                        .shadow(6.dp, shape, ambientColor = DayCardShadow, spotColor = DayCardShadow)
+                        .background(Color.White, shape)
+                        .border(1.dp, DayCardEdge, shape)
+                        .clip(shape)
+                },
+            )
             .clickable(onClick = onClick)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -389,6 +411,10 @@ private fun ContinueReadingCard(story: Story, onClick: () -> Unit) {
         }
     }
 }
+
+/** The Continue reading card by day: a soft warm shadow, and a hairline edge. */
+private val DayCardShadow = Color(0x33A0522D)
+private val DayCardEdge = Color(0xFFF1E4DC)
 
 // ---------------- Previews ----------------
 

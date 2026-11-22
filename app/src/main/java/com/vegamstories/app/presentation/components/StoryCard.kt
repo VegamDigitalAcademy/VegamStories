@@ -1,6 +1,12 @@
 package com.vegamstories.app.presentation.components
 
 import androidx.compose.foundation.background
+import com.vegamstories.app.core.util.toCompactCount
+import com.vegamstories.app.ui.theme.VegamRed
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.getValue
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,8 +59,9 @@ import com.vegamstories.app.presentation.preview.PreviewTheme
 import com.vegamstories.app.ui.theme.ReadGreen
 
 /**
- * Grid card used on Home, Favorites and Search: cover, episode badge, title, category, and the
- * like count. The heart here only shows likes; liking happens in the reader.
+ * Grid card used on Home, Favorites and Search: the cover, with the likes on its bottom left (the
+ * heart here only shows them; liking happens in the reader), a green tick in its top right once
+ * the story's been read, and the category under it ([showCategory]). The cover carries the title.
  *
  * Tapped, it opens the story. Held, it leans towards the finger and lifts with a shadow, and its
  * cover swings open a little on the story's first page, a peek; let go, it closes (see [CoverPress]).
@@ -63,6 +71,8 @@ fun StoryCard(
     story: Story,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The category under the cover. Not on a category's own tab, where every card is in it. */
+    showCategory: Boolean = true,
 ) {
     // Tapped, its picture grows into the reader's cover (StoryOpener): it needs to know where it is.
     val opener = LocalStoryOpener.current
@@ -120,16 +130,7 @@ fun StoryCard(
                     .align(Alignment.TopStart)
                     .padding(8.dp),
             )*/
-            if (story.isRead) {
-                ImageBadge(
-                    text = stringResource(R.string.read_badge),
-                    icon = R.drawable.ic_check_circle,
-                    background = ReadGreen.copy(alpha = 0.9f),
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(8.dp),
-                )
-            }
+            // Top right: saved for offline reading (left of the read tick, when there is one).
             if (story.isDownloaded) {
                 Icon(
                     painter = painterResource(R.drawable.ic_download_done),
@@ -137,13 +138,21 @@ fun StoryCard(
                     tint = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp)
+                        .padding(top = 8.dp, end = if (story.isRead) ReadTickSize else 8.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(Color.Black.copy(alpha = 0.5f))
                         .padding(2.dp)
                         .size(14.dp),
                 )
             }
+            // Bottom left: its likes.
+            CoverLikes(
+                isLiked = story.isLiked,
+                likeCount = story.likeCount,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp),
+            )
             FormatBadge(
                 formats = story.formats,
                 modifier = Modifier
@@ -163,32 +172,88 @@ fun StoryCard(
                 )
             }
             }
-        }
-        Row(verticalAlignment = Alignment.Top) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(top = 6.dp),
-            ) {
-                Text(
-                    text = story.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = story.categoryName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            // Read: the green tick right on the card's top right corner, half outside it. Here, not on
+            // the cover, which clips what's outside it (and swings open in a peek).
+            if (story.isRead) {
+                ReadTick(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = ReadTickSize / 5, y = -ReadTickSize / 5),
                 )
             }
-            LikeCount(
-                isLiked = story.isLiked,
-                likeCount = story.likeCount,
-                modifier = Modifier.padding(start = 8.dp, top = 8.dp),
+        }
+        // The title's on the cover itself (and read out from it), so it isn't repeated here.
+        /*Text(
+            text = story.title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )*/
+        if (showCategory) {
+            Text(
+                text = story.categoryName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+    }
+}
+
+/** Read: a white tick in a green circle, ringed in white so it shows on any cover. */
+@Composable
+private fun ReadTick(modifier: Modifier = Modifier) {
+    val read = stringResource(R.string.read_badge)
+    Box(
+        modifier = modifier
+            .size(ReadTickSize)
+            .shadow(3.dp, CircleShape)
+            .background(Color.White, CircleShape)
+            .padding(1.5.dp)
+            .background(ReadGreen, CircleShape)
+            .semantics { contentDescription = read },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_check),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(15.dp),
+        )
+    }
+}
+
+/** The read tick's size: its middle sits on the card's corner, so half of it is outside. */
+private val ReadTickSize = 24.dp
+
+/** The likes on a cover: the heart (red once liked) and the count, on a dark pill so they show on any picture. */
+@Composable
+private fun CoverLikes(isLiked: Boolean, likeCount: Int, modifier: Modifier = Modifier) {
+    val description = pluralStringResource(R.plurals.like_count, likeCount, likeCount.toCompactCount())
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .padding(horizontal = 6.dp, vertical = 3.dp)
+            .clearAndSetSemantics { contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(likeIcon(isLiked)),
+            contentDescription = null,
+            tint = if (isLiked) VegamRed else Color.White,
+            modifier = Modifier.size(13.dp),
+        )
+        if (likeCount > 0) {
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = likeCount.toCompactCount(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
             )
         }
     }

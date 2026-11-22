@@ -31,6 +31,8 @@ fun StoryGrid(
     stories: List<Story>,
     onStoryClick: (Story) -> Unit,
     modifier: Modifier = Modifier,
+    /** Each card's category under its cover: not on a category's own tab, where they're all in it. */
+    showCategory: Boolean = true,
     header: LazyGridScope.() -> Unit = {},
 ) {
     // A new set of stories (the first load, another category): the cards on screen rise in one after
@@ -50,9 +52,12 @@ fun StoryGrid(
         columns = StoryGridCells,
         modifier = modifier,
         // Under the bottom bar's glass, the last row scrolls up clear of it.
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + LocalBottomBarSpace.current),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        // Room at the top for a first-row card's read tick, which sits half outside its corner.
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp + LocalBottomBarSpace.current),
+        // A read card's tick sits half outside its top right corner (12dp out, and its shadow): the
+        // gaps leave it clear of the card beside and the card above.
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         header()
         itemsIndexed(stories, key = { _, story -> story.id }) { index, story ->
@@ -68,6 +73,7 @@ fun StoryGrid(
             StoryCard(
                 story = story,
                 onClick = { onStoryClick(story) },
+                showCategory = showCategory,
                 modifier = Modifier.graphicsLayer {
                     alpha = risen.value
                     translationY = (1f - risen.value) * RISE_FROM.toPx()

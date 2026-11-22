@@ -10,6 +10,9 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import com.vegamstories.app.domain.model.ReadingProgress
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.SavedStateHandle
@@ -91,7 +94,8 @@ class HomeScreenTest {
 
         compose.onNodeWithText(text(R.string.latest_stories)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.stories_count, 3)).assertIsDisplayed()
-        compose.onNodeWithText("Title tenali-1").performClick()
+        // The title's on the cover (read out from it), not written under it.
+        compose.onNodeWithContentDescription("Title tenali-1").performClick()
 
         assertEquals(listOf("tenali-1"), opened)
     }
@@ -113,6 +117,31 @@ class HomeScreenTest {
 
         tab("Tenali").assertIsSelected()
         compose.onNodeWithText(text(R.string.stories_count, 1)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `on ALL each card names its category, but not its title (that's on the cover)`() {
+        show(loaded)
+
+        // The tab's own name aside, "Tenali" shows under its card.
+        assertEquals(2, compose.onAllNodesWithText("Tenali").fetchSemanticsNodes().size)
+        compose.onNodeWithText("Title tenali-1").assertDoesNotExist()
+    }
+
+    @Test
+    fun `on a category's own tab the cards don't repeat its name`() {
+        show(loaded.copy(selectedCategoryId = "tenali", stories = stories.filter { it.categoryId == "tenali" }))
+
+        // Only the tab and the section's heading above the cards; none under the card.
+        assertEquals(2, compose.onAllNodesWithText("Tenali").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `a story already read shows the green tick, one not read doesn't`() {
+        val read = testStory("moral-1").copy(progress = ReadingProgress("moral-1", lastPageIndex = 2, totalPages = 3, isCompleted = true, updatedAt = 0L))
+        show(loaded.copy(stories = listOf(read, testStory("moral-2"))))
+
+        assertEquals(1, compose.onAllNodesWithContentDescription(text(R.string.read_badge)).fetchSemanticsNodes().size)
     }
 
     @Test
