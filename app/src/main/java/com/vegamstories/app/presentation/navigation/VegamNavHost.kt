@@ -85,8 +85,6 @@ fun VegamNavHost(
             AboveBottomBar {
                 MenuScreen(
                     onBack = { navController.navigateToTopLevel(TopLevelDestination.HOME) },
-                    onFavorites = { navController.navigateToTopLevel(TopLevelDestination.FAVORITES) },
-                    onDownloads = { navController.navigateToTopLevel(TopLevelDestination.DOWNLOADS) },
                     onHistory = { navController.navigate(HistoryRoute) },
                     onBookmarks = { navController.navigate(BookmarksRoute) },
                     onBookshelf = { navController.navigate(BookshelfRoute) },

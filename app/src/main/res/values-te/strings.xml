@@ -78,8 +78,6 @@
     <!-- Menu -->
     <string name="menu_title">మెనూ</string>
     <string name="menu_profile">ప్రొఫైల్</string>
-    <string name="menu_favorites">ఇష్టమైనవి</string>
-    <string name="menu_downloads">డౌన్‌లోడ్‌లు</string>
     <string name="menu_history">చదివిన కథలు</string>
     <string name="menu_settings">సెట్టింగ్‌లు</string>
     <string name="menu_about">Vegam Stories గురించి</string>
