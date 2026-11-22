@@ -37,8 +37,6 @@ import com.vegamstories.app.presentation.preview.TeluguPreview
 @Composable
 fun MenuScreen(
     onBack: () -> Unit,
-    onFavorites: () -> Unit,
-    onDownloads: () -> Unit,
     onHistory: () -> Unit,
     onBookmarks: () -> Unit,
     onBookshelf: () -> Unit,
@@ -56,9 +54,8 @@ fun MenuScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            // Profile (InfoPage.PROFILE) is hidden until sign-in exists.
-            MenuItem(R.drawable.ic_star_border, stringResource(R.string.menu_favorites), showChevron = true, onClick = onFavorites)
-            MenuItem(R.drawable.ic_download, stringResource(R.string.menu_downloads), showChevron = true, onClick = onDownloads)
+            // Profile (InfoPage.PROFILE) is hidden until sign-in exists. Favorites and Downloads aren't
+            // here: they're tabs in the bottom bar.
             MenuItem(R.drawable.ic_history, stringResource(R.string.menu_history), showChevron = true, onClick = onHistory)
             MenuItem(R.drawable.ic_bookshelf, stringResource(R.string.menu_bookshelf), showChevron = true, onClick = onBookshelf)
             MenuItem(R.drawable.ic_bookmark, stringResource(R.string.menu_bookmarks), showChevron = true, onClick = onBookmarks)
@@ -122,5 +119,5 @@ private fun MenuItem(
 @TeluguPreview
 @Composable
 private fun MenuPreview() = PreviewTheme {
-    MenuScreen(onBack = {}, onFavorites = {}, onDownloads = {}, onHistory = {}, onBookmarks = {}, onBookshelf = {}, onSettings = {}, onInfoPage = {})
+    MenuScreen(onBack = {}, onHistory = {}, onBookmarks = {}, onBookshelf = {}, onSettings = {}, onInfoPage = {})
 }
