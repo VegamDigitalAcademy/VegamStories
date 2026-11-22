@@ -5,10 +5,10 @@
          available on older Android). -->
     <style name="Theme.Vegam.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/vegam_navy</item>
-        <!-- The logo coming in (splash_logo_animated); older Android shows it still. -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo_animated</item>
-        <!-- As long as splash_logo_animated (Android 12 needs it to play the animation at all). -->
-        <item name="windowSplashScreenAnimationDuration">1500</item>
+        <!-- The logo coming in (avd_vegam_splash); older Android shows it still. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/avd_vegam_splash</item>
+        <!-- As long as avd_vegam_splash (Android 12 needs it to play the animation at all). -->
+        <item name="windowSplashScreenAnimationDuration">1700</item>
         <item name="postSplashScreenTheme">@style/Theme.MyApplication</item>
         <item name="android:windowSplashScreenBrandingImage">@drawable/splash_branding</item>
     </style>
